@@ -69,27 +69,53 @@ VISUAL_FIELDS = {"start_s", "end_s", "framing", "title", "caption_style", "brand
 
 
 def _apply_patch(s, c: CutCandidate, patch: CutPatch) -> None:
-    data = patch.model_dump(exclude_none=True)
-    visual_change = bool(VISUAL_FIELDS & set(data))
+    # exclude_unset (e não exclude_none): null explícito significa LIMPAR o campo
+    # (ex.: brand_kit_id=null remove o kit; caption_style=null volta ao padrão).
+    data = patch.model_dump(exclude_unset=True)
+
+    def _mudou(field: str, value) -> bool:
+        if field == "framing":
+            return ((c.edits or {}).get("framing") or "auto") != (value or "auto")
+        if field in ("start_s", "end_s"):
+            return value is not None and getattr(c, field) != value
+        return getattr(c, field) != value
+
+    # só invalida prévias quando o valor visual de fato muda (aprovar reenviando
+    # o mesmo estilo/kit não descarta a prévia já renderizada)
+    visual_change = any(_mudou(f, v) for f, v in data.items() if f in VISUAL_FIELDS)
     if "review_started" in data:
         if data.pop("review_started") and not c.review_started_at:
             c.review_started_at = utcnow()
-    if "status" in data:
+    if data.get("status"):
         c.status = data.pop("status")
         if c.status in ("approved", "rejected"):
             c.reviewed_at = utcnow()
-    if "start_s" in data or "end_s" in data:
-        new_start = data.pop("start_s", c.start_s)
-        new_end = data.pop("end_s", c.end_s)
+    else:
+        data.pop("status", None)
+    if data.get("start_s") is not None or data.get("end_s") is not None:
+        new_start = data.pop("start_s", None)
+        new_end = data.pop("end_s", None)
+        new_start = c.start_s if new_start is None else new_start
+        new_end = c.end_s if new_end is None else new_end
         if new_end <= new_start:
             raise HTTPException(422, "end_s deve ser maior que start_s")
-        c.start_s, c.end_s = new_start, new_end
-        c.crop_plan = None  # trim invalida o plano de enquadramento; será recalculado
-    if "framing" in data:
-        c.edits = {**(c.edits or {}), "framing": data.pop("framing")}
+        if (new_start, new_end) != (c.start_s, c.end_s):
+            c.start_s, c.end_s = new_start, new_end
+            c.crop_plan = None  # trim invalida o plano de enquadramento; será recalculado
+    else:
+        data.pop("start_s", None)
+        data.pop("end_s", None)
     for field in ("title", "caption_style", "brand_kit_id", "edits", "human_rank"):
         if field in data:
-            setattr(c, field, data[field])
+            setattr(c, field, "" if field == "title" and data[field] is None else data[field])
+    if "framing" in data:
+        f = data.pop("framing")
+        edits = dict(c.edits or {})
+        if f and f != "auto":
+            edits["framing"] = f
+        else:
+            edits.pop("framing", None)  # auto/null → volta ao enquadramento automático
+        c.edits = edits or None
     if visual_change:
         _invalidate_previews(s, c.id)
     c.updated_at = utcnow()

@@ -123,3 +123,20 @@ def test_patch_visual_invalida_previa(client, auth):
     resp = client.patch(f"/api/v1/cuts/{cut_id}", json={"framing": "left"}, headers=auth)
     assert resp.status_code == 200
     assert resp.json()["edits"]["framing"] == "left", "framing deve persistir em edits"
+    resp = client.patch(f"/api/v1/cuts/{cut_id}", json={"framing": "auto"}, headers=auth)
+    assert "framing" not in (resp.json()["edits"] or {}), "auto remove o override"
+
+    # null explícito LIMPA o campo (selecionar "(nenhum)" no kit precisa ter efeito real)
+    kit = client.post("/api/v1/brand-kits", json={"name": "Kit X"}, headers=auth).json()
+    resp = client.patch(f"/api/v1/cuts/{cut_id}", json={"brand_kit_id": kit["id"]}, headers=auth)
+    assert resp.json()["brand_kit_id"] == kit["id"]
+    resp = client.patch(f"/api/v1/cuts/{cut_id}", json={"brand_kit_id": None}, headers=auth)
+    assert resp.json()["brand_kit_id"] is None, "null explícito deve remover o kit"
+
+    # reenviar o MESMO valor visual não derruba a prévia existente
+    prev_file.write_bytes(b"fake-mp4")
+    resp = client.patch(f"/api/v1/cuts/{cut_id}",
+                        json={"caption_style": {"preset": "clean"}, "status": "approved"},
+                        headers=auth)
+    assert resp.status_code == 200
+    assert prev_file.exists(), "valores visuais inalterados devem preservar a prévia"
