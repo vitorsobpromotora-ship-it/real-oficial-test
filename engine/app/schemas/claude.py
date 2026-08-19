@@ -89,11 +89,25 @@ class ChunkAnalysis(BaseModel):
     segments: list[CandidateSegment] = Field(default_factory=list)
 
 
+# Chaves aceitas pelas saídas estruturadas dos provedores. Tudo fora disto é
+# REMOVIDO: a API da Anthropic rejeita a requisição inteira por palavras-chave
+# de validação do JSON Schema (ex.: 400 "For 'number' type, property 'minimum'
+# is not supported"), e o modo estrito da OpenAI tem restrições equivalentes.
+# Os limites 0–10 continuam garantidos pelo prompt + validação Pydantic no parse.
+_ALLOWED_SCHEMA_KEYS = {
+    "type", "properties", "required", "additionalProperties", "items",
+    "enum", "anyOf", "allOf", "$defs", "$ref", "description",
+}
+
+
 def _strictify(node: dict) -> None:
-    """Modo estrito de saída estruturada: todo objeto fecha propriedades extras e
-    exige todas as chaves (os provedores então garantem o shape exato)."""
+    """Modo estrito de saída estruturada: remove palavras-chave não suportadas,
+    fecha propriedades extras e exige todas as chaves (shape exato garantido)."""
     if not isinstance(node, dict):
         return
+    for key in list(node.keys()):
+        if key not in _ALLOWED_SCHEMA_KEYS:
+            node.pop(key)
     if node.get("type") == "object" and "properties" in node:
         node["additionalProperties"] = False
         node["required"] = list(node["properties"].keys())
@@ -103,13 +117,37 @@ def _strictify(node: dict) -> None:
         _strictify(node["items"])
     for sub in node.get("$defs", {}).values():
         _strictify(sub)
-    for sub in node.get("anyOf", []) or []:
-        _strictify(sub)
+    for key in ("anyOf", "allOf"):
+        for sub in node.get(key, []) or []:
+            _strictify(sub)
+
+
+def _inline_refs(node, defs: dict):
+    """Substitui {"$ref": "#/$defs/X"} pela definição (nosso schema não é recursivo
+    e cada $def é usado uma única vez — inlinar não duplica nada e evita depender
+    de suporte a $ref/$defs nos provedores)."""
+    if isinstance(node, dict):
+        ref = node.get("$ref", "")
+        if ref.startswith("#/$defs/"):
+            import copy
+
+            alvo = copy.deepcopy(defs[ref.split("/")[-1]])
+            _inline_refs(alvo, defs)
+            node.clear()
+            node.update(alvo)
+            return
+        for value in node.values():
+            _inline_refs(value, defs)
+    elif isinstance(node, list):
+        for item in node:
+            _inline_refs(item, defs)
 
 
 def strict_chunk_schema() -> dict:
     """JSON Schema estrito de ChunkAnalysis — usado no output_config (Claude),
     no response_format (OpenAI) e no modo Batches."""
     schema = ChunkAnalysis.model_json_schema()
+    defs = schema.pop("$defs", {})
+    _inline_refs(schema, defs)
     _strictify(schema)
     return schema

@@ -79,11 +79,32 @@ def test_schema_estrito_para_saida_estruturada():
     schema = strict_chunk_schema()
     assert schema["additionalProperties"] is False
     assert schema["required"] == ["segments"]
-    seg = schema["$defs"]["CandidateSegment"]
+    assert "$defs" not in schema, "refs devem ser inlinadas (suporte não garantido nos provedores)"
+    seg = schema["properties"]["segments"]["items"]
     assert seg["additionalProperties"] is False
     assert set(seg["required"]) == set(seg["properties"].keys())
-    params = schema["$defs"]["Params"]
-    assert set(params["required"]) == set(PARAM_KEYS)
+    assert set(seg["properties"]["params"]["required"]) == set(PARAM_KEYS)
+    assert "descartar" in seg["properties"]["verdict"]["description"], \
+        "descrições guiam o modelo e devem sobreviver à sanitização"
+
+    # regressão real: a API rejeita a requisição INTEIRA por palavras-chave de
+    # validação (400 "For 'number' type, property 'minimum' is not supported")
+    proibidas = {"minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum",
+                 "multipleOf", "default", "title", "format", "pattern",
+                 "maxLength", "minLength", "maxItems", "minItems", "$ref"}
+
+    def varre(node):
+        assert not (proibidas & set(node)), \
+            f"palavra-chave não suportada no schema: {proibidas & set(node)}"
+        for sub in node.get("properties", {}).values():
+            varre(sub)
+        if "items" in node:
+            varre(node["items"])
+        for key in ("anyOf", "allOf"):
+            for sub in node.get(key, []):
+                varre(sub)
+
+    varre(schema)
 
 
 def test_openai_request_body_formato_atual():
