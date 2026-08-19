@@ -105,6 +105,53 @@ class SettingsUpdate(BaseModel):
     censor_extra_words: list[str] | None = None
 
 
+class CutOut(BaseModel):
+    id: str
+    source_video_id: str
+    project_id: str
+    start_s: float
+    end_s: float
+    duration_s: float
+    score: float
+    score_breakdown: dict | None
+    rhpt_score: float
+    semantic_score: float
+    hook_text: str
+    title: str
+    hashtags: list | None
+    reason: str
+    status: str
+    rank: int | None
+    origin: str
+    crop_plan: dict | None
+    censor_plan: list | None
+    caption_style: dict | None
+    brand_kit_id: str | None
+    edits: dict | None
+    human_rank: int | None
+    review_started_at: str | None
+    reviewed_at: str | None
+    created_at: str
+    updated_at: str
+
+
+class CutPatch(BaseModel):
+    status: Literal["draft", "approved", "rejected"] | None = None
+    start_s: float | None = Field(default=None, ge=0)
+    end_s: float | None = Field(default=None, ge=0)
+    title: str | None = None
+    caption_style: dict | None = None
+    brand_kit_id: str | None = None
+    edits: dict | None = None
+    human_rank: int | None = Field(default=None, ge=1)
+    review_started: bool | None = None  # marca o início da revisão (métrica de relatório)
+
+
+class BulkCutsIn(BaseModel):
+    cut_ids: list[str] = Field(min_length=1)
+    patch: CutPatch
+
+
 class TestAnthropicIn(BaseModel):
     api_key: str | None = None  # se ausente, usa a chave salva
 
