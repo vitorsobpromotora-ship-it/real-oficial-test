@@ -152,6 +152,46 @@ class BulkCutsIn(BaseModel):
     patch: CutPatch
 
 
+class RenderCreate(BaseModel):
+    cut_id: str
+    kind: Literal["final", "preview"] = "final"
+    brand_kit_id: str | None = None
+    overrides: dict[str, Any] = Field(default_factory=dict)
+
+
+class RenderBatchCreate(BaseModel):
+    cut_ids: list[str] = Field(min_length=1)
+    name: str = ""
+    brand_kit_id: str | None = None
+    overrides: dict[str, Any] = Field(default_factory=dict)
+
+
+class RenderOut(BaseModel):
+    id: str
+    cut_id: str
+    batch_id: str | None
+    brand_kit_id: str | None
+    kind: str
+    status: str
+    progress: float
+    output_path: str | None
+    job_id: str | None
+    error: str | None
+    created_at: str
+    started_at: str | None
+    finished_at: str | None
+
+
+class RenderBatchOut(BaseModel):
+    id: str
+    name: str
+    total: int
+    done: int
+    status: str
+    created_at: str
+    renders: list[RenderOut] = Field(default_factory=list)
+
+
 class TestAnthropicIn(BaseModel):
     api_key: str | None = None  # se ausente, usa a chave salva
 

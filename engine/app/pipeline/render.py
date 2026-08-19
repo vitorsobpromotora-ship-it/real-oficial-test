@@ -271,7 +271,7 @@ def render_cut(ctx) -> dict:
             shutil.copytree(bundled_fonts_dir(), workdir / "fonts", dirs_exist_ok=True)
             fonts_dir = "fonts"
 
-        args: list[str] = ["-ss", f"{start:.3f}", "-to", f"{end:.3f}", "-i", src["file_path"]]
+        args: list[str] = ["-ss", f"{start:.3f}", "-t", f"{duration:.3f}", "-i", src["file_path"]]
         next_idx = 1
         logo_idx = beep_idx = None
         if logo is not None:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 
 from ..db.base import session
@@ -94,6 +94,28 @@ def bulk_patch(body: BulkCutsIn):
         for c in rows:
             _apply_patch(c, body.patch)
     return OkOut(ok=True, detail=f"{len(rows)} cortes atualizados")
+
+
+@router.post("/cuts/{cut_id}/preview")
+def preview_cut(cut_id: str, request: Request):
+    """Enfileira um render de pré-visualização (540×960 rápido) do corte."""
+    from ..db.models import Render  # noqa: PLC0415
+
+    with session() as s:
+        c = s.get(CutCandidate, cut_id)
+        if c is None:
+            raise HTTPException(404, "Corte não encontrado")
+        r = Render(cut_id=cut_id, kind="preview")
+        s.add(r)
+        s.flush()
+        render_id, project_id, source_id = r.id, c.project_id, c.source_video_id
+    job_id = request.app.state.runner.submit("render_cut", {"render_id": render_id},
+                                             project_id=project_id, source_video_id=source_id,
+                                             cut_id=cut_id)
+    with session() as s:
+        r = s.get(Render, render_id)
+        r.job_id = job_id
+    return {"render_id": render_id, "job_id": job_id}
 
 
 @router.delete("/cuts/{cut_id}", response_model=OkOut)
