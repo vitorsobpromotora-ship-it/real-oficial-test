@@ -3,6 +3,12 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag da release (ex.: v1.0.0) — criada automaticamente se não existir"
+        required: true
+        default: "v1.0.0"
 
 permissions:
   contents: write
@@ -47,5 +53,7 @@ jobs:
       - name: Criar release com o instalador
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          name: "Real Oficial ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
           files: app/release/RealOficial-Setup-*.exe
           generate_release_notes: true
