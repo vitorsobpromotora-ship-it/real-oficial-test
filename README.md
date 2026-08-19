@@ -54,7 +54,9 @@ O instalador NSIS (`RealOficial-Setup-<versão>-x64.exe`) é produzido pelo GitH
 
 1. **Por push/tag** — o workflow **CI** gera o artefato `RealOficial-Setup-x64` em toda execução do
    job *Instalador Windows*; baixe em *Actions → CI → artifacts*.
-2. **Release** — crie uma tag `v1.0.0` e o workflow **Release** anexa o instalador à release.
+2. **Release** — dispare o workflow **Release** (Actions → Release → *Run workflow*, informando a
+   tag, ex.: `v1.1.0`) ou crie a tag manualmente; a release recebe o instalador NSIS e o **zip
+   portátil** (`RealOficial-<versão>-x64.zip` — extrair e executar, sem instalação).
 
 O instalador embarca o motor (PyInstaller), FFmpeg estático (build GPL do BtbN, executado como
 processo separado — ver [`docs/LICENSES.md`](docs/LICENSES.md)) e as fontes Inter/Montserrat.
