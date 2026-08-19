@@ -79,3 +79,47 @@ def test_slugify():
     assert slugify("O Maior Erro da Minha Vida!") == "o-maior-erro-da-minha-vida"
     assert slugify("Ação & Emoção — épico") == "acao-emocao-epico"
     assert slugify("") == "corte"
+
+
+def test_patch_visual_invalida_previa(client, auth):
+    """E4: editar legenda/kit/enquadramento derruba a prévia antiga (registro + arquivo);
+    edições não-visuais (status) preservam a prévia existente."""
+    from app import config
+    from app.db.base import session
+    from app.db.models import CutCandidate, Project, Render, SourceVideo
+
+    with session() as s:
+        p = Project(name="Prévias")
+        s.add(p)
+        s.flush()
+        src = SourceVideo(project_id=p.id, origin="file", file_path="/x.mp4",
+                          duration_s=60.0, status="ready")
+        s.add(src)
+        s.flush()
+        c = CutCandidate(source_video_id=src.id, project_id=p.id, start_s=5.0, end_s=25.0,
+                         score=80.0, title="Corte")
+        s.add(c)
+        s.flush()
+        r = Render(cut_id=c.id, kind="preview", status="done", progress=1.0)
+        s.add(r)
+        s.flush()
+        cut_id, render_id = c.id, r.id
+
+    prev_file = config.data_dir() / "media" / "previews" / f"{cut_id}.mp4"
+    prev_file.parent.mkdir(parents=True, exist_ok=True)
+    prev_file.write_bytes(b"fake-mp4")
+
+    resp = client.patch(f"/api/v1/cuts/{cut_id}", json={"status": "approved"}, headers=auth)
+    assert resp.status_code == 200
+    assert prev_file.exists(), "mudança de status não deve invalidar a prévia"
+
+    resp = client.patch(f"/api/v1/cuts/{cut_id}",
+                        json={"caption_style": {"preset": "clean"}}, headers=auth)
+    assert resp.status_code == 200
+    assert not prev_file.exists(), "mudança visual deve apagar o arquivo da prévia"
+    with session() as s:
+        assert s.get(Render, render_id) is None, "registro da prévia deve ser removido"
+
+    resp = client.patch(f"/api/v1/cuts/{cut_id}", json={"framing": "left"}, headers=auth)
+    assert resp.status_code == 200
+    assert resp.json()["edits"]["framing"] == "left", "framing deve persistir em edits"

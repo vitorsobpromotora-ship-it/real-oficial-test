@@ -20,32 +20,51 @@ CHUNK_SECONDS = 720.0  # ~12 min
 CHUNK_OVERLAP = 60.0
 
 SYSTEM_PROMPT = """Você é um editor sênior de cortes virais para TikTok, Reels e Shorts, \
-especializado em conteúdo brasileiro (podcasts, entrevistas, lives e aulas).
+especializado em conteúdo brasileiro (podcasts, entrevistas, lives e aulas). Seu trabalho \
+é encontrar cortes E entregar uma análise editorial que ajude o criador a DECIDIR o que postar.
 
 Você receberá um trecho de transcrição com timestamps por frase no formato \
 [hh:mm:ss–hh:mm:ss], seguido de SINAIS DE ÁUDIO detectados automaticamente \
-(picos de energia, risadas, pausas).
+(picos de energia, risadas, pausas) e da quantidade de segmentos esperada.
 
-Sua tarefa: identificar de 2 a 6 segmentos deste trecho com maior potencial de virar \
-um corte vertical de 15 a 90 segundos.
-
-Regras obrigatórias:
+Regras de seleção:
 - start_s e end_s em SEGUNDOS ABSOLUTOS do vídeo original (converta dos timestamps).
-- O segmento deve começar em início de frase e terminar em fim de frase, formando uma \
-unidade compreensível SOZINHA: gancho → desenvolvimento → conclusão/payoff.
+- Cada segmento deve durar entre 15 e 90 segundos, começar em início de frase e terminar em \
+fim de frase, formando uma unidade compreensível SOZINHA: gancho → desenvolvimento → payoff.
 - Nunca comece em "Então, como eu estava dizendo" ou frases que dependem de contexto anterior.
-- Prefira aberturas com gancho forte: revelação, pergunta provocativa, número, história pessoal.
-- Avalie cada segmento nos 18 parâmetros (notas 0–10):
-  hook_strength (força do gancho nos 3 primeiros segundos), emotional_intensity, humor, \
-tension, completeness (tem conclusão?), context_independence (funciona sem contexto?), \
-clarity, information_value, storytelling, controversy, relatability, quotability, novelty, \
-energy, cta_potential, loopability, title_potential, niche_fit.
+- Prefira aberturas com gancho forte: revelação, pergunta provocativa, número, opinião firme.
+- Considere os SINAIS DE ÁUDIO: pico de energia ou risada dentro do segmento é bom sinal.
+- Se o trecho realmente não tiver momentos bons, retorne menos segmentos — não invente.
+
+CALIBRAÇÃO DOS 18 PARÂMETROS (notas 0–10) — seja honesto e use a régua inteira:
+- 0–3 = fraco (não contribui), 4–5 = mediano, 6–7 = bom, 8–9 = excelente, 10 = raro/excepcional.
+- NÃO agrupe tudo em 5–7: um corte comum de conversa técnica tem humor 1–2, controversy 2–3, \
+tension 3–4. Notas diferentes entre parâmetros são esperadas e desejadas.
+- Parâmetros: hook_strength (3 primeiros segundos), emotional_intensity, humor, tension, \
+completeness (tem conclusão?), context_independence (funciona sem contexto?), clarity, \
+information_value, storytelling, controversy, relatability, quotability, novelty, energy, \
+cta_potential, loopability, title_potential, niche_fit.
+
+VEREDITO (verdict) — a decisão que o criador precisa:
+- "postar": publicável como está; gancho forte e unidade completa.
+- "revisar": tem potencial, mas precisa de um ajuste específico (diga qual em analysis.sugestao).
+- "descartar": fraco para short-form; explique o porquê em analysis.ponto_fraco.
+
+ANÁLISE EDITORIAL (analysis) — específica deste trecho, em PT-BR, SEMPRE citando a fala real \
+entre aspas; nada de frases genéricas que serviriam para qualquer vídeo:
+- gancho: avalie os 3 primeiros segundos citando a primeira fala.
+- desenvolvimento: como o trecho segura a atenção no meio (ritmo, exemplos, tensão).
+- conclusao: o fechamento entrega payoff? Qual?
+- ponto_forte: o maior motivo para postar ESTE corte.
+- ponto_fraco: o maior risco/fraqueza dele.
+- sugestao: UM ajuste concreto (ex.: "corte os 2s iniciais e comece direto em '...'").
+- publico: para quem este corte performa melhor.
+
+Campos restantes:
 - hook_line: a primeira frase falada do segmento, exatamente como na transcrição.
 - title: título chamativo em português (máx. 60 caracteres, sem clickbait mentiroso).
 - hashtags: 3 a 5, em português, começando com #.
-- reason: 1 frase explicando por que esse trecho tem potencial.
-- Se o trecho não tiver nenhum momento bom, retorne segments vazio — não invente.
-- Considere os SINAIS DE ÁUDIO: um pico de energia ou risada dentro do segmento é bom sinal."""
+- reason: 1 frase-resumo do potencial (aparece na listagem)."""
 
 
 def fmt_ts(seconds: float) -> str:
@@ -79,7 +98,16 @@ def build_chunks(sentences: list[dict], duration: float,
     return chunks
 
 
+def segment_range_for(chunk: dict) -> tuple[int, int]:
+    """Quantos segmentos pedir por chunk: ~1 corte a cada 2 min de conteúdo."""
+    minutes = max(1.0, (chunk["end"] - chunk["start"]) / 60.0)
+    lo = max(2, round(minutes / 3))
+    hi = max(lo + 2, min(10, round(minutes / 1.5)))
+    return lo, hi
+
+
 def render_chunk_prompt(chunk: dict, features: Features | None) -> str:
+    lo, hi = segment_range_for(chunk)
     lines = [f"TRECHO DA TRANSCRIÇÃO ({fmt_ts(chunk['start'])} a {fmt_ts(chunk['end'])}):", ""]
     for s in chunk["sentences"]:
         lines.append(f"[{fmt_ts(s['start_s'])}–{fmt_ts(s['end_s'])}] {s['text']}")
@@ -92,7 +120,8 @@ def render_chunk_prompt(chunk: dict, features: Features | None) -> str:
         pauses = [p for p in features.pauses if chunk["start"] <= p[0] <= chunk["end"]]
         if pauses:
             lines.append(f"- pausas longas em: {', '.join(fmt_ts(p[0]) for p in pauses[:20])}")
-    lines += ["", "Identifique os melhores segmentos para cortes verticais e avalie os 18 parâmetros."]
+    lines += ["", f"Identifique entre {lo} e {hi} segmentos para cortes verticais, avalie os "
+              "18 parâmetros com calibração honesta, dê o veredito e a análise editorial de cada um."]
     return "\n".join(lines)
 
 
@@ -110,11 +139,14 @@ def _chunk_ladder(client: SemanticClient | None, fallback_model: str | None, chu
                 for seg in analysis.segments:
                     if seg.end_s <= seg.start_s:
                         continue
+                    verdict = seg.verdict if seg.verdict in ("postar", "revisar", "descartar") \
+                        else "revisar"
                     out.append({
                         "start_s": float(seg.start_s), "end_s": float(seg.end_s),
                         "params": seg.params.model_dump(), "hook_line": seg.hook_line,
                         "title": seg.title, "hashtags": list(seg.hashtags),
-                        "reason": seg.reason, "origin": "claude",
+                        "reason": seg.reason, "verdict": verdict,
+                        "analysis": seg.analysis.model_dump(), "origin": "claude",
                     })
                 return out
             except RefusalError as exc:
@@ -225,7 +257,10 @@ def _analyze_batches(ctx, client: SemanticClient, fallback_model: str | None, ch
                     out.append({"start_s": float(seg.start_s), "end_s": float(seg.end_s),
                                 "params": seg.params.model_dump(), "hook_line": seg.hook_line,
                                 "title": seg.title, "hashtags": list(seg.hashtags),
-                                "reason": seg.reason, "origin": "claude"})
+                                "reason": seg.reason,
+                                "verdict": seg.verdict if seg.verdict in
+                                ("postar", "revisar", "descartar") else "revisar",
+                                "analysis": seg.analysis.model_dump(), "origin": "claude"})
     for i, chunk in enumerate(chunks):  # chunks que falharam no lote caem na heurística
         if i not in ok_ids:
             out.extend(heuristic_for_chunk(chunk))

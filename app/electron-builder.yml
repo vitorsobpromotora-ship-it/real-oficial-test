@@ -17,10 +17,13 @@ win:
   target:
     - target: nsis
       arch: [x64]
-  artifactName: "RealOficial-Setup-${version}-x64.${ext}"
+    - target: zip
+      arch: [x64]
+  artifactName: "RealOficial-${version}-x64.${ext}"
 nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
   shortcutName: "Real Oficial"
   deleteAppDataOnUninstall: false
+  artifactName: "RealOficial-Setup-${version}-x64.${ext}"

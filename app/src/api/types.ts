@@ -60,6 +60,16 @@ export interface Cut {
   title: string;
   hashtags: string[] | null;
   reason: string;
+  verdict: "postar" | "revisar" | "descartar";
+  analysis: {
+    gancho?: string;
+    desenvolvimento?: string;
+    conclusao?: string;
+    ponto_forte?: string;
+    ponto_fraco?: string;
+    sugestao?: string;
+    publico?: string;
+  } | null;
   status: "draft" | "approved" | "rejected";
   rank: number | null;
   origin: "claude" | "heuristic";

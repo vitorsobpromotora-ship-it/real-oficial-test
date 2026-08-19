@@ -107,6 +107,8 @@ class CutCandidate(Base):
     title: Mapped[str] = mapped_column(String(300), default="")
     hashtags: Mapped[list | None] = mapped_column(JSON, nullable=True)
     reason: Mapped[str] = mapped_column(Text, default="")
+    verdict: Mapped[str] = mapped_column(String(12), default="revisar")  # postar|revisar|descartar
+    analysis: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # análise editorial detalhada
     status: Mapped[str] = mapped_column(String(16), default="draft")  # draft|approved|rejected
     rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
     origin: Mapped[str] = mapped_column(String(16), default="claude")  # claude|heuristic

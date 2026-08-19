@@ -18,17 +18,49 @@ const PRESETS = [
   { id: "minimal", label: "Minimalista" },
 ];
 
-export default function CutReviewModal({ cut, kits, onClose }: Props) {
+const FRAMINGS: { id: string; label: string }[] = [
+  { id: "auto", label: "Auto" },
+  { id: "left", label: "Esquerda" },
+  { id: "right", label: "Direita" },
+  { id: "center", label: "Centro" },
+  { id: "blur", label: "Desfocado" },
+];
+
+const VERDICT_LABEL: Record<string, string> = {
+  postar: "✓ Postar", revisar: "− Revisar", descartar: "✗ Descartar",
+};
+
+const ANALYSIS_LABELS: [keyof NonNullable<Cut["analysis"]>, string][] = [
+  ["gancho", "Gancho (3 primeiros segundos)"],
+  ["desenvolvimento", "Desenvolvimento"],
+  ["conclusao", "Conclusão / payoff"],
+  ["ponto_forte", "Ponto forte"],
+  ["ponto_fraco", "Ponto fraco"],
+  ["sugestao", "Sugestão de ajuste"],
+  ["publico", "Público ideal"],
+];
+
+export default function CutReviewModal({ cut: cutInicial, kits, onClose }: Props) {
   const qc = useQueryClient();
-  const [title, setTitle] = useState(cut.title);
+  const [title, setTitle] = useState(cutInicial.title);
   const [preset, setPreset] = useState<string>(
-    (cut.caption_style?.preset as string) ?? "bold_karaoke");
-  const [kitId, setKitId] = useState<string>(cut.brand_kit_id ?? "");
+    (cutInicial.caption_style?.preset as string) ?? "bold_karaoke");
+  const [kitId, setKitId] = useState<string>(cutInicial.brand_kit_id ?? "");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [previewMsg, setPreviewMsg] = useState("Preparando pré-visualização…");
+  const [toast, setToast] = useState("");
   const marcouRevisao = useRef(false);
+  const solicitouPreview = useRef(false);
 
-  // Marca o início da revisão (métrica dos relatórios) uma única vez.
+  // Estado sempre fresco do corte (o PATCH devolve o corte atualizado).
+  const cutQuery = useQuery({
+    queryKey: ["cuts", "detail", cutInicial.id],
+    queryFn: () => get<Cut>(`/api/v1/cuts/${cutInicial.id}`),
+    initialData: cutInicial,
+  });
+  const cut = cutQuery.data ?? cutInicial;
+  const framing = (cut.edits?.framing as string) ?? "auto";
+
   useEffect(() => {
     if (!marcouRevisao.current) {
       marcouRevisao.current = true;
@@ -36,7 +68,6 @@ export default function CutReviewModal({ cut, kits, onClose }: Props) {
     }
   }, [cut.id]);
 
-  // Pré-visualização: usa o último render (preview ou final) pronto; senão dispara um preview.
   const renders = useQuery({
     queryKey: ["renders", "cut", cut.id],
     queryFn: () => get<Render[]>(`/api/v1/renders?cut_id=${cut.id}`),
@@ -44,15 +75,17 @@ export default function CutReviewModal({ cut, kits, onClose }: Props) {
       (q.state.data ?? []).some((r) => r.status === "queued" || r.status === "running")
         ? 1500 : false,
   });
-  const solicitouPreview = useRef(false);
+
   useEffect(() => {
     const lista = renders.data;
     if (!lista) return;
     const pronto = lista.find((r) => r.status === "done");
     if (pronto) {
-      mediaUrl(`/api/v1/media/${pronto.id}/file`).then(setVideoUrl);
+      mediaUrl(`/api/v1/media/${pronto.id}/file`).then((u) =>
+        setVideoUrl(`${u}&v=${pronto.id}`));
       return;
     }
+    setVideoUrl(null);
     const emAndamento = lista.find((r) => r.status === "queued" || r.status === "running");
     if (emAndamento) {
       setPreviewMsg(`Renderizando pré-visualização… ${Math.round(emAndamento.progress * 100)}%`);
@@ -60,16 +93,37 @@ export default function CutReviewModal({ cut, kits, onClose }: Props) {
     }
     if (!solicitouPreview.current) {
       solicitouPreview.current = true;
+      setPreviewMsg("Preparando pré-visualização…");
       post(`/api/v1/cuts/${cut.id}/preview`).then(() =>
         qc.invalidateQueries({ queryKey: ["renders", "cut", cut.id] }));
     }
   }, [renders.data, cut.id, qc]);
 
+  function refreshPreview(msg: string) {
+    solicitouPreview.current = false;
+    setVideoUrl(null);
+    setPreviewMsg(msg);
+    qc.invalidateQueries({ queryKey: ["renders", "cut", cut.id] });
+  }
+
   const salvar = useMutation({
     mutationFn: (body: Record<string, unknown>) => patch<Cut>(`/api/v1/cuts/${cut.id}`, body),
-    onSuccess: () => {
+    onSuccess: (novo, body) => {
+      qc.setQueryData(["cuts", "detail", cut.id], novo);
       qc.invalidateQueries({ queryKey: ["cuts"] });
-      qc.invalidateQueries({ queryKey: ["renders", "cut", cut.id] });
+      const visual = ["start_s", "end_s", "framing", "title", "caption_style", "brand_kit_id"]
+        .some((k) => k in body);
+      if (visual) {
+        refreshPreview("Ajuste salvo — atualizando prévia…");
+        setToast("Ajuste salvo. A prévia está sendo atualizada.");
+      } else {
+        setToast("Salvo.");
+      }
+      setTimeout(() => setToast(""), 2800);
+    },
+    onError: (e: Error) => {
+      setToast(`Falha ao salvar: ${e.message}`);
+      setTimeout(() => setToast(""), 5000);
     },
   });
 
@@ -79,38 +133,46 @@ export default function CutReviewModal({ cut, kits, onClose }: Props) {
   }
 
   function decidir(status: "approved" | "rejected") {
-    salvar.mutate({
-      status,
-      title,
-      caption_style: { preset },
-      brand_kit_id: kitId || null,
-    });
+    salvar.mutate({ status, title, caption_style: { preset }, brand_kit_id: kitId || null });
     onClose();
   }
+
+  const analysisEntries = ANALYSIS_LABELS
+    .map(([key, label]) => ({ key, label, text: cut.analysis?.[key] ?? "" }))
+    .filter((e) => e.text);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>Revisar corte · score {cut.score.toFixed(1)}</h2>
+        <div className="row" style={{ marginBottom: 14 }}>
+          <h2 style={{ margin: 0 }}>Revisar corte · score {cut.score.toFixed(1)}</h2>
+          <span className={`chip verdict-${cut.verdict}`}>
+            {VERDICT_LABEL[cut.verdict] ?? cut.verdict}
+          </span>
+          {cut.origin === "heuristic" ? (
+            <span className="chip">análise local (sem IA)</span>
+          ) : null}
+        </div>
         <div className="review">
           <div>
             {videoUrl ? (
-              <video src={videoUrl} controls autoPlay muted />
+              <video key={videoUrl} src={videoUrl} controls autoPlay muted />
             ) : (
-              <div className="review" style={{ display: "block" }}>
-                <div
-                  style={{
-                    aspectRatio: "9/16", background: "#000", borderRadius: 10,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    color: "var(--muted)", fontSize: 13, padding: 12, textAlign: "center",
-                  }}
-                >
-                  {previewMsg}
-                </div>
+              <div
+                style={{
+                  aspectRatio: "9/16", background: "#000", borderRadius: 10,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "var(--muted)", fontSize: 13, padding: 12, textAlign: "center",
+                }}
+              >
+                {previewMsg}
               </div>
             )}
-            <div className="sub" style={{ marginTop: 8 }}>
-              Trecho: {fmtRange(cut.start_s, cut.end_s)}
+            <div className="row" style={{ marginTop: 8 }}>
+              <span className="sub">Trecho: {fmtRange(cut.start_s, cut.end_s)}</span>
+              <button className="right" onClick={() => refreshPreview("Atualizando prévia…")}>
+                Atualizar prévia
+              </button>
             </div>
             <div className="row wrap" style={{ marginTop: 8 }}>
               <span className="sub">Início:</span>
@@ -120,23 +182,42 @@ export default function CutReviewModal({ cut, kits, onClose }: Props) {
               <button onClick={() => ajustarTrim("end_s", -1)}>−1s</button>
               <button onClick={() => ajustarTrim("end_s", +1)}>+1s</button>
             </div>
+            <label>Enquadramento (quem fica em foco no 9:16)</label>
+            <div className="row wrap">
+              {FRAMINGS.map((f) => (
+                <button
+                  key={f.id}
+                  className={framing === f.id ? "primary" : ""}
+                  onClick={() => salvar.mutate({ framing: f.id })}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
             <div className="sub" style={{ marginTop: 4 }}>
-              Ajustar o trecho recalcula enquadramento e pré-visualização.
+              Se o Auto focar a pessoa errada, escolha o lado correto — a prévia é refeita.
             </div>
           </div>
           <div>
             <label>Título</label>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} />
+            <input value={title} onChange={(e) => setTitle(e.target.value)}
+                   onBlur={() => title !== cut.title && salvar.mutate({ title })} />
             <div className="row" style={{ gap: 18 }}>
               <div style={{ flex: 1 }}>
                 <label>Estilo de legenda</label>
-                <select value={preset} onChange={(e) => setPreset(e.target.value)}>
+                <select value={preset} onChange={(e) => {
+                  setPreset(e.target.value);
+                  salvar.mutate({ caption_style: { preset: e.target.value } });
+                }}>
                   {PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
                 </select>
               </div>
               <div style={{ flex: 1 }}>
                 <label>Kit de marca</label>
-                <select value={kitId} onChange={(e) => setKitId(e.target.value)}>
+                <select value={kitId} onChange={(e) => {
+                  setKitId(e.target.value);
+                  salvar.mutate({ brand_kit_id: e.target.value || null });
+                }}>
                   <option value="">(nenhum)</option>
                   {kits.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
                 </select>
@@ -148,7 +229,19 @@ export default function CutReviewModal({ cut, kits, onClose }: Props) {
                 <div className="sub" style={{ fontStyle: "italic" }}>“{cut.hook_text}”</div>
               </>
             ) : null}
-            {cut.reason ? (
+            {analysisEntries.length > 0 ? (
+              <>
+                <label>Análise editorial</label>
+                <div className="analysis">
+                  {analysisEntries.map((e) => (
+                    <div key={e.key} className="analysis-item">
+                      <b>{e.label}</b>
+                      <span>{e.text}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : cut.reason ? (
               <>
                 <label>Por que a IA escolheu</label>
                 <div className="sub">{cut.reason}</div>
@@ -171,13 +264,8 @@ export default function CutReviewModal({ cut, kits, onClose }: Props) {
         </div>
         <div className="row" style={{ marginTop: 18 }}>
           <button onClick={onClose}>Fechar</button>
-          <button
-            className="right"
-            onClick={() => salvar.mutate({ title, caption_style: { preset }, brand_kit_id: kitId || null })}
-          >
-            Salvar ajustes
-          </button>
-          <button className="danger" onClick={() => decidir("rejected")}>Rejeitar</button>
+          {toast ? <span className="sub">{toast}</span> : null}
+          <button className="danger right" onClick={() => decidir("rejected")}>Rejeitar</button>
           <button className="ok" onClick={() => decidir("approved")}>Aprovar</button>
         </div>
       </div>

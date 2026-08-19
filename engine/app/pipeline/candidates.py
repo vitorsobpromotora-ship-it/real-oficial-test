@@ -90,7 +90,8 @@ def diversify(cands: list[dict], target: int, min_center_gap: float = 60.0) -> l
 
 def finalize_candidates(raw: list[dict], sentences: list[dict], features: Features,
                         *, min_s: float, max_s: float, duration: float,
-                        target_count: int) -> list[dict]:
+                        target_count: int) -> tuple[list[dict], dict]:
+    """Retorna (cortes finais, estatísticas do funil bruto→válidos→dedup→final)."""
     for c in raw:
         c["start_s"], c["end_s"] = snap_to_sentences(c["start_s"], c["end_s"], sentences,
                                                      min_s, max_s, duration)
@@ -101,7 +102,9 @@ def finalize_candidates(raw: list[dict], sentences: list[dict], features: Featur
     deduped = dedup_by_iou(valid)
     final = diversify(deduped, target_count)
     final.sort(key=lambda x: x["score"], reverse=True)
-    return final
+    stats = {"brutos": len(raw), "validos": len(valid), "apos_dedup": len(deduped),
+             "finais": len(final), "alvo": target_count}
+    return final, stats
 
 
 def persist_candidates(source_video_id: str, project_id: str, cands: list[dict]) -> int:
@@ -115,7 +118,8 @@ def persist_candidates(source_video_id: str, project_id: str, cands: list[dict])
                 score_breakdown=c["params"], rhpt_score=c["rhpt_score"],
                 semantic_score=c["semantic_score"], hook_text=c.get("hook_line", ""),
                 title=c.get("title", ""), hashtags=c.get("hashtags", []),
-                reason=c.get("reason", ""), origin=c.get("origin", "claude"), rank=rank))
+                reason=c.get("reason", ""), verdict=c.get("verdict", "revisar"),
+                analysis=c.get("analysis"), origin=c.get("origin", "claude"), rank=rank))
     return len(cands)
 
 

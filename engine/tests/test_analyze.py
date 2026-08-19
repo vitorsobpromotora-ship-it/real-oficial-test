@@ -133,8 +133,9 @@ def test_snap_dedup_diversify():
         {"start_s": 40, "end_s": 56, "params": dict.fromkeys(PARAM_KEYS, 7.0),
          "title": "C", "origin": "claude"},
     ]
-    final = cand.finalize_candidates(raw, sentences, feats, min_s=15, max_s=90,
-                                     duration=60, target_count=5)
+    final, stats = cand.finalize_candidates(raw, sentences, feats, min_s=15, max_s=90,
+                                            duration=60, target_count=5)
+    assert stats["brutos"] == 3 and stats["finais"] == len(final) and stats["alvo"] == 5
     titles = [c["title"] for c in final]
     assert "B" not in titles, "sobreposto de score menor deve ser removido (IoU)"
     assert set(titles) == {"A", "C"}

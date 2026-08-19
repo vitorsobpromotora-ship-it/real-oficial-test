@@ -57,21 +57,30 @@ def test_plan_crop_sem_rostos_vira_blur_pad():
     assert plan["segments"] == []
 
 
-def test_atribuicao_por_movimento_de_boca():
-    windows = [(i * 2.0, i * 2.0 + 2.0) for i in range(6)]
-    presence = np.ones((6, 2))
-    movement = np.zeros((6, 2))
-    movement[:3, 0] = 20.0
-    movement[3:, 1] = 25.0
+def test_atribuicao_por_movimento_de_boca_com_histerese():
+    windows = [(float(i), float(i) + 1.0) for i in range(8)]
+    presence = np.ones((8, 2))
+    movement = np.full((8, 2), 2.0)
+    movement[:3, 0] = 20.0     # falante 0 domina no início
+    movement[3:, 1] = 30.0     # falante 1 assume do meio em diante
+    movement[3:, 0] = 2.0
     ativos = reframe.attribute_speakers(windows, presence, movement)
-    assert ativos == [0, 0, 0, 1, 1, 1]
+    # histerese: a troca só acontece após SWITCH_WINDOWS janelas fortes consecutivas
+    assert ativos == [0, 0, 0, 0, 1, 1, 1, 1]
 
-    # movimento fraco → decide por presença
-    fraco = np.full((6, 2), 1.0)
-    presenca = np.ones((6, 2))
+    # movimento fraco em ambos → decide por presença e NÃO fica trocando
+    fraco = np.full((8, 2), 1.0)
+    presenca = np.ones((8, 2))
     presenca[:, 1] = 3.0
     ativos2 = reframe.attribute_speakers(windows, presenca, fraco)
-    assert ativos2 == [1] * 6
+    assert ativos2 == [1] * 8
+
+    # pico isolado de 1 janela não rouba o foco (evita focar quem só reagiu)
+    blip = np.full((8, 2), 2.0)
+    blip[:, 0] = 20.0
+    blip[4, 1] = 40.0
+    ativos3 = reframe.attribute_speakers(windows, presence, blip)
+    assert ativos3 == [0] * 8
 
 
 def test_merge_segments_absorve_curtos():
@@ -89,3 +98,21 @@ def test_video_ja_vertical_nao_recorta():
     plan = reframe.plan_crop("inexistente.mp4", 0, 10, 608, 1080)
     assert plan["mode"] == "crop"
     assert plan["segments"][0]["x0"] == 0
+
+
+def test_override_manual_de_enquadramento():
+    plan = {"mode": "crop", "crop_w": 606, "crop_h": 1080,
+            "clusters": [400.0, 1500.0],
+            "segments": [{"start": 0.0, "end": 10.0, "x0": 1197, "x1": 1197}]}
+    left = reframe.apply_framing_override(plan, "left", 1920, 1080, 0.0, 10.0)
+    assert left["segments"][0]["x0"] == max(0, int(400 - 303))
+    right = reframe.apply_framing_override(plan, "right", 1920, 1080, 0.0, 10.0)
+    assert right["segments"][0]["x0"] == min(1920 - 606, int(1500 - 303))
+    blur = reframe.apply_framing_override(plan, "blur", 1920, 1080, 0.0, 10.0)
+    assert blur["mode"] == "blur_pad"
+    auto = reframe.apply_framing_override(plan, "auto", 1920, 1080, 0.0, 10.0)
+    assert auto == plan
+    center = reframe.apply_framing_override({"mode": "crop", "crop_w": 606, "crop_h": 1080,
+                                             "clusters": [], "segments": []},
+                                            "center", 1920, 1080, 0.0, 10.0)
+    assert center["segments"][0]["x0"] == int(1920 / 2 - 303)

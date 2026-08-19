@@ -99,6 +99,17 @@ export default function ProjectPage() {
         </div>
       ) : null}
 
+      {(cuts.data ?? []).length > 0 &&
+       (cuts.data ?? []).filter((c) => c.origin === "heuristic").length >
+         (cuts.data ?? []).length / 2 ? (
+        <div className="banner">
+          ⚠️ Estes cortes foram gerados pela <b>análise local</b> (picos de áudio, sem IA) — o
+          score e a análise ficam genéricos de propósito. Configure sua chave da Anthropic em{" "}
+          <a href="#/config">Configurações</a> e reprocesse o vídeo para ter veredito e análise
+          editorial detalhada de cada corte.
+        </div>
+      ) : null}
+
       {(sources.data ?? []).some((s) => s.status === "failed") ? (
         <div className="card" style={{ borderColor: "var(--bad)", marginBottom: 16 }}>
           {(sources.data ?? []).filter((s) => s.status === "failed").map((s) => (

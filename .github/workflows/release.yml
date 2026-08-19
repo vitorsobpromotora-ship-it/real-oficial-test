@@ -55,5 +55,7 @@ jobs:
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
           name: "Real Oficial ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
-          files: app/release/RealOficial-Setup-*.exe
+          files: |
+            app/release/RealOficial-Setup-*.exe
+            app/release/RealOficial-*-x64.zip
           generate_release_notes: true

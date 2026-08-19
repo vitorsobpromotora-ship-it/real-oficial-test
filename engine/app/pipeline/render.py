@@ -30,7 +30,7 @@ from ..db.models import (
 from ..jobs.registry import job_handler
 from ..services import ffmpeg
 from . import captions, censor
-from .reframe import plan_crop
+from .reframe import apply_framing_override, plan_crop
 
 log = logging.getLogger(__name__)
 
@@ -232,6 +232,9 @@ def render_cut(ctx) -> dict:
             row = s.get(CutCandidate, cut["id"])
             if row is not None:
                 row.crop_plan = crop_plan
+    framing = (cut["edits"] or {}).get("framing")
+    crop_plan = apply_framing_override(crop_plan, framing, src["width"], src["height"],
+                                       start, end)
     plan_rel = _shift_plan(crop_plan, start, end)
 
     words_rel = captions.words_for_cut(bundle["words"], start, end, cut["edits"])

@@ -19,7 +19,8 @@ def to_out(c: CutCandidate) -> CutOut:
         start_s=c.start_s, end_s=c.end_s, duration_s=round(c.end_s - c.start_s, 3),
         score=c.score, score_breakdown=c.score_breakdown, rhpt_score=c.rhpt_score,
         semantic_score=c.semantic_score, hook_text=c.hook_text, title=c.title,
-        hashtags=c.hashtags, reason=c.reason, status=c.status, rank=c.rank, origin=c.origin,
+        hashtags=c.hashtags, reason=c.reason, verdict=c.verdict or "revisar",
+        analysis=c.analysis, status=c.status, rank=c.rank, origin=c.origin,
         crop_plan=c.crop_plan, censor_plan=c.censor_plan, caption_style=c.caption_style,
         brand_kit_id=c.brand_kit_id, edits=c.edits, human_rank=c.human_rank,
         review_started_at=c.review_started_at, reviewed_at=c.reviewed_at,
@@ -52,8 +53,24 @@ def get_cut(cut_id: str):
         return to_out(c)
 
 
-def _apply_patch(c: CutCandidate, patch: CutPatch) -> None:
+def _invalidate_previews(s, cut_id: str) -> None:
+    """Ajuste visual torna a prévia antiga obsoleta: remove registros e arquivo."""
+    from .. import config  # noqa: PLC0415
+    from ..db.models import Render  # noqa: PLC0415
+
+    rows = s.execute(select(Render).where(Render.cut_id == cut_id,
+                                          Render.kind == "preview")).scalars().all()
+    for r in rows:
+        s.delete(r)
+    (config.data_dir() / "media" / "previews" / f"{cut_id}.mp4").unlink(missing_ok=True)
+
+
+VISUAL_FIELDS = {"start_s", "end_s", "framing", "title", "caption_style", "brand_kit_id", "edits"}
+
+
+def _apply_patch(s, c: CutCandidate, patch: CutPatch) -> None:
     data = patch.model_dump(exclude_none=True)
+    visual_change = bool(VISUAL_FIELDS & set(data))
     if "review_started" in data:
         if data.pop("review_started") and not c.review_started_at:
             c.review_started_at = utcnow()
@@ -68,9 +85,13 @@ def _apply_patch(c: CutCandidate, patch: CutPatch) -> None:
             raise HTTPException(422, "end_s deve ser maior que start_s")
         c.start_s, c.end_s = new_start, new_end
         c.crop_plan = None  # trim invalida o plano de enquadramento; será recalculado
+    if "framing" in data:
+        c.edits = {**(c.edits or {}), "framing": data.pop("framing")}
     for field in ("title", "caption_style", "brand_kit_id", "edits", "human_rank"):
         if field in data:
             setattr(c, field, data[field])
+    if visual_change:
+        _invalidate_previews(s, c.id)
     c.updated_at = utcnow()
 
 
@@ -80,7 +101,7 @@ def patch_cut(cut_id: str, patch: CutPatch):
         c = s.get(CutCandidate, cut_id)
         if c is None:
             raise HTTPException(404, "Corte não encontrado")
-        _apply_patch(c, patch)
+        _apply_patch(s, c, patch)
         s.flush()
         return to_out(c)
 
@@ -92,19 +113,26 @@ def bulk_patch(body: BulkCutsIn):
         if len(rows) != len(set(body.cut_ids)):
             raise HTTPException(404, "Um ou mais cortes não foram encontrados")
         for c in rows:
-            _apply_patch(c, body.patch)
+            _apply_patch(s, c, body.patch)
     return OkOut(ok=True, detail=f"{len(rows)} cortes atualizados")
 
 
 @router.post("/cuts/{cut_id}/preview")
 def preview_cut(cut_id: str, request: Request):
-    """Enfileira um render de pré-visualização (540×960 rápido) do corte."""
+    """Enfileira um render de pré-visualização (540×960 rápido) do corte.
+
+    Se já houver uma prévia na fila/em andamento, retorna essa em vez de duplicar."""
     from ..db.models import Render  # noqa: PLC0415
 
     with session() as s:
         c = s.get(CutCandidate, cut_id)
         if c is None:
             raise HTTPException(404, "Corte não encontrado")
+        ativo = s.execute(select(Render).where(
+            Render.cut_id == cut_id, Render.kind == "preview",
+            Render.status.in_(("queued", "running")))).scalars().first()
+        if ativo is not None:
+            return {"render_id": ativo.id, "job_id": ativo.job_id}
         r = Render(cut_id=cut_id, kind="preview")
         s.add(r)
         s.flush()

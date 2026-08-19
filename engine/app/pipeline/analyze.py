@@ -68,7 +68,8 @@ def stage_analyze(ctx, source_id: str, report) -> None:
                            min_s=min_s, max_s=max_s, target_count=target)
 
     report(0.87, "Consolidando candidatos…")
-    final = cand.finalize_candidates(raw, sentences, features, min_s=min_s, max_s=max_s,
-                                     duration=duration, target_count=target)
+    final, stats = cand.finalize_candidates(raw, sentences, features, min_s=min_s, max_s=max_s,
+                                            duration=duration, target_count=target)
     n = cand.persist_candidates(source_id, project_id, final)
-    report(1.0, f"{n} cortes sugeridos")
+    report(1.0, f"{n} cortes sugeridos (alvo {stats['alvo']}; {stats['brutos']} candidatos "
+                f"brutos, {stats['apos_dedup']} após remover sobreposições)")

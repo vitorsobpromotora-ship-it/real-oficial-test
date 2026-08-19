@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "real-oficial-engine"
-version = "1.0.1"
+version = "1.1.0"
 description = "Motor local do Real Oficial — pipeline de cortes por IA (ingestão, transcrição, análise, reframe, legendas, render) exposto como API REST local."
 requires-python = ">=3.11"
 dependencies = [

@@ -29,6 +29,23 @@ def test_build_ass_estrutura_e_karaoke():
     assert ass.count("Dialogue: 0,") == 2
 
 
+def test_ancora_fixa_topo_evita_pulos_de_altura():
+    """Alinhamento 8 (topo-centro) + MarginV = anchor_top: a 1ª linha fica SEMPRE
+    na mesma altura; cartões de 1 ou 2 linhas crescem para baixo, sem 'pular'."""
+    for preset, anchor in [("bold_karaoke", 1280), ("clean", 1300),
+                           ("podcast", 1360), ("minimal", 1400)]:
+        ass = captions.build_ass(PALAVRAS, {"preset": preset})
+        style_line = next(ln for ln in ass.splitlines() if ln.startswith("Style: Default,"))
+        campos = style_line.split(",")
+        assert campos[18] == "8", f"{preset}: alinhamento deve ser 8 (topo-centro)"
+        assert campos[21] == str(anchor), f"{preset}: MarginV/âncora fixa esperada {anchor}"
+    # estilo legado com margin_v (sem anchor_top) continua funcionando
+    ass = captions.build_ass(PALAVRAS, {"preset": "clean", "anchor_top": None,
+                                        "margin_v": 420})
+    style_line = next(ln for ln in ass.splitlines() if ln.startswith("Style: Default,"))
+    assert style_line.split(",")[21] == str(1920 - 420 - 220)
+
+
 def test_build_ass_sem_karaoke_e_headline():
     ass = captions.build_ass(PALAVRAS, {"preset": "clean"}, headline="Título do Corte",
                              clip_duration=10.0)

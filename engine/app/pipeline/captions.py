@@ -18,25 +18,25 @@ PRESETS: dict[str, dict] = {
     "clean": {
         "font_family": "Inter", "font_size": 64, "bold": True, "uppercase": False,
         "text_color": "#FFFFFF", "highlight_color": "#FFFFFF", "outline_color": "#000000",
-        "outline": 3, "shadow": 0, "margin_v": 420, "max_chars": 22, "max_lines": 2,
+        "outline": 3, "shadow": 0, "anchor_top": 1300, "max_chars": 22, "max_lines": 2,
         "karaoke": False,
     },
     "bold_karaoke": {
         "font_family": "Montserrat", "font_size": 72, "bold": True, "uppercase": True,
         "text_color": "#FFFFFF", "highlight_color": "#FFD400", "outline_color": "#000000",
-        "outline": 4, "shadow": 1, "margin_v": 420, "max_chars": 18, "max_lines": 2,
+        "outline": 4, "shadow": 1, "anchor_top": 1280, "max_chars": 18, "max_lines": 2,
         "karaoke": True,
     },
     "podcast": {
         "font_family": "Inter", "font_size": 56, "bold": False, "uppercase": False,
         "text_color": "#F5F5F5", "highlight_color": "#7CFC00", "outline_color": "#101010",
-        "outline": 2, "shadow": 0, "margin_v": 360, "max_chars": 26, "max_lines": 2,
+        "outline": 2, "shadow": 0, "anchor_top": 1360, "max_chars": 26, "max_lines": 2,
         "karaoke": True,
     },
     "minimal": {
         "font_family": "Inter", "font_size": 52, "bold": False, "uppercase": False,
         "text_color": "#FFFFFF", "highlight_color": "#FFFFFF", "outline_color": "#000000",
-        "outline": 1, "shadow": 0, "margin_v": 380, "max_chars": 28, "max_lines": 1,
+        "outline": 1, "shadow": 0, "anchor_top": 1400, "max_chars": 28, "max_lines": 1,
         "karaoke": False,
     },
 }
@@ -134,6 +134,8 @@ def build_ass(words: list[dict], caption_style: dict | None = None,
     secondary = hex_to_ass(style["text_color"])
     outline_c = hex_to_ass(style["outline_color"])
     bold = -1 if style.get("bold") else 0
+    anchor_top = int(style.get("anchor_top")
+                     or max(200, res[1] - int(style.get("margin_v", 420)) - 220))
 
     header = f"""[Script Info]
 ScriptType: v4.00+
@@ -144,7 +146,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{style['font_family']},{style['font_size']},{primary},{secondary},{outline_c},&H96000000,{bold},0,0,0,100,100,0,0,1,{style['outline']},{style['shadow']},2,60,60,{style['margin_v']},1
+Style: Default,{style['font_family']},{style['font_size']},{primary},{secondary},{outline_c},&H96000000,{bold},0,0,0,100,100,0,0,1,{style['outline']},{style['shadow']},8,60,60,{anchor_top},1
 Style: Headline,{style['font_family']},{max(40, int(style['font_size'] * 0.75))},{hex_to_ass('#FFFFFF')},{hex_to_ass('#FFFFFF')},{outline_c},&H96000000,-1,0,0,0,100,100,0,0,1,{max(2, style['outline'] - 1)},0,8,60,60,140,1
 
 [Events]

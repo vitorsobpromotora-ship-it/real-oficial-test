@@ -52,6 +52,9 @@ export default function CutCard({ cut, selected, onToggle, onOpen }: Props) {
         </div>
       ) : null}
       <div className="chips">
+        <span className={`chip verdict-${cut.verdict}`}>
+          {cut.verdict === "postar" ? "✓ postar" : cut.verdict === "descartar" ? "✗ descartar" : "− revisar"}
+        </span>
         <span className={`chip ${cut.status}`}>
           {cut.status === "approved" ? "aprovado" : cut.status === "rejected" ? "rejeitado" : "rascunho"}
         </span>

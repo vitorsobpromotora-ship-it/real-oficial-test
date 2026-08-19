@@ -81,7 +81,17 @@ def analyze_heuristic(sentences: list[dict], features: Features, target_count: i
             "hook_line": first[:200],
             "title": (first[:57] + "…") if len(first) > 58 else first,
             "hashtags": ["#cortes", "#podcast", "#viral"],
-            "reason": "Pico de intensidade de áudio detectado (análise local)",
+            "reason": "Pico de intensidade de áudio detectado (análise local, sem IA)",
+            "verdict": "revisar",
+            "analysis": {
+                "gancho": f"Abertura detectada: “{first[:120]}”. Sem avaliação editorial de IA.",
+                "desenvolvimento": "Trecho selecionado por picos de energia/ritmo no áudio.",
+                "conclusao": "Alinhado ao fim de frase mais próximo — confira se há payoff.",
+                "ponto_forte": "Momento de maior intensidade sonora do trecho.",
+                "ponto_fraco": "Análise local não avalia conteúdo/contexto — revisão manual é essencial.",
+                "sugestao": "Configure a chave de API em Configurações para análise editorial completa.",
+                "publico": "",
+            },
             "origin": "heuristic",
         })
         if len(cands) >= target_count * 2:

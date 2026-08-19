@@ -1,6 +1,14 @@
-"""Auto Reframe 16:9 → 9:16: detecção facial (YuNet → fallback Haar), cortes de cena,
-atribuição de falante por movimento de boca e plano de crop por segmentos (jump cut
-entre falantes, drift suave dentro do segmento). Sem rosto suficiente → blur_pad.
+"""Auto Reframe 16:9 → 9:16.
+
+Pipeline por corte (decodificação SEQUENCIAL — sem seeks):
+  1. frames a ~10 fps; detecção facial (YuNet → fallback Haar) a ~2 fps em frame reduzido;
+  2. rastreamento online por posição x (tracks ≈ pessoas em um podcast);
+  3. movimento de boca por track a 10 fps (diferença temporal do patch da boca);
+  4. atribuição do falante com HISTERESE: só troca quando o outro rosto supera o atual
+     por margem, em janelas consecutivas — evita focar quem não está falando;
+  5. segmentos de crop com mínimo de 2s (jump cut entre falantes).
+Sem rosto suficiente → blur_pad. O usuário pode forçar o enquadramento por corte
+(auto|left|right|center|blur) via `apply_framing_override`.
 """
 
 from __future__ import annotations
@@ -17,12 +25,20 @@ from ..db.models import CutCandidate, SourceVideo
 
 log = logging.getLogger(__name__)
 
-SAMPLE_FPS = 3.0
-SCENE_DIST_THRESHOLD = 0.5      # 1 - correlação de histograma HSV
-MIN_SEGMENT_S = 1.2             # segmentos menores são fundidos ao anterior
-WINDOW_S = 2.0                  # granularidade da atribuição de falante
-MOVEMENT_MIN = 6.0              # movimento de boca mínimo p/ confiar no sinal
+SAMPLE_FPS = 10.0          # análise de boca (sequencial, barata)
+DETECT_EVERY = 5           # detecção facial a cada N amostras (~2 fps)
+DETECT_WIDTH = 960         # detecta em frame reduzido (caixas re-escaladas)
+SCENE_DIST_THRESHOLD = 0.5
+WINDOW_S = 1.0             # granularidade da atribuição
+MIN_SEGMENT_S = 2.0        # segmentos menores são fundidos (menos flicker)
+MOVEMENT_MIN = 4.0         # movimento médio de boca mínimo p/ confiar no sinal
+SWITCH_RATIO = 1.35        # p/ trocar, o desafiante precisa superar o atual em 35%
+SWITCH_WINDOWS = 2         # ...por N janelas consecutivas (histerese)
+TRACK_TIMEOUT_S = 2.5      # track sem detecção recente não gera sinal de boca
+MAX_TRACKS = 4
+MIN_TRACK_PRESENCE = 0.10  # tracks vistos em <10% das detecções são espúrios
 FACE_HIT_RATE_MIN = 0.6
+FRAMING_MODES = ("auto", "left", "right", "center", "blur")
 
 
 class FaceDetector:
@@ -38,6 +54,7 @@ class FaceDetector:
         self._cv2 = cv2
         self.kind = "haar"
         self._yunet = None
+        self._yunet_size = None
         candidates = [yunet_path,
                       str(config.models_dir() / "yunet.onnx"),
                       str(config.ASSETS_DIR / "yunet.onnx")]
@@ -61,7 +78,9 @@ class FaceDetector:
         cv2 = self._cv2
         h, w = frame_bgr.shape[:2]
         if self.kind == "yunet":
-            self._yunet.setInputSize((w, h))
+            if self._yunet_size != (w, h):
+                self._yunet.setInputSize((w, h))
+                self._yunet_size = (w, h)
             _, faces = self._yunet.detect(frame_bgr)
             if faces is None:
                 return []
@@ -73,19 +92,28 @@ class FaceDetector:
 
 
 def sample_frames(video_path: str, start: float, end: float, fps: float = SAMPLE_FPS):
-    """Gera (t, frame) por seek. Cortes têm ≤ 90s → custo de seek aceitável."""
+    """Gera (t, frame) por decodificação sequencial: 1 seek inicial + grab/retrieve."""
     import cv2
 
     cap = cv2.VideoCapture(str(video_path))
     try:
-        step = 1.0 / fps
-        t = start
-        while t < end:
-            cap.set(cv2.CAP_PROP_POS_MSEC, t * 1000.0)
-            ok, frame = cap.read()
-            if ok and frame is not None:
-                yield t, frame
-            t += step
+        src_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+        if src_fps <= 0 or src_fps > 240:
+            src_fps = 30.0
+        step = max(1, round(src_fps / fps))
+        cap.set(cv2.CAP_PROP_POS_MSEC, max(0.0, start) * 1000.0)
+        idx = 0
+        while True:
+            if not cap.grab():
+                return
+            t = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
+            if t >= end:
+                return
+            if idx % step == 0 and t >= start:
+                ok, frame = cap.retrieve()
+                if ok and frame is not None:
+                    yield t, frame
+            idx += 1
     finally:
         cap.release()
 
@@ -105,24 +133,6 @@ def _hist_dist(h1, h2) -> float:
     return 1.0 - float(cv2.compareHist(h1, h2, cv2.HISTCMP_CORREL))
 
 
-def _cluster_positions(centers: list[float], gap: float) -> list[float]:
-    """Agrupa centros x por proximidade; retorna a mediana de cada cluster (ordenada)."""
-    if not centers:
-        return []
-    xs = sorted(centers)
-    clusters: list[list[float]] = [[xs[0]]]
-    for x in xs[1:]:
-        if x - clusters[-1][-1] > gap:
-            clusters.append([x])
-        else:
-            clusters[-1].append(x)
-    return [float(np.median(c)) for c in clusters]
-
-
-def _assign(cx: float, cluster_centers: list[float]) -> int:
-    return int(np.argmin([abs(cx - c) for c in cluster_centers]))
-
-
 def _mouth_patch(frame, face: tuple[int, int, int, int]) -> np.ndarray:
     """Região da boca (terço inferior do rosto), 24×16 em cinza, para medir movimento."""
     import cv2
@@ -138,19 +148,42 @@ def _mouth_patch(frame, face: tuple[int, int, int, int]) -> np.ndarray:
 
 def attribute_speakers(windows: list[tuple[float, float]], presence: np.ndarray,
                        movement: np.ndarray) -> list[int | None]:
-    """Por janela: cluster ativo = maior movimento de boca (se confiável), senão maior presença.
+    """Falante ativo por janela, com histerese.
 
-    presence/movement: shape (n_windows, n_clusters). Retorna índice do cluster ou None.
+    O ativo só muda quando o desafiante tem movimento de boca confiável
+    (≥ MOVEMENT_MIN) E supera o atual por SWITCH_RATIO em SWITCH_WINDOWS
+    janelas consecutivas. presence/movement: (n_janelas, n_clusters).
     """
     ativos: list[int | None] = []
+    current: int | None = None
+    pending: int | None = None
+    pending_count = 0
     for i in range(len(windows)):
         if presence.shape[1] == 0 or presence[i].sum() == 0:
             ativos.append(None)
             continue
-        if movement[i].max() >= MOVEMENT_MIN:
-            ativos.append(int(np.argmax(movement[i])))
+        if current is None:
+            if movement[i].max() >= MOVEMENT_MIN:
+                current = int(np.argmax(movement[i]))
+            else:
+                current = int(np.argmax(presence[i]))
+            ativos.append(current)
+            continue
+        challenger = int(np.argmax(movement[i]))
+        strong = (challenger != current
+                  and movement[i][challenger] >= MOVEMENT_MIN
+                  and movement[i][challenger] >= SWITCH_RATIO * max(movement[i][current], 1e-6))
+        if strong:
+            if pending == challenger:
+                pending_count += 1
+            else:
+                pending, pending_count = challenger, 1
+            if pending_count >= SWITCH_WINDOWS:
+                current = challenger
+                pending, pending_count = None, 0
         else:
-            ativos.append(int(np.argmax(presence[i])))
+            pending, pending_count = None, 0
+        ativos.append(current)
     return ativos
 
 
@@ -168,7 +201,6 @@ def _merge_segments(raw: list[dict]) -> list[dict]:
             out[-1]["end"] = seg["end"]
         else:
             out.append(seg)
-    # segunda passada de fusão (absorções podem ter igualado vizinhos)
     final: list[dict] = []
     for seg in out:
         if final and final[-1]["cluster"] == seg["cluster"]:
@@ -181,63 +213,99 @@ def _merge_segments(raw: list[dict]) -> list[dict]:
 def plan_crop(video_path: str, start: float, end: float, src_w: int, src_h: int,
               detector: FaceDetector | None = None,
               cancel_check: Callable[[], None] | None = None) -> dict:
+    import cv2
+
     crop_w = int(src_h * 9 / 16) // 2 * 2
     if crop_w >= src_w - 16:  # vídeo já é (quase) vertical: nada útil a enquadrar
         return {"mode": "crop", "crop_w": min(crop_w, src_w // 2 * 2), "crop_h": src_h,
-                "face_hit_rate": 1.0,
+                "face_hit_rate": 1.0, "clusters": [],
                 "segments": [{"start": start, "end": end, "x0": 0, "x1": 0}]}
     detector = detector or FaceDetector()
 
-    samples: list[dict] = []
+    duration = max(0.1, end - start)
+    n_windows = max(1, int(np.ceil(duration / WINDOW_S)))
+    windows = [(start + i * WINDOW_S, min(end, start + (i + 1) * WINDOW_S))
+               for i in range(n_windows)]
+
+    scale = DETECT_WIDTH / src_w if src_w > DETECT_WIDTH else 1.0
+    gap = crop_w * 0.6
+
+    # Tracks online: {cx, box, centers[], last_mouth, last_seen, hits}
+    tracks: list[dict] = []
+    mov_sum = np.zeros((n_windows, MAX_TRACKS))
+    mov_cnt = np.zeros((n_windows, MAX_TRACKS))
+    presence = np.zeros((n_windows, MAX_TRACKS))
+    detect_turns = 0
+    detect_with_face = 0
     prev_hist = None
-    scene_cuts: list[float] = []
-    for t, frame in sample_frames(video_path, start, end):
-        if cancel_check is not None:
+
+    for si, (t, frame) in enumerate(sample_frames(video_path, start, end)):
+        if cancel_check is not None and si % 20 == 0:
             cancel_check()
-        h = _hist(frame)
-        if prev_hist is not None and _hist_dist(prev_hist, h) > SCENE_DIST_THRESHOLD:
-            scene_cuts.append(t)
-        prev_hist = h
-        faces = detector.detect(frame)
-        samples.append({"t": t, "faces": faces, "frame_shape": frame.shape,
-                        "mouths": {i: _mouth_patch(frame, f) for i, f in enumerate(faces)}})
+        wi = min(n_windows - 1, int((t - start) / WINDOW_S))
 
-    n_samples = max(1, len(samples))
-    with_face = sum(1 for s in samples if s["faces"])
-    hit_rate = with_face / n_samples
-    centers = [f[0] + f[2] / 2 for s in samples for f in s["faces"]]
-    clusters = _cluster_positions(centers, gap=crop_w * 0.6)
+        if si % DETECT_EVERY == 0:
+            small = cv2.resize(frame, None, fx=scale, fy=scale) if scale < 1.0 else frame
+            h = _hist(small)
+            if prev_hist is not None and _hist_dist(prev_hist, h) > SCENE_DIST_THRESHOLD:
+                for tr in tracks:  # corte de cena: zera memória de boca (evita pico falso)
+                    tr["last_mouth"] = None
+                    tr["box"] = None
+            prev_hist = h
 
-    if not clusters or hit_rate < FACE_HIT_RATE_MIN:
+            boxes = detector.detect(small)
+            if scale < 1.0:
+                inv = 1.0 / scale
+                boxes = [(int(x * inv), int(y * inv), int(w * inv), int(hh * inv))
+                         for x, y, w, hh in boxes]
+            detect_turns += 1
+            if boxes:
+                detect_with_face += 1
+            for box in boxes:
+                cx = box[0] + box[2] / 2
+                tr = next((tr for tr in tracks if abs(cx - tr["cx"]) <= gap), None)
+                if tr is None:
+                    if len(tracks) >= MAX_TRACKS:
+                        continue
+                    tr = {"cx": cx, "box": None, "centers": [], "last_mouth": None,
+                          "last_seen": t, "hits": 0}
+                    tracks.append(tr)
+                tr["centers"].append(cx)
+                tr["cx"] = 0.7 * tr["cx"] + 0.3 * cx
+                tr["box"] = box
+                tr["last_seen"] = t
+                tr["hits"] += 1
+                presence[wi, tracks.index(tr)] += 1
+
+        # Movimento de boca a cada amostra, usando a última caixa conhecida do track.
+        for ti, tr in enumerate(tracks):
+            if tr["box"] is None or t - tr["last_seen"] > TRACK_TIMEOUT_S:
+                continue
+            mouth = _mouth_patch(frame, tr["box"])
+            if tr["last_mouth"] is not None and tr["last_mouth"].shape == mouth.shape:
+                mov_sum[wi, ti] += float(np.mean(np.abs(mouth - tr["last_mouth"])))
+                mov_cnt[wi, ti] += 1
+            tr["last_mouth"] = mouth
+
+    hit_rate = detect_with_face / detect_turns if detect_turns else 0.0
+
+    # Filtra tracks espúrios (vistos em poucas detecções).
+    keep = [i for i, tr in enumerate(tracks)
+            if detect_turns and tr["hits"] / detect_turns >= MIN_TRACK_PRESENCE]
+    if not keep or hit_rate < FACE_HIT_RATE_MIN:
         return {"mode": "blur_pad", "crop_w": crop_w, "crop_h": src_h,
-                "face_hit_rate": round(hit_rate, 3), "segments": []}
+                "face_hit_rate": round(hit_rate, 3), "clusters": [], "segments": []}
 
-    # Janelas de atribuição: grade de 2s quebrada nos cortes de cena.
-    bounds = sorted({start, end, *scene_cuts})
-    windows: list[tuple[float, float]] = []
-    for b0, b1 in zip(bounds, bounds[1:], strict=False):
-        t = b0
-        while t < b1:
-            windows.append((t, min(t + WINDOW_S, b1)))
-            t += WINDOW_S
+    cluster_centers = [float(np.median(tracks[i]["centers"])) for i in keep]
+    order = np.argsort(cluster_centers)  # clusters ordenados da esquerda p/ direita
+    presence_k = presence[:, keep][:, order]
+    with np.errstate(invalid="ignore", divide="ignore"):
+        movement_k = np.where(mov_cnt[:, keep][:, order] > 0,
+                              mov_sum[:, keep][:, order] / np.maximum(mov_cnt[:, keep][:, order], 1),
+                              0.0)
+    clusters_sorted = [cluster_centers[i] for i in order]
 
-    n_c = len(clusters)
-    presence = np.zeros((len(windows), n_c))
-    movement = np.zeros((len(windows), n_c))
-    last_mouth: dict[int, np.ndarray] = {}
-    for s in samples:
-        wi = next((i for i, (w0, w1) in enumerate(windows) if w0 <= s["t"] < w1),
-                  len(windows) - 1)
-        for fi, f in enumerate(s["faces"]):
-            ci = _assign(f[0] + f[2] / 2, clusters)
-            presence[wi, ci] += 1
-            mouth = s["mouths"][fi]
-            if ci in last_mouth and last_mouth[ci].shape == mouth.shape:
-                movement[wi, ci] += float(np.mean(np.abs(mouth - last_mouth[ci])))
-            last_mouth[ci] = mouth
-
-    ativos = attribute_speakers(windows, presence, movement)
-    # Preenche janelas sem rosto com o vizinho anterior (ou próximo).
+    ativos = attribute_speakers(windows, presence_k, movement_k)
     for i in range(len(ativos)):
         if ativos[i] is None:
             ativos[i] = ativos[i - 1] if i > 0 and ativos[i - 1] is not None else next(
@@ -249,7 +317,7 @@ def plan_crop(video_path: str, start: float, end: float, src_w: int, src_h: int,
 
     out_segments = []
     for seg in segments:
-        cx = clusters[seg["cluster"]]
+        cx = clusters_sorted[seg["cluster"]]
         x = int(np.clip(cx - crop_w / 2, 0, src_w - crop_w))
         out_segments.append({"start": round(seg["start"], 3), "end": round(seg["end"], 3),
                              "x0": x, "x1": x})
@@ -257,7 +325,29 @@ def plan_crop(video_path: str, start: float, end: float, src_w: int, src_h: int,
         out_segments[0]["start"] = round(start, 3)
         out_segments[-1]["end"] = round(end, 3)
     return {"mode": "crop", "crop_w": crop_w, "crop_h": src_h,
-            "face_hit_rate": round(hit_rate, 3), "segments": out_segments}
+            "face_hit_rate": round(hit_rate, 3),
+            "clusters": [round(c, 1) for c in clusters_sorted],
+            "segments": out_segments}
+
+
+def apply_framing_override(plan: dict, framing: str | None, src_w: int, src_h: int,
+                           start: float, end: float) -> dict:
+    """Força o enquadramento escolhido pelo usuário sobre o plano automático."""
+    if not framing or framing == "auto":
+        return plan
+    crop_w = plan.get("crop_w") or int(src_h * 9 / 16) // 2 * 2
+    if framing == "blur":
+        return {**plan, "mode": "blur_pad", "segments": []}
+    clusters = plan.get("clusters") or []
+    if framing == "left":
+        cx = min(clusters) if clusters else src_w * 0.28
+    elif framing == "right":
+        cx = max(clusters) if clusters else src_w * 0.72
+    else:  # center
+        cx = src_w / 2
+    x = int(np.clip(cx - crop_w / 2, 0, max(0, src_w - crop_w)))
+    return {**plan, "mode": "crop",
+            "segments": [{"start": round(start, 3), "end": round(end, 3), "x0": x, "x1": x}]}
 
 
 def stage_reframe(ctx, source_id: str, report) -> None:

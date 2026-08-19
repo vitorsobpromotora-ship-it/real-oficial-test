@@ -56,12 +56,27 @@ class Params(BaseModel):
     niche_fit: float = Field(default=5.0, ge=0, le=10)
 
 
+class AnalysisDetail(BaseModel):
+    """Análise editorial detalhada do corte, em PT-BR, citando o conteúdo real."""
+
+    gancho: str = Field(default="", description="Avaliação dos 3 primeiros segundos, citando a fala")
+    desenvolvimento: str = Field(default="", description="Como o trecho sustenta a atenção")
+    conclusao: str = Field(default="", description="O trecho fecha com payoff? Qual?")
+    ponto_forte: str = Field(default="", description="O maior motivo para postar este corte")
+    ponto_fraco: str = Field(default="", description="O maior risco/fraqueza deste corte")
+    sugestao: str = Field(default="", description="1 ajuste concreto que melhoraria o corte")
+    publico: str = Field(default="", description="Para quem este corte funciona melhor")
+
+
 class CandidateSegment(BaseModel):
     """Um trecho candidato a corte, em segundos absolutos do vídeo original."""
 
     start_s: float = Field(ge=0)
     end_s: float = Field(ge=0)
     params: Params = Field(default_factory=Params)
+    verdict: str = Field(default="revisar",
+                         description="postar (publicável como está) | revisar (bom, mas precisa de ajuste) | descartar (fraco)")
+    analysis: AnalysisDetail = Field(default_factory=AnalysisDetail)
     hook_line: str = ""
     title: str = ""
     hashtags: list[str] = Field(default_factory=list)
