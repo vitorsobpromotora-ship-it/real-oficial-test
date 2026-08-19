@@ -165,6 +165,7 @@ class Render(Base):
     kind: Mapped[str] = mapped_column(String(8), default="final")  # preview|final
     status: Mapped[str] = mapped_column(String(16), default="queued")
     progress: Mapped[float] = mapped_column(Float, default=0.0)
+    job_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[str] = mapped_column(String(32), default=utcnow)
     started_at: Mapped[str | None] = mapped_column(String(32), nullable=True)

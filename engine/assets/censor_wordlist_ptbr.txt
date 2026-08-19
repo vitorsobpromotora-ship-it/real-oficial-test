@@ -1,0 +1,37 @@
+# Wordlist padrão de censura (PT-BR). Uma entrada por linha.
+# Sufixo * = casa por prefixo (cobre flexões). Comparação sem acentos/caixa.
+# O usuário pode adicionar termos em Configurações → censor_extra_words.
+merda
+bosta
+porra
+caralho
+cacete
+puta
+putas
+puto
+putaria
+fod*
+buceta
+cu
+cuzao
+cuzão
+babaca
+arrombad*
+desgraçad*
+desgracad*
+escrot*
+otario
+otária
+otario
+vagabund*
+corno
+viado
+veado
+piranha
+pau no cu
+filha da puta
+filho da puta
+fdp
+vsf
+pqp
+krl
