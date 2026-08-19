@@ -43,6 +43,8 @@ heurística** quando não há chave de API — o app funciona offline, com quali
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
+**➡️ Guia de instalação e configuração passo a passo: [`docs/CONFIGURACAO.md`](docs/CONFIGURACAO.md)**
+
 Detalhes em [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · referência da API em
 [`docs/API.md`](docs/API.md) · roadmap v2 em [`docs/V2-ROADMAP.md`](docs/V2-ROADMAP.md).
 
