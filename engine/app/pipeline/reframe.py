@@ -346,7 +346,7 @@ def apply_framing_override(plan: dict, framing: str | None, src_w: int, src_h: i
     else:  # center
         cx = src_w / 2
     x = int(np.clip(cx - crop_w / 2, 0, max(0, src_w - crop_w)))
-    return {**plan, "mode": "crop",
+    return {**plan, "mode": "crop", "crop_w": crop_w, "crop_h": plan.get("crop_h") or src_h,
             "segments": [{"start": round(start, 3), "end": round(end, 3), "x0": x, "x1": x}]}
 
 
