@@ -6,7 +6,6 @@ Entradas com '*' final casam por prefixo (ex.: "fod*" → "foder", "fodido").
 from __future__ import annotations
 
 import unicodedata
-from pathlib import Path
 
 from .. import config
 

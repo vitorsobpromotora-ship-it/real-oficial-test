@@ -34,7 +34,7 @@ async def events(request: Request,
                     return
                 try:
                     item = await asyncio.wait_for(queue.get(), timeout=15.0)
-                except (asyncio.TimeoutError, TimeoutError):
+                except TimeoutError:
                     yield ": ping\n\n"
                     continue
                 data = json.dumps(item["data"], ensure_ascii=False)

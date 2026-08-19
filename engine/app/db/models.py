@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import JSON, Boolean, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
@@ -16,7 +16,7 @@ def new_id() -> str:
 
 
 def utcnow() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 class Setting(Base):

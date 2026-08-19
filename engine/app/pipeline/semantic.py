@@ -4,7 +4,6 @@ escada de fallback (modelo primário → fallback → heurística local) e modo 
 
 from __future__ import annotations
 
-import json
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relatório — {{ r.source.title or r.source.id }}</title>
+<style>
+  :root { --fg:#1b2430; --muted:#5b6675; --line:#e3e8ef; --accent:#0f62fe; --ok:#1a7f37; --bad:#c0392b; }
+  * { box-sizing:border-box; }
+  body { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; color:var(--fg);
+         margin:0; background:#f6f8fb; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 28px 0 10px; text-transform: uppercase; letter-spacing:.06em;
+       color: var(--muted); }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .cards { display:grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .card .num { font-size:26px; font-weight:700; }
+  .card .lbl { font-size:12px; color:var(--muted); margin-top:2px; }
+  table { width:100%; border-collapse: collapse; background:#fff; border:1px solid var(--line);
+          border-radius:10px; overflow:hidden; font-size:13px; }
+  th, td { text-align:left; padding:8px 12px; border-bottom:1px solid var(--line); }
+  th { background:#fafbfd; color:var(--muted); font-weight:600; }
+  tr:last-child td { border-bottom:none; }
+  .bar { height:8px; background:#edf1f7; border-radius:4px; overflow:hidden; }
+  .bar > i { display:block; height:100%; background:var(--accent); }
+  .tag { display:inline-block; padding:2px 8px; border-radius:99px; font-size:11px; font-weight:600; }
+  .tag.approved { background:#e6f4ea; color:var(--ok); }
+  .tag.rejected { background:#fdecea; color:var(--bad); }
+  .tag.draft { background:#eef1f5; color:var(--muted); }
+  .foot { margin-top:32px; font-size:11px; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Relatório do processamento</h1>
+  <div class="sub">
+    {{ r.source.title or "(sem título)" }} · {{ "%.0f"|format((r.source.duration_s or 0)/60) }} min ·
+    gerado em {{ r.generated_at }} · Real Oficial
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="num">{{ r.cortes.gerados }}</div><div class="lbl">cortes gerados</div></div>
+    <div class="card"><div class="num">{{ r.cortes.aprovados }}</div><div class="lbl">aprovados</div></div>
+    <div class="card">
+      <div class="num">{% if r.cortes.taxa_aproveitamento is not none %}{{ "%.0f"|format(r.cortes.taxa_aproveitamento*100) }}%{% else %}—{% endif %}</div>
+      <div class="lbl">taxa de aproveitamento</div>
+    </div>
+    <div class="card"><div class="num">{{ "%.0f"|format(r.tempo.economia_min) }} min</div><div class="lbl">tempo economizado*</div></div>
+    <div class="card"><div class="num">US$ {{ "%.2f"|format(r.custo_claude.total_usd) }}</div><div class="lbl">custo de IA</div></div>
+  </div>
+
+  <h2>Qualidade do score</h2>
+  <table>
+    <tr><th>Correlação IA × humano (Spearman)</th>
+        <td>{% if r.score_quality.spearman_rank_ia_vs_humano is not none %}{{ r.score_quality.spearman_rank_ia_vs_humano }}{% else %}— (avalie os cortes com human_rank){% endif %}</td></tr>
+    <tr><th>Cortes com avaliação humana</th><td>{{ r.score_quality.n_avaliados }}</td></tr>
+    <tr><th>Score médio / máximo</th><td>{{ r.cortes.score_medio or "—" }} / {{ r.cortes.score_maximo or "—" }}</td></tr>
+    <tr><th>Origem da análise</th><td>{{ r.cortes.origem_claude }} via Claude · {{ r.cortes.origem_heuristica }} via heurística local</td></tr>
+  </table>
+
+  <h2>Intervenção humana</h2>
+  <table>
+    <tr><th>Cortes revisados</th><td>{{ r.intervencao.cortes_revisados }}</td></tr>
+    <tr><th>Tempo médio de revisão</th><td>{% if r.intervencao.media_s %}{{ "%.0f"|format(r.intervencao.media_s) }} s{% else %}—{% endif %}</td></tr>
+    <tr><th>% de cortes editados</th><td>{% if r.intervencao.pct_editados is not none %}{{ "%.0f"|format(r.intervencao.pct_editados*100) }}%{% else %}—{% endif %}</td></tr>
+    <tr><th>Fórmula do tempo economizado</th><td>{{ r.tempo.formula }} ({{ "%.0f"|format(r.tempo.baseline_manual_min) }} − {{ "%.0f"|format(r.tempo.revisao_investida_min) }} min)</td></tr>
+  </table>
+
+  <h2>Tempo por estágio do pipeline</h2>
+  <table>
+    {% set max_t = (r.timings | map(attribute="seconds") | max) if r.timings else 1 %}
+    {% for t in r.timings %}
+    <tr>
+      <th style="width:140px">{{ t.stage }}</th>
+      <td style="width:90px">{{ "%.1f"|format(t.seconds) }} s</td>
+      <td><div class="bar"><i style="width: {{ "%.0f"|format(100 * t.seconds / max_t) }}%"></i></div></td>
+    </tr>
+    {% else %}
+    <tr><td>Sem medições registradas.</td></tr>
+    {% endfor %}
+  </table>
+
+  <h2>Cortes ({{ r.cortes.gerados }})</h2>
+  <table>
+    <tr><th>#</th><th>Título</th><th>Trecho</th><th>Score</th><th>Status</th><th>Rank humano</th></tr>
+    {% for c in r.cortes_detalhe %}
+    <tr>
+      <td>{{ c.rank }}</td>
+      <td>{{ c.title or "(sem título)" }}</td>
+      <td>{{ "%.0f"|format(c.start_s) }}s–{{ "%.0f"|format(c.end_s) }}s</td>
+      <td>{{ "%.1f"|format(c.score) }}</td>
+      <td><span class="tag {{ c.status }}">{{ {"approved":"aprovado","rejected":"rejeitado","draft":"rascunho"}[c.status] }}</span></td>
+      <td>{{ c.human_rank or "—" }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+
+  <div class="foot">
+    * Economia estimada: {{ r.tempo.formula }}. Renders: {{ r.renders.concluidos }}/{{ r.renders.total }} concluídos.
+    Tokens Claude: {{ r.custo_claude.input_tokens }} entrada / {{ r.custo_claude.output_tokens }} saída
+    ({{ r.custo_claude.chamadas }} chamadas).
+  </div>
+</div>
+</body>
+</html>
