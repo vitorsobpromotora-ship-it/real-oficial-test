@@ -29,16 +29,24 @@ class FaceDetector:
     """YuNet (FaceDetectorYN) quando o ONNX está disponível; senão Haar cascade do OpenCV."""
 
     def __init__(self, yunet_path: str | None = None):
+        import os
+
         import cv2
+
+        from ..services import model_assets
 
         self._cv2 = cv2
         self.kind = "haar"
         self._yunet = None
         candidates = [yunet_path,
-                      str(config.data_dir() / "models" / "yunet.onnx"),
+                      str(config.models_dir() / "yunet.onnx"),
                       str(config.ASSETS_DIR / "yunet.onnx")]
+        if not any(p and os.path.exists(p) for p in candidates):
+            downloaded = model_assets.ensure_yunet()  # best-effort no 1º uso
+            if downloaded:
+                candidates.insert(0, downloaded)
         for path in candidates:
-            if path and __import__("os").path.exists(path) and hasattr(cv2, "FaceDetectorYN"):
+            if path and os.path.exists(path) and hasattr(cv2, "FaceDetectorYN"):
                 try:
                     self._yunet = cv2.FaceDetectorYN.create(path, "", (320, 320), 0.7)
                     self.kind = "yunet"

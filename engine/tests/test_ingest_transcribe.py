@@ -130,7 +130,7 @@ def _whisper_tiny_disponivel() -> bool:
         from app import config
 
         WhisperModel("tiny", device="cpu", compute_type="int8",
-                     download_root=str(config.data_dir() / "models"), local_files_only=True)
+                     download_root=str(config.models_dir()), local_files_only=True)
         return True
     except Exception:
         return False

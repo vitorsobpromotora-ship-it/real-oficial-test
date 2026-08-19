@@ -26,7 +26,7 @@ def get_model(size: str):
         log.info("Carregando modelo whisper '%s'…", size)
         _model_cache[size] = WhisperModel(
             size, device="cpu", compute_type="int8",
-            download_root=str(config.data_dir() / "models"),
+            download_root=str(config.models_dir()),
         )
     return _model_cache[size]
 

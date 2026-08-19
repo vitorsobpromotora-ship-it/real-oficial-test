@@ -1,0 +1,26 @@
+appId: com.realoficial.app
+productName: Real Oficial
+copyright: "Real Oficial"
+directories:
+  output: release
+files:
+  - dist/**
+  - dist-electron/**
+  - package.json
+extraResources:
+  - from: ../engine-dist/real-oficial-engine
+    to: engine
+  - from: resources/ffmpeg
+    to: ffmpeg
+asar: true
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: "RealOficial-Setup-${version}-x64.${ext}"
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  shortcutName: "Real Oficial"
+  deleteAppDataOnUninstall: false

@@ -2,14 +2,22 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from . import metrics
 
+
+def _templates_dir() -> Path:
+    if getattr(sys, "frozen", False):  # PyInstaller: dados em _MEIPASS
+        return Path(sys._MEIPASS) / "app" / "reports" / "templates"  # type: ignore[attr-defined]
+    return Path(__file__).resolve().parent / "templates"
+
+
 _env = Environment(
-    loader=FileSystemLoader(Path(__file__).resolve().parent / "templates"),
+    loader=FileSystemLoader(_templates_dir()),
     autoescape=select_autoescape(["html"]),
 )
 

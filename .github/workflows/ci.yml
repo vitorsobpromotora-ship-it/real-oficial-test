@@ -1,0 +1,145 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  REAL_OFICIAL_MODELS_DIR: ${{ github.workspace }}/.model-cache
+
+jobs:
+  lint-test:
+    name: Lint + testes (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependências de sistema (ffmpeg, espeak-ng)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg espeak-ng fonts-dejavu-core
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: engine/pyproject.toml
+
+      - name: Instalar motor
+        run: pip install -e "engine[dev]"
+
+      - name: Cache do modelo whisper tiny
+        uses: actions/cache@v4
+        with:
+          path: .model-cache
+          key: whisper-tiny-v1
+
+      - name: Pré-baixar whisper tiny (teste real de transcrição)
+        run: |
+          python -c "from faster_whisper import WhisperModel; WhisperModel('tiny', device='cpu', compute_type='int8', download_root='${{ env.REAL_OFICIAL_MODELS_DIR }}')"
+
+      - name: Ruff
+        run: ruff check engine/app engine/tests
+
+      - name: Pytest (unit + integração + e2e)
+        working-directory: engine
+        run: python -m pytest -q --tb=short
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Instalar app (sem binário do Electron)
+        working-directory: app
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck + testes + build do renderer
+        working-directory: app
+        run: |
+          npm run typecheck
+          npm test
+          npm run build
+
+      - name: PyInstaller (Linux) + smoke test do binário
+        run: |
+          pip install pyinstaller
+          cd engine && pyinstaller engine.spec --distpath ../engine-dist --workpath ../build-pyi -y
+          cd ..
+          ./engine-dist/real-oficial-engine/real-oficial-engine --port 8899 --data-dir /tmp/ro-smoke &
+          ENGINE_PID=$!
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8899/health > /dev/null; then break; fi
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8899/health
+          TOKEN=$(cat /tmp/ro-smoke/api_token)
+          curl -sf -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8899/api/v1/settings > /dev/null
+          kill $ENGINE_PID
+
+  build-windows:
+    name: Instalador Windows (NSIS)
+    runs-on: windows-latest
+    needs: lint-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: engine/pyproject.toml
+
+      - name: Instalar motor + PyInstaller
+        run: |
+          pip install -e "engine"
+          pip install pyinstaller
+
+      - name: Fontes das legendas (Inter/Montserrat — best effort)
+        run: python scripts/fetch_fonts.py --dest engine/assets/fonts
+
+      - name: PyInstaller (Windows)
+        working-directory: engine
+        run: pyinstaller engine.spec --distpath ../engine-dist --workpath ../build-pyi -y
+
+      - name: Smoke test do binário do motor
+        shell: pwsh
+        run: |
+          $proc = Start-Process -PassThru -FilePath "engine-dist/real-oficial-engine/real-oficial-engine.exe" -ArgumentList "--port","8899","--data-dir","$env:TEMP\ro-smoke"
+          $ok = $false
+          foreach ($i in 1..60) {
+            try {
+              Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8899/health | Out-Null
+              $ok = $true; break
+            } catch { Start-Sleep -Seconds 1 }
+          }
+          Stop-Process -Id $proc.Id -Force
+          if (-not $ok) { throw "motor empacotado não respondeu ao /health" }
+
+      - name: FFmpeg estático (win64)
+        run: python scripts/fetch_ffmpeg.py --platform win64 --dest app/resources/ffmpeg
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Build do app + instalador NSIS
+        working-directory: app
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          npx electron-builder --win --x64 --publish never
+
+      - name: Publicar artefato do instalador
+        uses: actions/upload-artifact@v4
+        with:
+          name: RealOficial-Setup-x64
+          path: app/release/RealOficial-Setup-*.exe
+          if-no-files-found: error

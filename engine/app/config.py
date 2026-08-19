@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 APP_NAME = "real-oficial"
 VERSION = "1.0.0"
 API_PREFIX = "/api/v1"
 
-ENGINE_ROOT = Path(__file__).resolve().parent.parent
+if getattr(sys, "frozen", False):  # binário PyInstaller: assets ficam em _MEIPASS
+    ENGINE_ROOT = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+else:
+    ENGINE_ROOT = Path(__file__).resolve().parent.parent
 ASSETS_DIR = ENGINE_ROOT / "assets"
 
 # Chaves persistidas na tabela settings e seus valores iniciais.
@@ -50,6 +54,14 @@ def db_path() -> Path:
 
 def api_token_path() -> Path:
     return data_dir() / "api_token"
+
+
+def models_dir() -> Path:
+    """Modelos de IA (whisper, YuNet). Sobrescrevível via REAL_OFICIAL_MODELS_DIR (cache de CI)."""
+    env = os.environ.get("REAL_OFICIAL_MODELS_DIR")
+    p = Path(env) if env else data_dir() / "models"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
 
 
 def renders_dir(output_dir_setting: str | None = None) -> Path:

@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  windows-installer:
+    name: Instalador Windows + Release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar motor + PyInstaller
+        run: |
+          pip install -e "engine"
+          pip install pyinstaller
+
+      - name: Fontes das legendas
+        run: python scripts/fetch_fonts.py --dest engine/assets/fonts
+
+      - name: PyInstaller (Windows)
+        working-directory: engine
+        run: pyinstaller engine.spec --distpath ../engine-dist --workpath ../build-pyi -y
+
+      - name: FFmpeg estático (win64)
+        run: python scripts/fetch_ffmpeg.py --platform win64 --dest app/resources/ffmpeg
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build do app + instalador NSIS
+        working-directory: app
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          npx electron-builder --win --x64 --publish never
+
+      - name: Criar release com o instalador
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/release/RealOficial-Setup-*.exe
+          generate_release_notes: true
