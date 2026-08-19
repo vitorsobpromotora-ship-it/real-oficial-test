@@ -41,6 +41,7 @@ class SourceOut(BaseModel):
     origin: str
     source_url: str | None
     file_path: str | None
+    audio_path: str | None
     title: str
     duration_s: float | None
     width: int | None
