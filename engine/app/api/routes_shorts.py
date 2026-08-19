@@ -21,6 +21,7 @@ class ShortsCreate(BaseModel):
     video_url: str | None = None
     file_path: str | None = None
     project_id: str | None = None
+    agent: str | None = None  # claude | gpt | local (padrão: Configurações)
     options: dict = Field(default_factory=dict)
 
 
@@ -72,8 +73,11 @@ def create_shorts(body: ShortsCreate, request: Request):
         s.add(src)
         s.flush()
         source_id = src.id
+    from .routes_sources import options_with_agent
+
+    opts = options_with_agent(body.options, body.agent)
     job_id = request.app.state.runner.submit(
-        "process_source", {"source_video_id": source_id, "options": body.options},
+        "process_source", {"source_video_id": source_id, "options": opts},
         project_id=project_id, source_video_id=source_id)
     return {"short_job_id": job_id, "source_video_id": source_id, "project_id": project_id}
 

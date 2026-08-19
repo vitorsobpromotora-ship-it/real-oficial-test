@@ -72,7 +72,7 @@ export interface Cut {
   } | null;
   status: "draft" | "approved" | "rejected";
   rank: number | null;
-  origin: "claude" | "heuristic";
+  origin: "claude" | "gpt" | "heuristic";
   crop_plan: { mode: string; segments: unknown[]; face_hit_rate?: number } | null;
   censor_plan: unknown[] | null;
   caption_style: Record<string, unknown> | null;
@@ -128,9 +128,14 @@ export interface RenderBatch {
   renders: Render[];
 }
 
+export type Agent = "claude" | "gpt" | "local";
+
 export interface Settings {
+  default_agent: Agent;
   claude_model: string;
   claude_fallback_model: string;
+  openai_model: string;
+  openai_fallback_model: string;
   whisper_model: string;
   output_dir: string;
   use_batches: boolean;
@@ -143,6 +148,8 @@ export interface Settings {
   ui_language: string;
   has_anthropic_api_key: boolean;
   anthropic_api_key_masked: string;
+  has_openai_api_key: boolean;
+  openai_api_key_masked: string;
   api_token: string;
   data_dir: string;
   version: string;

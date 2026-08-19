@@ -9,7 +9,9 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 from ..db import settings_store
-from ..schemas.claude import ChunkAnalysis
+from ..schemas.claude import ChunkAnalysis, strict_chunk_schema
+from ..services.agents import AGENT_LABELS, build_client, resolve_agent
+from ..services.ai_usage import friendly_ai_error
 from ..services.claude_client import RefusalError, SemanticClient
 from .audio_features import Features
 from .heuristic import analyze_heuristic
@@ -125,95 +127,141 @@ def render_chunk_prompt(chunk: dict, features: Features | None) -> str:
     return "\n".join(lines)
 
 
-def _chunk_ladder(client: SemanticClient | None, fallback_model: str | None, chunk: dict,
+def _segments_to_dicts(analysis: ChunkAnalysis, origin: str) -> list[dict]:
+    out = []
+    for seg in analysis.segments:
+        if seg.end_s <= seg.start_s:
+            continue
+        verdict = seg.verdict if seg.verdict in ("postar", "revisar", "descartar") else "revisar"
+        out.append({
+            "start_s": float(seg.start_s), "end_s": float(seg.end_s),
+            "params": seg.params.model_dump(), "hook_line": seg.hook_line,
+            "title": seg.title, "hashtags": list(seg.hashtags),
+            "reason": seg.reason, "verdict": verdict,
+            "analysis": seg.analysis.model_dump(), "origin": origin,
+        })
+    return out
+
+
+def _chunk_ladder(client, fallback_model: str | None, chunk: dict,
                   features: Features | None, sentences_fallback_fn, *,
-                  source_video_id: str | None, job_id: str | None) -> list[dict]:
-    """Escada: modelo primário → modelo fallback → heurística local no chunk."""
+                  source_video_id: str | None, job_id: str | None,
+                  origin: str = "claude") -> tuple[list[dict], bool, str | None]:
+    """Escada: modelo primário → modelo fallback → heurística local no chunk.
+
+    Retorna (candidatos, ia_ok, erro): o chamador decide se degradação parcial é
+    aceitável — falha TOTAL de IA nunca pode virar heurística silenciosa."""
+    last_error: str | None = None
     if client is not None:
         prompt = render_chunk_prompt(chunk, features)
         for model in (None, fallback_model):
             try:
                 analysis = client.analyze_chunk(SYSTEM_PROMPT, prompt, model=model,
                                                 source_video_id=source_video_id, job_id=job_id)
-                out = []
-                for seg in analysis.segments:
-                    if seg.end_s <= seg.start_s:
-                        continue
-                    verdict = seg.verdict if seg.verdict in ("postar", "revisar", "descartar") \
-                        else "revisar"
-                    out.append({
-                        "start_s": float(seg.start_s), "end_s": float(seg.end_s),
-                        "params": seg.params.model_dump(), "hook_line": seg.hook_line,
-                        "title": seg.title, "hashtags": list(seg.hashtags),
-                        "reason": seg.reason, "verdict": verdict,
-                        "analysis": seg.analysis.model_dump(), "origin": "claude",
-                    })
-                return out
+                return _segments_to_dicts(analysis, origin), True, None
             except RefusalError as exc:
+                last_error = str(exc)
                 log.warning("Chunk %s–%s: %s", fmt_ts(chunk["start"]), fmt_ts(chunk["end"]), exc)
                 if model == fallback_model or not fallback_model:
                     break
             except Exception as exc:  # rede/parse/rate-limit após retries do SDK
+                last_error = friendly_ai_error(exc)
                 log.warning("Chunk %s–%s falhou no modelo %s: %s",
                             fmt_ts(chunk["start"]), fmt_ts(chunk["end"]), model or "primário", exc)
                 if model == fallback_model or not fallback_model:
                     break
-    return sentences_fallback_fn(chunk)
+    return sentences_fallback_fn(chunk), False, last_error
 
 
 def analyze_semantic(ctx, source_video_id: str, sentences: list[dict], features: Features,
                      duration: float, report, *, min_s: float, max_s: float,
-                     target_count: int) -> list[dict]:
-    """Retorna candidatos brutos de todos os chunks (Claude quando possível, senão heurística)."""
-    api_key = settings_store.get_setting("anthropic_api_key") or ""
-    model = settings_store.get_setting("claude_model") or "claude-opus-5"
-    fallback_model = settings_store.get_setting("claude_fallback_model") or "claude-sonnet-5"
+                     target_count: int, agent: str | None = None) -> tuple[list[dict], dict]:
+    """Analisa todos os chunks com o AGENTE escolhido (claude|gpt|local).
+
+    Retorna (candidatos brutos, meta) com meta = {agent, model, chunks, ia_ok, erro}.
+    IA explicitamente escolhida que falha em TODOS os chunks interrompe o job com
+    o erro real — nunca degrada silenciosamente para a heurística."""
+    from ..services.agents import agent_api_key
+
+    explicit = agent
+    agent = resolve_agent(agent)
+    if explicit is None and agent in ("claude", "gpt") and not agent_api_key(agent):
+        agent = "local"  # job legado sem escolha explícita e sem chave → local honesto
     use_batches = bool(settings_store.get_setting("use_batches"))
 
     chunks = build_chunks(sentences, duration)
+    meta = {"agent": agent, "model": "", "chunks": len(chunks), "ia_ok": 0, "erro": None}
     if not chunks:
-        return []
+        return [], meta
 
     def heuristic_for_chunk(chunk: dict) -> list[dict]:
         per_chunk = max(2, round(target_count * (chunk["end"] - chunk["start"]) / max(duration, 1)))
         return analyze_heuristic(chunk["sentences"], features, per_chunk, min_s, max_s, duration)
 
-    if not api_key:
-        report(0.5, "Sem chave de API — usando análise local (heurística)")
+    if agent == "local":
+        report(0.05, "Análise local (escolhida) — sem IA")
         out: list[dict] = []
         for i, chunk in enumerate(chunks):
             ctx.check_cancel()
             out.extend(heuristic_for_chunk(chunk))
             report((i + 1) / len(chunks), "Análise local…")
-        return out
+        return out, meta
 
-    client = SemanticClient(api_key, model)
-    if use_batches and len(chunks) > 1:
-        return _analyze_batches(ctx, client, fallback_model, chunks, features,
-                                heuristic_for_chunk, source_video_id, report)
+    # claude | gpt: sem chave → erro claro imediato (job falha, usuário vê o motivo)
+    client, fallback_model, model = build_client(agent)
+    meta["model"] = model
+
+    if agent == "claude" and use_batches and len(chunks) > 1:
+        raw, ok_chunks = _analyze_batches(ctx, client, fallback_model, chunks, features,
+                                          heuristic_for_chunk, source_video_id, report)
+        meta["ia_ok"] = ok_chunks
+        if raw and meta["ia_ok"] == 0:
+            raise RuntimeError(
+                f"A análise com {AGENT_LABELS[agent]} (modo econômico) falhou em todos os "
+                f"trechos. Verifique a chave e os créditos em Configurações.")
+        return raw, meta
 
     results: list[list[dict]] = [[] for _ in chunks]
+    ok_flags: list[bool] = [False] * len(chunks)
+    errors: list[str] = []
     done = 0
+    rotulo = AGENT_LABELS[agent]
 
     def work(idx_chunk):
         idx, chunk = idx_chunk
-        return idx, _chunk_ladder(client, fallback_model, chunk, features, heuristic_for_chunk,
-                                  source_video_id=source_video_id, job_id=ctx.job_id)
+        cands, ok, err = _chunk_ladder(client, fallback_model, chunk, features,
+                                       heuristic_for_chunk, source_video_id=source_video_id,
+                                       job_id=ctx.job_id, origin=agent)
+        return idx, cands, ok, err
 
     with ThreadPoolExecutor(max_workers=2) as pool:
-        for idx, res in pool.map(work, enumerate(chunks)):
+        for idx, cands, ok, err in pool.map(work, enumerate(chunks)):
             ctx.check_cancel()
-            results[idx] = res
+            results[idx] = cands
+            ok_flags[idx] = ok
+            if err:
+                errors.append(err)
             done += 1
-            report(done / len(chunks), f"Análise com IA… chunk {done}/{len(chunks)}")
-    return [c for chunk_res in results for c in chunk_res]
+            report(done / len(chunks), f"Análise com {rotulo}… trecho {done}/{len(chunks)}")
+
+    meta["ia_ok"] = sum(ok_flags)
+    meta["erro"] = errors[0] if errors else None
+    if meta["ia_ok"] == 0:
+        raise RuntimeError(
+            f"A análise com {rotulo} falhou em todos os {len(chunks)} trechos e o "
+            f"processamento foi interrompido. Causa: {meta['erro'] or 'desconhecida'}. "
+            f"Use 'Testar' em Configurações para diagnosticar, ou escolha o agente "
+            f"'Análise local' para processar sem IA.")
+    return [c for chunk_res in results for c in chunk_res], meta
 
 
 def _analyze_batches(ctx, client: SemanticClient, fallback_model: str | None, chunks: list[dict],
                      features: Features, heuristic_for_chunk, source_video_id: str,
-                     report) -> list[dict]:
-    """Modo econômico: Message Batches API (−50%), saída estruturada validada manualmente."""
-    schema = ChunkAnalysis.model_json_schema()
+                     report) -> tuple[list[dict], int]:
+    """Modo econômico (só Claude): Message Batches API (−50%), saída validada manualmente.
+
+    Retorna (candidatos, nº de chunks analisados com IA)."""
+    schema = strict_chunk_schema()
     requests = []
     for i, chunk in enumerate(chunks):
         requests.append({
@@ -252,17 +300,9 @@ def _analyze_batches(ctx, client: SemanticClient, fallback_model: str | None, ch
             except Exception:
                 continue
             ok_ids.add(idx)
-            for seg in analysis.segments:
-                if seg.end_s > seg.start_s:
-                    out.append({"start_s": float(seg.start_s), "end_s": float(seg.end_s),
-                                "params": seg.params.model_dump(), "hook_line": seg.hook_line,
-                                "title": seg.title, "hashtags": list(seg.hashtags),
-                                "reason": seg.reason,
-                                "verdict": seg.verdict if seg.verdict in
-                                ("postar", "revisar", "descartar") else "revisar",
-                                "analysis": seg.analysis.model_dump(), "origin": "claude"})
+            out.extend(_segments_to_dicts(analysis, "claude"))
     for i, chunk in enumerate(chunks):  # chunks que falharam no lote caem na heurística
         if i not in ok_ids:
             out.extend(heuristic_for_chunk(chunk))
     report(1.0, "Lote concluído")
-    return out
+    return out, len(ok_ids)

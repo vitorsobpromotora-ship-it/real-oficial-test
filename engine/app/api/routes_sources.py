@@ -10,9 +10,28 @@ from sqlalchemy import func, select
 from ..db.base import session
 from ..db.models import Project, SourceVideo, Transcript, TranscriptSegment, TranscriptWord
 from ..schemas.api import OkOut, SourceCreate, SourceOut
+from ..services.agents import agent_api_key, missing_key_error, resolve_agent
 from .deps import require_token
 
 router = APIRouter(dependencies=[Depends(require_token)])
+
+
+def options_with_agent(options: dict | None, agent: str | None) -> dict:
+    """Valida o agente escolhido (chave presente) e o grava nas options do job.
+
+    Escolha EXPLÍCITA de IA sem chave devolve 422 antes de enfileirar — nunca um
+    job que degrada silenciosamente. Sem escolha explícita, o padrão das
+    Configurações vale; se o padrão é IA mas não há chave, o processamento é
+    honesto: roda como 'local' (e a UI sinaliza a origem heurística)."""
+    opts = dict(options or {})
+    explicit = agent or opts.get("agent")
+    resolved = resolve_agent(explicit)
+    if resolved in ("claude", "gpt") and not agent_api_key(resolved):
+        if explicit:
+            raise HTTPException(422, missing_key_error(resolved))
+        resolved = "local"
+    opts["agent"] = resolved
+    return opts
 
 
 def to_out(v: SourceVideo) -> SourceOut:
@@ -32,6 +51,7 @@ def create_source(project_id: str, body: SourceCreate, request: Request):
             raise HTTPException(422, "origin=file exige o campo file_path")
         if not Path(body.file_path).exists():
             raise HTTPException(422, f"Arquivo não encontrado: {body.file_path}")
+    opts = options_with_agent(body.options, body.agent) if body.auto_process else dict(body.options)
     with session() as s:
         if s.get(Project, project_id) is None:
             raise HTTPException(404, "Projeto não encontrado")
@@ -46,7 +66,7 @@ def create_source(project_id: str, body: SourceCreate, request: Request):
     job_id = None
     if body.auto_process:
         job_id = request.app.state.runner.submit(
-            "process_source", {"source_video_id": source_id, "options": body.options},
+            "process_source", {"source_video_id": source_id, "options": opts},
             project_id=project_id, source_video_id=source_id)
     return {"source": out.model_dump(), "job_id": job_id}
 
@@ -109,7 +129,9 @@ def process_source(source_id: str, request: Request, body: dict | None = None):
         if v is None:
             raise HTTPException(404, "Fonte não encontrada")
         project_id = v.project_id
+    body = body or {}
+    opts = options_with_agent(body.get("options", {}), body.get("agent"))
     job_id = request.app.state.runner.submit(
-        "process_source", {"source_video_id": source_id, "options": (body or {}).get("options", {})},
+        "process_source", {"source_video_id": source_id, "options": opts},
         project_id=project_id, source_video_id=source_id)
     return {"job_id": job_id}

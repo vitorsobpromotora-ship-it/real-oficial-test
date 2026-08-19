@@ -39,11 +39,11 @@ def test_pipeline_completo_ate_mp4(client, auth, monkeypatch):
     monkeypatch.setattr("app.pipeline.transcribe.get_model", lambda size: _FakeWhisper())
     monkeypatch.setattr(
         "app.pipeline.analyze.analyze_semantic",
-        lambda ctx, sid, sentences, features, duration, report, **kw: [
+        lambda ctx, sid, sentences, features, duration, report, **kw: ([
             _raw(2.0, 20.0, 8.0, "Primeiro corte"),
             _raw(30.0, 48.0, 7.0, "Segundo corte"),
             _raw(60.0, 80.0, 6.0, "Terceiro corte"),
-        ])
+        ], {"agent": "local", "model": "", "chunks": 1, "ia_ok": 0, "erro": None}))
 
     pid = client.post("/api/v1/projects", json={"name": "E2E"}, headers=auth).json()["id"]
     r = client.post(f"/api/v1/projects/{pid}/sources",

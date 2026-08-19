@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { get, post } from "../api/client";
-import type { BrandKit, Cut, Job, Project, Source } from "../api/types";
+import type { BrandKit, Cut, Job, Project, Settings, Source } from "../api/types";
 import CutCard from "../components/CutCard";
 import CutReviewModal from "../components/CutReviewModal";
 import ImportDialog from "../components/ImportDialog";
@@ -39,6 +39,28 @@ export default function ProjectPage() {
     queryKey: ["jobs", "projeto", id],
     queryFn: () => get<Job[]>(`/api/v1/jobs?limit=10`),
     refetchInterval: 4000,
+  });
+  const settings = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => get<Settings>("/api/v1/settings"),
+  });
+
+  const reprocessar = useMutation({
+    mutationFn: (agente: "claude" | "gpt") => {
+      const fonte = (sources.data ?? []).find((s) => s.status === "ready");
+      if (!fonte) throw new Error("Nenhum vídeo pronto para reprocessar");
+      return post(`/api/v1/sources/${fonte.id}/process`,
+        { agent: agente, options: { force_analyze: true } });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["jobs"] });
+      setToast("Reprocessando com IA — acompanhe o progresso acima.");
+      setTimeout(() => setToast(""), 3500);
+    },
+    onError: (e: Error) => {
+      setToast(e.message);
+      setTimeout(() => setToast(""), 6000);
+    },
   });
 
   const bulk = useMutation({
@@ -103,10 +125,24 @@ export default function ProjectPage() {
        (cuts.data ?? []).filter((c) => c.origin === "heuristic").length >
          (cuts.data ?? []).length / 2 ? (
         <div className="banner">
-          ⚠️ Estes cortes foram gerados pela <b>análise local</b> (picos de áudio, sem IA) — o
-          score e a análise ficam genéricos de propósito. Configure sua chave da Anthropic em{" "}
-          <a href="#/config">Configurações</a> e reprocesse o vídeo para ter veredito e análise
-          editorial detalhada de cada corte.
+          <div>
+            ⚠️ Estes cortes foram gerados pela <b>análise local</b> (picos de áudio, sem IA) — o
+            score e a análise ficam genéricos de propósito. Configure uma chave (Claude ou GPT) em{" "}
+            <a href="#/config">Configurações</a> e reprocesse para ter veredito e análise
+            editorial de cada corte.
+          </div>
+          <div className="row" style={{ marginTop: 8 }}>
+            <button disabled={!settings.data?.has_anthropic_api_key || reprocessar.isPending}
+                    title={settings.data?.has_anthropic_api_key ? "" : "Configure a chave Anthropic primeiro"}
+                    onClick={() => reprocessar.mutate("claude")}>
+              Reprocessar com Claude
+            </button>
+            <button disabled={!settings.data?.has_openai_api_key || reprocessar.isPending}
+                    title={settings.data?.has_openai_api_key ? "" : "Configure a chave OpenAI primeiro"}
+                    onClick={() => reprocessar.mutate("gpt")}>
+              Reprocessar com GPT
+            </button>
+          </div>
         </div>
       ) : null}
 

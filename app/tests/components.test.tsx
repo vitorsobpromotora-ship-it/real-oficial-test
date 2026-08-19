@@ -37,7 +37,7 @@ describe("CutCard", () => {
     expect(screen.getByText("O segredo revelado")).toBeInTheDocument();
     expect(screen.getByText("83")).toBeInTheDocument();
     expect(screen.getByText("rascunho")).toBeInTheDocument();
-    expect(screen.getByText("análise IA")).toBeInTheDocument();
+    expect(screen.getByText("IA Claude")).toBeInTheDocument();
     expect(screen.getByText("reenquadrado")).toBeInTheDocument();
   });
 });

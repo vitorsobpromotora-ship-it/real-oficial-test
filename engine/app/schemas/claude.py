@@ -87,3 +87,29 @@ class ChunkAnalysis(BaseModel):
     """Resultado da análise de um chunk de transcrição."""
 
     segments: list[CandidateSegment] = Field(default_factory=list)
+
+
+def _strictify(node: dict) -> None:
+    """Modo estrito de saída estruturada: todo objeto fecha propriedades extras e
+    exige todas as chaves (os provedores então garantem o shape exato)."""
+    if not isinstance(node, dict):
+        return
+    if node.get("type") == "object" and "properties" in node:
+        node["additionalProperties"] = False
+        node["required"] = list(node["properties"].keys())
+        for prop in node["properties"].values():
+            _strictify(prop)
+    if "items" in node:
+        _strictify(node["items"])
+    for sub in node.get("$defs", {}).values():
+        _strictify(sub)
+    for sub in node.get("anyOf", []) or []:
+        _strictify(sub)
+
+
+def strict_chunk_schema() -> dict:
+    """JSON Schema estrito de ChunkAnalysis — usado no output_config (Claude),
+    no response_format (OpenAI) e no modo Batches."""
+    schema = ChunkAnalysis.model_json_schema()
+    _strictify(schema)
+    return schema

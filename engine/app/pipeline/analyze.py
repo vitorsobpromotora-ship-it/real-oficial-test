@@ -63,13 +63,30 @@ def stage_analyze(ctx, source_id: str, report) -> None:
                 or settings_store.get_setting("max_cuts_per_30min") or 15)
     target = max(3, min(60, round(duration / 60.0 / 30.0 * per30))) if duration else 10
 
-    raw = analyze_semantic(ctx, source_id, sentences, features, duration,
-                           lambda f, m="": report(0.25 + f * 0.6, m or "Análise semântica…"),
-                           min_s=min_s, max_s=max_s, target_count=target)
+    raw, meta = analyze_semantic(ctx, source_id, sentences, features, duration,
+                                 lambda f, m="": report(0.25 + f * 0.6, m or "Análise semântica…"),
+                                 min_s=min_s, max_s=max_s, target_count=target,
+                                 agent=opts.get("agent"))
 
     report(0.87, "Consolidando candidatos…")
     final, stats = cand.finalize_candidates(raw, sentences, features, min_s=min_s, max_s=max_s,
                                             duration=duration, target_count=target)
     n = cand.persist_candidates(source_id, project_id, final)
     report(1.0, f"{n} cortes sugeridos (alvo {stats['alvo']}; {stats['brutos']} candidatos "
-                f"brutos, {stats['apos_dedup']} após remover sobreposições)")
+                f"brutos, {stats['apos_dedup']} após remover sobreposições){_ai_note(meta)}")
+
+
+def _ai_note(meta: dict) -> str:
+    """Sufixo honesto sobre o uso de IA na mensagem final do job."""
+    agent, chunks, ok = meta.get("agent"), meta.get("chunks", 0), meta.get("ia_ok", 0)
+    if agent == "local":
+        return " · análise local (sem IA, escolhida)"
+    if not chunks:
+        return ""
+    rotulo = {"claude": "Claude", "gpt": "GPT"}.get(agent, agent)
+    modelo = f" {meta['model']}" if meta.get("model") else ""
+    if ok >= chunks:
+        return f" · IA {rotulo}{modelo} em {ok}/{chunks} trechos"
+    causa = f" — último erro: {meta['erro']}" if meta.get("erro") else ""
+    return (f" · ATENÇÃO: IA {rotulo}{modelo} funcionou em só {ok}/{chunks} trechos; "
+            f"o restante usou análise local{causa}")

@@ -58,8 +58,8 @@ export default function CutCard({ cut, selected, onToggle, onOpen }: Props) {
         <span className={`chip ${cut.status}`}>
           {cut.status === "approved" ? "aprovado" : cut.status === "rejected" ? "rejeitado" : "rascunho"}
         </span>
-        <span className={`chip ${cut.origin === "claude" ? "claude" : ""}`}>
-          {cut.origin === "claude" ? "análise IA" : "análise local"}
+        <span className={`chip ${cut.origin !== "heuristic" ? "claude" : ""}`}>
+          {cut.origin === "claude" ? "IA Claude" : cut.origin === "gpt" ? "IA GPT" : "análise local"}
         </span>
         {cut.crop_plan ? (
           <span className="chip">

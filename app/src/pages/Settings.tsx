@@ -1,20 +1,30 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { get, post, api } from "../api/client";
-import type { Settings } from "../api/types";
+import { api, get, post } from "../api/client";
+import type { Agent, Settings } from "../api/types";
 
 const CUSTO_POR_HORA: Record<string, string> = {
   "claude-opus-5": "≈ US$ 0,30–0,60 por hora de vídeo (máxima qualidade)",
   "claude-sonnet-5": "≈ US$ 0,15–0,35 por hora de vídeo (equilíbrio)",
   "claude-haiku-4-5": "≈ US$ 0,05–0,10 por hora de vídeo (econômico)",
+  "gpt-5.1": "≈ US$ 0,10–0,25 por hora de vídeo",
+  "gpt-5-mini": "≈ US$ 0,02–0,06 por hora de vídeo (econômico)",
 };
+
+const AGENTES: { id: Agent; nome: string; desc: string }[] = [
+  { id: "claude", nome: "Claude (Anthropic)", desc: "análise editorial padrão" },
+  { id: "gpt", nome: "GPT (OpenAI)", desc: "análise editorial padrão" },
+  { id: "local", nome: "Análise local", desc: "sem IA, sem custo" },
+];
 
 export default function SettingsPage() {
   const qc = useQueryClient();
   const settings = useQuery({ queryKey: ["settings"], queryFn: () => get<Settings>("/api/v1/settings") });
-  const [apiKey, setApiKey] = useState("");
+  const [anthropicKey, setAnthropicKey] = useState("");
+  const [openaiKey, setOpenaiKey] = useState("");
   const [form, setForm] = useState<Partial<Settings>>({});
-  const [testeMsg, setTesteMsg] = useState("");
+  const [testeClaude, setTesteClaude] = useState("");
+  const [testeGpt, setTesteGpt] = useState("");
   const [salvoMsg, setSalvoMsg] = useState("");
 
   useEffect(() => {
@@ -26,7 +36,8 @@ export default function SettingsPage() {
       api<Settings>("/api/v1/settings", { method: "PUT", body: JSON.stringify(body) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["settings"] });
-      setApiKey("");
+      setAnthropicKey("");
+      setOpenaiKey("");
       setSalvoMsg("Configurações salvas.");
       setTimeout(() => setSalvoMsg(""), 2500);
     },
@@ -37,18 +48,23 @@ export default function SettingsPage() {
   });
 
   const testar = useMutation({
-    mutationFn: () => post<{ ok: boolean; detail: string }>("/api/v1/settings/test-anthropic",
-      apiKey ? { api_key: apiKey } : {}),
-    onSuccess: (r) => {
-      if (r.ok && apiKey.trim()) {
-        // Teste passou com uma chave digitada → já persiste (fluxo à prova de esquecimento).
-        salvar.mutate({ anthropic_api_key: apiKey.trim() });
-        setTesteMsg(`✓ ${r.detail} — chave salva.`);
+    mutationFn: (p: { provider: "claude" | "gpt"; key: string }) =>
+      post<{ ok: boolean; detail: string }>("/api/v1/settings/test-ai",
+        p.key ? { provider: p.provider, api_key: p.key } : { provider: p.provider }),
+    onSuccess: (r, p) => {
+      const setMsg = p.provider === "claude" ? setTesteClaude : setTesteGpt;
+      if (r.ok && p.key.trim()) {
+        // Teste passou com uma chave digitada → já persiste (à prova de esquecimento).
+        salvar.mutate(p.provider === "claude"
+          ? { anthropic_api_key: p.key.trim() }
+          : { openai_api_key: p.key.trim() });
+        setMsg(`✓ ${r.detail} — chave salva.`);
       } else {
-        setTesteMsg(r.ok ? `✓ ${r.detail}` : `✗ ${r.detail}`);
+        setMsg(r.ok ? `✓ ${r.detail}` : `✗ ${r.detail}`);
       }
     },
-    onError: (e: Error) => setTesteMsg(`✗ ${e.message}`),
+    onError: (e: Error, p) =>
+      (p.provider === "claude" ? setTesteClaude : setTesteGpt)(`✗ ${e.message}`),
   });
 
   function set<K extends keyof Settings>(k: K, v: Settings[K]) {
@@ -57,8 +73,11 @@ export default function SettingsPage() {
 
   function submit() {
     const body: Record<string, unknown> = {
+      default_agent: form.default_agent,
       claude_model: form.claude_model,
       claude_fallback_model: form.claude_fallback_model ?? "claude-sonnet-5",
+      openai_model: form.openai_model ?? "gpt-5.1",
+      openai_fallback_model: form.openai_fallback_model ?? "",
       whisper_model: form.whisper_model,
       output_dir: form.output_dir ?? "",
       use_batches: form.use_batches,
@@ -67,7 +86,8 @@ export default function SettingsPage() {
       censor_mode: form.censor_mode,
       censor_extra_words: form.censor_extra_words,
     };
-    if (apiKey.trim()) body.anthropic_api_key = apiKey.trim();
+    if (anthropicKey.trim()) body.anthropic_api_key = anthropicKey.trim();
+    if (openaiKey.trim()) body.openai_api_key = openaiKey.trim();
     salvar.mutate(body);
   }
 
@@ -75,25 +95,44 @@ export default function SettingsPage() {
   const s = settings.data;
 
   return (
-    <div style={{ maxWidth: 760 }}>
+    <div style={{ maxWidth: 780 }}>
       <div className="pagehead"><h1>Configurações</h1></div>
 
       <div className="card">
-        <h3>Inteligência artificial (análise semântica)</h3>
-        <label>Chave da API Anthropic {s.has_anthropic_api_key
-          ? `(configurada: ${s.anthropic_api_key_masked})` : "(não configurada — análise local ativa)"}</label>
+        <h3>Agente de IA padrão</h3>
+        <div className="sub">Quem analisa e escolhe os cortes quando você não escolher na
+        importação. A escolha também aparece a cada processamento.</div>
+        <div className="agent-picker" style={{ marginTop: 10 }}>
+          {AGENTES.map((a) => (
+            <button key={a.id}
+                    className={`agent-opt${(form.default_agent ?? "claude") === a.id ? " on" : ""}`}
+                    onClick={() => set("default_agent", a.id)}>
+              <b>{a.nome}</b>
+              <span>{a.desc}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 14 }}>
+        <h3>Claude (Anthropic)</h3>
+        <label>Chave da API {s.has_anthropic_api_key
+          ? `(configurada: ${s.anthropic_api_key_masked})` : "(não configurada)"}</label>
         <div className="row">
           <input type="password"
                  placeholder={s.has_anthropic_api_key
                    ? `chave salva (${s.anthropic_api_key_masked}) — cole aqui para substituir`
                    : "sk-ant-…"}
-                 value={apiKey}
-                 onChange={(e) => setApiKey(e.target.value)} />
-          <button onClick={() => testar.mutate()} disabled={testar.isPending}>
+                 value={anthropicKey}
+                 onChange={(e) => setAnthropicKey(e.target.value)} />
+          <button onClick={() => testar.mutate({ provider: "claude", key: anthropicKey })}
+                  disabled={testar.isPending}>
             {testar.isPending ? "Testando…" : "Testar"}
           </button>
         </div>
-        {testeMsg ? <div className="sub" style={{ marginTop: 6 }}>{testeMsg}</div> : null}
+        <div className="sub" style={{ marginTop: 6 }}>
+          {testeClaude || "O teste usa o MESMO caminho da análise real (streaming + saída estruturada)."}
+        </div>
         <div className="row" style={{ gap: 16 }}>
           <div style={{ flex: 1 }}>
             <label>Modelo principal</label>
@@ -119,8 +158,52 @@ export default function SettingsPage() {
           <input type="checkbox" checked={!!form.use_batches}
                  onChange={(e) => set("use_batches", e.target.checked)}
                  style={{ width: 16, marginRight: 8 }} />
-          Análise econômica (Batches, −50% de custo; resultado pode demorar mais)
+          Análise econômica (Batches, −50% de custo; exclusiva do Claude; pode demorar mais)
         </label>
+      </div>
+
+      <div className="card" style={{ marginTop: 14 }}>
+        <h3>GPT (OpenAI)</h3>
+        <label>Chave da API {s.has_openai_api_key
+          ? `(configurada: ${s.openai_api_key_masked})` : "(não configurada)"}</label>
+        <div className="row">
+          <input type="password"
+                 placeholder={s.has_openai_api_key
+                   ? `chave salva (${s.openai_api_key_masked}) — cole aqui para substituir`
+                   : "sk-proj-…"}
+                 value={openaiKey}
+                 onChange={(e) => setOpenaiKey(e.target.value)} />
+          <button onClick={() => testar.mutate({ provider: "gpt", key: openaiKey })}
+                  disabled={testar.isPending}>
+            {testar.isPending ? "Testando…" : "Testar"}
+          </button>
+        </div>
+        <div className="sub" style={{ marginTop: 6 }}>
+          {testeGpt || "O teste usa o MESMO caminho da análise real (saída estruturada estrita)."}
+        </div>
+        <div className="row" style={{ gap: 16 }}>
+          <div style={{ flex: 1 }}>
+            <label>Modelo principal</label>
+            <input list="modelos-gpt" value={form.openai_model ?? ""}
+                   placeholder="gpt-5.1"
+                   onChange={(e) => set("openai_model", e.target.value)} />
+            <datalist id="modelos-gpt">
+              <option value="gpt-5.1" />
+              <option value="gpt-5" />
+              <option value="gpt-5-mini" />
+              <option value="gpt-4.1" />
+            </datalist>
+            <div className="sub" style={{ marginTop: 4 }}>
+              {CUSTO_POR_HORA[form.openai_model ?? ""] ?? "Digite qualquer modelo da sua conta OpenAI."}
+            </div>
+          </div>
+          <div style={{ flex: 1 }}>
+            <label>Modelo de contingência (opcional)</label>
+            <input list="modelos-gpt" value={form.openai_fallback_model ?? ""}
+                   placeholder="(nenhum)"
+                   onChange={(e) => set("openai_fallback_model", e.target.value)} />
+          </div>
+        </div>
       </div>
 
       <div className="card" style={{ marginTop: 14 }}>

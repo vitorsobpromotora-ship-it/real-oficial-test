@@ -36,6 +36,8 @@ modelo de transcrição (1º uso) e usar a análise com IA.
 2. Dentro do projeto → **+ Importar vídeo**:
    - **Por URL**: cole o link do YouTube, Google Drive ou `.mp4` direto; ou
    - **Arquivo local**: escolha um `.mp4/.mov/.mkv/.webm`;
+   - Escolha **quem analisa os cortes** deste vídeo: Claude, GPT ou Análise local
+     (ver seção 3 — opções sem chave configurada aparecem desabilitadas);
 3. O pipeline roda sozinho: *Importando → Transcrevendo → Analisando com IA → Enquadrando*.
    Na **primeira transcrição**, o modelo Whisper é baixado (small ≈ 480 MB) — acompanhe a barra;
 4. Ao terminar, a galeria mostra os **cortes ordenados por score (0–100)**, cada um com o
@@ -52,26 +54,40 @@ modelo de transcrição (1º uso) e usar a análise com IA.
 > Dica: preencha **“Sua avaliação do ranking”** (1 = melhor na sua opinião) em alguns cortes —
 > isso alimenta a métrica de *qualidade do score* nos Relatórios.
 
-## 3. Configurando a análise com IA (Claude)
+## 3. Agentes de IA (Claude e GPT)
 
-Sem chave de API o app funciona em **modo local** (heurística de áudio + léxicos) — bom para testar,
-mas a seleção editorial é mais fraca. Para a análise completa:
+A cada importação o app **pergunta qual agente analisa aquele vídeo**: **Claude (Anthropic)**,
+**GPT (OpenAI)** ou **Análise local** (sem IA). O padrão fica em **Configurações → Agente de IA
+padrão**. Regras de honestidade da v1.2.0:
 
-1. Crie uma chave em **console.anthropic.com** → *API Keys* (formato `sk-ant-…`) e adicione créditos;
-2. No app: **Configurações → Inteligência artificial** → cole a chave → **Testar** → *Salvar*;
-3. Escolha o **modelo principal**:
+- Escolher Claude/GPT **sem chave configurada** é bloqueado na hora, com instrução clara (nada
+  de processar "fingindo" IA);
+- Se a IA escolhida falhar em TODOS os trechos, o processamento **falha com o motivo real**
+  (chave inválida, sem créditos, firewall/TLS, modelo indisponível) em vez de entregar cortes
+  genéricos em silêncio;
+- A mensagem final de cada processamento informa em quantos trechos a IA de fato rodou
+  (ex.: *"IA Claude claude-opus-5 em 4/4 trechos"*), e cada corte exibe a origem
+  (IA Claude / IA GPT / análise local).
 
-   | Modelo | Custo aproximado* | Quando usar |
-   |---|---|---|
-   | **Claude Opus 5** (padrão) | ≈ US$ 0,30–0,60 / hora de vídeo | máxima qualidade editorial |
-   | Claude Sonnet 5 | ≈ US$ 0,15–0,35 / hora de vídeo | equilíbrio custo × qualidade |
-   | Claude Haiku 4.5 | ≈ US$ 0,05–0,10 / hora de vídeo | grandes volumes, triagem |
+**Claude (Anthropic)** — chave em console.anthropic.com (formato `sk-ant-…`):
 
-   *Estimativa por hora de fala; inclui o cache de prompt que o app usa automaticamente.
-4. **Modelo de contingência**: usado automaticamente se o principal falhar num trecho
-   (depois dele, cai na análise local — o processamento nunca trava por causa da IA);
-5. **Análise econômica (Batches, −50%)**: liga o modo em lote da API — ideal para processar
-   madrugada adentro; o resultado pode demorar mais para chegar.
+| Modelo | Custo aproximado* | Quando usar |
+|---|---|---|
+| **Claude Opus 5** (padrão) | ≈ US$ 0,30–0,60 / hora de vídeo | máxima qualidade editorial |
+| Claude Sonnet 5 | ≈ US$ 0,15–0,35 / hora de vídeo | equilíbrio custo × qualidade |
+| Claude Haiku 4.5 | ≈ US$ 0,05–0,10 / hora de vídeo | grandes volumes, triagem |
+
+**GPT (OpenAI)** — chave em platform.openai.com (formato `sk-proj-…`); modelo padrão `gpt-5.1`
+(campo aceita qualquer modelo da sua conta) e contingência opcional.
+
+*Estimativa por hora de fala; inclui o cache de prompt (Claude) usado automaticamente.
+
+O botão **Testar** de cada provedor percorre o **mesmo caminho da análise real** (streaming +
+saída estruturada) — se ele passa, o processamento com IA funciona; se falha, a mensagem já
+diz o motivo em português. Testar com uma chave digitada e válida também **salva a chave**.
+
+**Análise econômica (Batches, −50%)**: exclusiva do Claude — processa em lote (ideal de
+madrugada; o resultado pode demorar mais).
 
 ## 4. Transcrição e quantidade de cortes
 
@@ -158,7 +174,8 @@ e tempo por estágio. Use “Abrir no navegador” para salvar/imprimir o HTML.
 | SmartScreen bloqueia o instalador | “Mais informações → Executar assim mesmo” (binário sem assinatura) |
 | Antivírus acusa o motor | Falso positivo comum com PyInstaller — adicione exceção para a pasta do app |
 | Download do Whisper falha | Verifique a internet/proxy; o download é retomável — processe de novo |
-| “Teste” da chave Anthropic falha | Confira a chave/créditos em console.anthropic.com; firewall corporativo? |
+| “Testar” do provedor de IA falha | A mensagem já diz a causa (chave inválida, sem créditos, TLS/firewall, modelo indisponível) — o teste usa o mesmo caminho da análise real |
+| Processamento falhou com “A análise com … falhou em todos os trechos” | Comportamento correto da v1.2.0: a IA escolhida não funcionou e o motivo está na mensagem; corrija em Configurações (botão Testar) ou processe com “Análise local” |
 | Importação por URL falha | Vídeo privado/restrito não é acessível; tente o arquivo local |
 | Render falhou | Abra a Fila → mensagem de erro; espaço em disco baixo é a causa mais comum |
 | Rosto errado em foco no 9:16 | No modal do corte, troque o **Enquadramento** (esquerda/direita/centro/desfocado) e atualize a prévia |

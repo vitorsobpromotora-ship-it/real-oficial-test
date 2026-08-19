@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 APP_NAME = "real-oficial"
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 API_PREFIX = "/api/v1"
 
 if getattr(sys, "frozen", False):  # binário PyInstaller: assets ficam em _MEIPASS
@@ -18,9 +18,13 @@ ASSETS_DIR = ENGINE_ROOT / "assets"
 
 # Chaves persistidas na tabela settings e seus valores iniciais.
 DEFAULT_SETTINGS: dict = {
+    "default_agent": "claude",  # claude | gpt | local — agente padrão dos processamentos
     "anthropic_api_key": "",
     "claude_model": "claude-opus-5",
     "claude_fallback_model": "claude-sonnet-5",
+    "openai_api_key": "",
+    "openai_model": "gpt-5.1",
+    "openai_fallback_model": "",  # vazio → sem contingência no GPT
     "whisper_model": "small",
     "output_dir": "",  # vazio → <data_dir>/renders
     "use_batches": False,

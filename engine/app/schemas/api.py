@@ -32,6 +32,7 @@ class SourceCreate(BaseModel):
     url: str | None = None
     file_path: str | None = None
     auto_process: bool = True
+    agent: Literal["claude", "gpt", "local"] | None = None  # agente de IA deste processamento
     options: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -71,8 +72,11 @@ class JobOut(BaseModel):
 
 
 class SettingsOut(BaseModel):
+    default_agent: str
     claude_model: str
     claude_fallback_model: str
+    openai_model: str
+    openai_fallback_model: str
     whisper_model: str
     output_dir: str
     use_batches: bool
@@ -85,15 +89,21 @@ class SettingsOut(BaseModel):
     ui_language: str
     has_anthropic_api_key: bool
     anthropic_api_key_masked: str
+    has_openai_api_key: bool
+    openai_api_key_masked: str
     api_token: str
     data_dir: str
     version: str
 
 
 class SettingsUpdate(BaseModel):
+    default_agent: Literal["claude", "gpt", "local"] | None = None
     anthropic_api_key: str | None = None
     claude_model: str | None = None
     claude_fallback_model: str | None = None
+    openai_api_key: str | None = None
+    openai_model: str | None = None
+    openai_fallback_model: str | None = None
     whisper_model: str | None = None
     output_dir: str | None = None
     use_batches: bool | None = None
@@ -197,6 +207,11 @@ class RenderBatchOut(BaseModel):
 
 class TestAnthropicIn(BaseModel):
     api_key: str | None = None  # se ausente, usa a chave salva
+
+
+class TestAIIn(BaseModel):
+    provider: Literal["claude", "gpt"] = "claude"
+    api_key: str | None = None  # se ausente, usa a chave salva do provedor
 
 
 class OkOut(BaseModel):

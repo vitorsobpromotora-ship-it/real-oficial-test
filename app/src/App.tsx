@@ -8,6 +8,45 @@ import RenderQueue from "./pages/RenderQueue";
 import Reports from "./pages/Reports";
 import SettingsPage from "./pages/Settings";
 
+const I = {
+  painel: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" />
+      <rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" />
+    </svg>
+  ),
+  kits: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="13.5" cy="6.5" r="2.5" /><path d="M12 2a10 10 0 1 0 10 10c0-1.5-1.5-2-2.5-2H16a2 2 0 0 1-2-2V6" />
+    </svg>
+  ),
+  fila: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="6 3 20 12 6 21 6 3" />
+    </svg>
+  ),
+  relatorios: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 3v18h18" /><rect x="7" y="11" width="3" height="6" rx=".8" />
+      <rect x="12" y="7" width="3" height="10" rx=".8" /><rect x="17" y="13" width="3" height="4" rx=".8" />
+    </svg>
+  ),
+  config: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  ),
+};
+
+const LINKS = [
+  { to: "/", end: true, icone: I.painel, rotulo: "Painel" },
+  { to: "/kits", icone: I.kits, rotulo: "Kits de Marca" },
+  { to: "/fila", icone: I.fila, rotulo: "Fila de Renderização" },
+  { to: "/relatorios", icone: I.relatorios, rotulo: "Relatórios" },
+  { to: "/config", icone: I.config, rotulo: "Configurações" },
+];
+
 export default function App() {
   const health = useQuery({
     queryKey: ["health"],
@@ -19,21 +58,13 @@ export default function App() {
     <div className="layout">
       <nav className="sidebar">
         <div className="logo">real<b>/oficial</b></div>
-        <NavLink to="/" end className={({ isActive }) => `navlink${isActive ? " active" : ""}`}>
-          Painel
-        </NavLink>
-        <NavLink to="/kits" className={({ isActive }) => `navlink${isActive ? " active" : ""}`}>
-          Kits de Marca
-        </NavLink>
-        <NavLink to="/fila" className={({ isActive }) => `navlink${isActive ? " active" : ""}`}>
-          Fila de Renderização
-        </NavLink>
-        <NavLink to="/relatorios" className={({ isActive }) => `navlink${isActive ? " active" : ""}`}>
-          Relatórios
-        </NavLink>
-        <NavLink to="/config" className={({ isActive }) => `navlink${isActive ? " active" : ""}`}>
-          Configurações
-        </NavLink>
+        {LINKS.map((l) => (
+          <NavLink key={l.to} to={l.to} end={l.end}
+                   className={({ isActive }) => `navlink${isActive ? " active" : ""}`}>
+            {l.icone}
+            {l.rotulo}
+          </NavLink>
+        ))}
         <div className="spacer" />
         <div className="enginedot">
           <i style={{ background: health.isSuccess ? "var(--ok)" : "var(--bad)" }} />

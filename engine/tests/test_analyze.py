@@ -66,9 +66,39 @@ def test_request_kwargs_formato_atual_da_api():
     assert kwargs["model"] == "claude-opus-5"
     assert kwargs["thinking"] == {"type": "adaptive"}
     assert kwargs["system"][0]["cache_control"] == {"type": "ephemeral"}
-    assert kwargs["output_format"] is ChunkAnalysis
-    assert kwargs["max_tokens"] == 16000
+    fmt = kwargs["output_config"]["format"]
+    assert fmt["type"] == "json_schema"
+    assert fmt["schema"]["additionalProperties"] is False
+    assert kwargs["max_tokens"] == 24000
     assert "budget_tokens" not in str(kwargs)
+
+
+def test_schema_estrito_para_saida_estruturada():
+    from app.schemas.claude import strict_chunk_schema
+
+    schema = strict_chunk_schema()
+    assert schema["additionalProperties"] is False
+    assert schema["required"] == ["segments"]
+    seg = schema["$defs"]["CandidateSegment"]
+    assert seg["additionalProperties"] is False
+    assert set(seg["required"]) == set(seg["properties"].keys())
+    params = schema["$defs"]["Params"]
+    assert set(params["required"]) == set(PARAM_KEYS)
+
+
+def test_openai_request_body_formato_atual():
+    from app.services.openai_client import OpenAIClient
+
+    client = OpenAIClient(api_key="sk-teste", model="gpt-5.1")
+    body = client.request_body("SYSTEM", "USER")
+    assert body["model"] == "gpt-5.1"
+    assert body["max_completion_tokens"] == 24000
+    assert "max_tokens" not in body and "temperature" not in body
+    rf = body["response_format"]
+    assert rf["type"] == "json_schema"
+    assert rf["json_schema"]["strict"] is True
+    assert rf["json_schema"]["schema"]["additionalProperties"] is False
+    assert body["messages"][0]["role"] == "system"
 
 
 def test_custo_computado():
@@ -103,19 +133,29 @@ def _chunk_exemplo():
 
 def test_escada_fallback_para_modelo_secundario():
     fake = _FakeClient(fail_primary=True, fail_fallback=False)
-    out = semantic._chunk_ladder(fake, "claude-sonnet-5", _chunk_exemplo(), None,
-                                 lambda c: [{"origin": "heuristic"}],
-                                 source_video_id=None, job_id=None)
+    out, ok, err = semantic._chunk_ladder(fake, "claude-sonnet-5", _chunk_exemplo(), None,
+                                          lambda c: [{"origin": "heuristic"}],
+                                          source_video_id=None, job_id=None)
     assert fake.calls == [None, "claude-sonnet-5"]
+    assert ok is True and err is None
     assert out and out[0]["origin"] == "claude"
 
 
-def test_escada_cai_na_heuristica():
+def test_escada_cai_na_heuristica_com_erro_registrado():
     fake = _FakeClient(fail_primary=True, fail_fallback=True)
-    out = semantic._chunk_ladder(fake, "claude-sonnet-5", _chunk_exemplo(), None,
-                                 lambda c: [{"origin": "heuristic", "marcador": True}],
-                                 source_video_id=None, job_id=None)
+    out, ok, err = semantic._chunk_ladder(fake, "claude-sonnet-5", _chunk_exemplo(), None,
+                                          lambda c: [{"origin": "heuristic", "marcador": True}],
+                                          source_video_id=None, job_id=None)
     assert out == [{"origin": "heuristic", "marcador": True}]
+    assert ok is False and err, "a queda para heurística deve carregar o motivo"
+
+
+def test_origem_gpt_marcada_no_candidato():
+    fake = _FakeClient(fail_primary=False)
+    out, ok, _ = semantic._chunk_ladder(fake, None, _chunk_exemplo(), None,
+                                        lambda c: [], source_video_id=None, job_id=None,
+                                        origin="gpt")
+    assert ok and out[0]["origin"] == "gpt"
 
 
 def test_snap_dedup_diversify():
@@ -162,11 +202,12 @@ def test_stage_analyze_via_api(client, auth, monkeypatch):
     monkeypatch.setattr("app.pipeline.transcribe.get_model", lambda size: _FakeWhisper())
     monkeypatch.setattr(
         "app.pipeline.analyze.analyze_semantic",
-        lambda ctx, sid, sentences, features, duration, report, **kw: [
+        lambda ctx, sid, sentences, features, duration, report, **kw: ([
             _raw(0, 16, 8.0, "Melhor corte"),
             _raw(1, 17, 6.0, "Duplicado"),
             _raw(14, 29.5, 7.0, "Segundo corte"),
-        ])
+        ], {"agent": kw.get("agent") or "local", "model": "", "chunks": 1, "ia_ok": 1,
+            "erro": None}))
 
     pid = client.post("/api/v1/projects", json={"name": "Fase C"}, headers=auth).json()["id"]
     r = client.post(f"/api/v1/projects/{pid}/sources",
@@ -198,3 +239,92 @@ def test_stage_analyze_via_api(client, auth, monkeypatch):
     assert r.json()["ok"] is True
     cuts2 = client.get(f"/api/v1/projects/{pid}/cuts", headers=auth).json()
     assert all(c["caption_style"] == {"preset": "bold_karaoke"} for c in cuts2)
+
+
+class _CtxFake:
+    job_id = "job-teste"
+    payload: dict = {"options": {}}
+
+    def check_cancel(self):
+        return None
+
+
+def _sentencas_60s():
+    return [{"start_s": i * 5.0, "end_s": (i + 1) * 5.0, "text": f"Frase {i} de teste."}
+            for i in range(12)]
+
+
+def _features_60s():
+    from app.pipeline.audio_features import Features
+
+    return Features(hop=1.0, times=np.arange(60), rms=np.zeros(60),
+                    peak_curve=np.full(60, 0.5))
+
+
+def test_agente_ia_falha_total_interrompe_o_job(client, monkeypatch):
+    """Chave presente + IA falhando em todos os trechos → erro real, nunca heurística muda."""
+    from app.db import settings_store
+
+    settings_store.set_setting("anthropic_api_key", "sk-ant-qualquer")
+
+    class _SempreFalha:
+        model = "claude-opus-5"
+
+        def analyze_chunk(self, *a, **kw):
+            raise RuntimeError("SSL: CERTIFICATE_VERIFY_FAILED simulada")
+
+    monkeypatch.setattr("app.pipeline.semantic.build_client",
+                        lambda agent: (_SempreFalha(), None, "claude-opus-5"))
+    with pytest.raises(RuntimeError) as exc:
+        semantic.analyze_semantic(_CtxFake(), "src-x", _sentencas_60s(), _features_60s(), 60.0,
+                                  lambda f, m="": None, min_s=15, max_s=90, target_count=5,
+                                  agent="claude")
+    msg = str(exc.value)
+    assert "falhou em todos" in msg
+    assert "certificado" in msg.lower() or "TLS" in msg, \
+        "a causa raiz traduzida deve aparecer na mensagem do job"
+
+
+def test_agente_local_explicito_nao_exige_chave(client):
+    raw, meta = semantic.analyze_semantic(_CtxFake(), "src-x", _sentencas_60s(), _features_60s(),
+                                          60.0, lambda f, m="": None, min_s=15, max_s=90,
+                                          target_count=5, agent="local")
+    assert meta["agent"] == "local" and meta["ia_ok"] == 0
+    assert all(c["origin"] == "heuristic" for c in raw)
+
+
+def test_agente_explicito_sem_chave_retorna_422(client, auth, tmp_path):
+    video = tmp_path / "v.mp4"
+    video.write_bytes(b"00")
+    pid = client.post("/api/v1/projects", json={"name": "Agente"}, headers=auth).json()["id"]
+    r = client.post(f"/api/v1/projects/{pid}/sources",
+                    json={"origin": "file", "file_path": str(video), "auto_process": True,
+                          "agent": "gpt"},
+                    headers=auth)
+    assert r.status_code == 422
+    assert "OpenAI" in r.json()["detail"]
+
+    # sem escolha explícita e sem chave → aceita e roda como local (honesto)
+    r = client.post(f"/api/v1/projects/{pid}/sources",
+                    json={"origin": "file", "file_path": str(video), "auto_process": False},
+                    headers=auth)
+    assert r.status_code == 201
+
+
+def test_test_ai_endpoint_reporta_erro_amigavel(client, auth, monkeypatch):
+    r = client.post("/api/v1/settings/test-ai", json={"provider": "gpt"}, headers=auth)
+    assert r.json()["ok"] is False and "OpenAI" in r.json()["detail"]
+
+    class _FalhaAuth:
+        def __init__(self, *a, **kw):
+            pass
+
+        def analyze_chunk(self, *a, **kw):
+            raise RuntimeError("HTTP 401: authentication_error — API key is invalid")
+
+    monkeypatch.setattr("app.services.openai_client.OpenAIClient", _FalhaAuth)
+    r = client.post("/api/v1/settings/test-ai",
+                    json={"provider": "gpt", "api_key": "sk-falsa"}, headers=auth)
+    body = r.json()
+    assert body["ok"] is False
+    assert "Chave de API inválida" in body["detail"]
