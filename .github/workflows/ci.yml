@@ -17,15 +17,17 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Dependências de sistema (ffmpeg, espeak-ng)
-        # timeout + retry: mirrors do apt travam com frequência nos runners e
-        # congelavam o job inteiro (2 ocorrências em 19/08) — melhor falhar
-        # rápido e tentar de novo do que pendurar 30+ min.
-        timeout-minutes: 8
+        # O mirror apt do Azure cai com frequência nos runners (19/08: 40+ min
+        # fora) e congelava o job. Timeout curto + retry, trocando para o
+        # mirror oficial do Ubuntu a partir da 2ª tentativa.
+        timeout-minutes: 10
         run: |
           for tentativa in 1 2 3; do
             timeout 150 sudo apt-get update -qq && \
             timeout 240 sudo apt-get install -y -qq ffmpeg espeak-ng fonts-dejavu-core && break
-            echo "apt travado/falhou (tentativa $tentativa) — tentando de novo…"
+            echo "apt falhou (tentativa $tentativa) — trocando de mirror e repetindo…"
+            sudo sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' \
+              /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
             sleep 5
           done
           ffmpeg -version | head -1
