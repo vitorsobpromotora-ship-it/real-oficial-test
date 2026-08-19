@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+engine-dist/
+
+# Node
+node_modules/
+app/dist/
+app/dist-electron/
+app/release/
+
+# Dados locais / artefatos
+*.sqlite3
+*.sqlite3-*
+.real-oficial/
+engine/tests/assets/_generated/
+app/resources/ffmpeg/
+*.log
+
+# SO / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
