@@ -63,33 +63,29 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Imports ESTÁTICOS de todos os routers: o PyInstaller não enxerga importlib
+    # com nomes em string — import dinâmico aqui deixou rotas fora do binário na v1.0.0.
     from .api import (  # noqa: PLC0415
+        routes_brand_kits,
+        routes_cuts,
         routes_events,
         routes_jobs,
+        routes_media,
         routes_projects,
+        routes_renders,
+        routes_reports,
         routes_settings,
+        routes_shorts,
+        routes_sources,
         routes_system,
     )
 
     app.include_router(routes_system.router)  # /health e /system/* na raiz
-    for r in (routes_projects, routes_jobs, routes_events, routes_settings):
+    for r in (routes_projects, routes_sources, routes_cuts, routes_renders, routes_media,
+              routes_brand_kits, routes_reports, routes_shorts, routes_jobs, routes_events,
+              routes_settings):
         app.include_router(r.router, prefix=config.API_PREFIX)
-
-    _include_optional_routers(app)
     return app
-
-
-def _include_optional_routers(app: FastAPI) -> None:
-    """Rotas adicionadas em fases posteriores; import tolerante para desenvolvimento incremental."""
-    import importlib  # noqa: PLC0415
-
-    for name in ("routes_sources", "routes_cuts", "routes_renders", "routes_media",
-                 "routes_brand_kits", "routes_reports", "routes_shorts"):
-        try:
-            mod = importlib.import_module(f".api.{name}", package=__package__)
-        except ModuleNotFoundError:
-            continue
-        app.include_router(mod.router, prefix=config.API_PREFIX)
 
 
 app = create_app()

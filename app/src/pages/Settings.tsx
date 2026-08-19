@@ -30,12 +30,25 @@ export default function SettingsPage() {
       setSalvoMsg("Configurações salvas.");
       setTimeout(() => setSalvoMsg(""), 2500);
     },
+    onError: (e: Error) => {
+      setSalvoMsg(`Falha ao salvar: ${e.message}`);
+      setTimeout(() => setSalvoMsg(""), 6000);
+    },
   });
 
   const testar = useMutation({
     mutationFn: () => post<{ ok: boolean; detail: string }>("/api/v1/settings/test-anthropic",
       apiKey ? { api_key: apiKey } : {}),
-    onSuccess: (r) => setTesteMsg(r.ok ? `✓ ${r.detail}` : `✗ ${r.detail}`),
+    onSuccess: (r) => {
+      if (r.ok && apiKey.trim()) {
+        // Teste passou com uma chave digitada → já persiste (fluxo à prova de esquecimento).
+        salvar.mutate({ anthropic_api_key: apiKey.trim() });
+        setTesteMsg(`✓ ${r.detail} — chave salva.`);
+      } else {
+        setTesteMsg(r.ok ? `✓ ${r.detail}` : `✗ ${r.detail}`);
+      }
+    },
+    onError: (e: Error) => setTesteMsg(`✗ ${e.message}`),
   });
 
   function set<K extends keyof Settings>(k: K, v: Settings[K]) {
@@ -45,7 +58,7 @@ export default function SettingsPage() {
   function submit() {
     const body: Record<string, unknown> = {
       claude_model: form.claude_model,
-      claude_fallback_model: form.claude_fallback_model,
+      claude_fallback_model: form.claude_fallback_model ?? "claude-sonnet-5",
       whisper_model: form.whisper_model,
       output_dir: form.output_dir ?? "",
       use_batches: form.use_batches,
@@ -70,7 +83,11 @@ export default function SettingsPage() {
         <label>Chave da API Anthropic {s.has_anthropic_api_key
           ? `(configurada: ${s.anthropic_api_key_masked})` : "(não configurada — análise local ativa)"}</label>
         <div className="row">
-          <input type="password" placeholder="sk-ant-…" value={apiKey}
+          <input type="password"
+                 placeholder={s.has_anthropic_api_key
+                   ? `chave salva (${s.anthropic_api_key_masked}) — cole aqui para substituir`
+                   : "sk-ant-…"}
+                 value={apiKey}
                  onChange={(e) => setApiKey(e.target.value)} />
           <button onClick={() => testar.mutate()} disabled={testar.isPending}>
             {testar.isPending ? "Testando…" : "Testar"}

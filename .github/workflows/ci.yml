@@ -80,6 +80,18 @@ jobs:
           curl -sf http://127.0.0.1:8899/health
           TOKEN=$(cat /tmp/ro-smoke/api_token)
           curl -sf -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8899/api/v1/settings > /dev/null
+          # Guarda contra rotas ausentes no binário (regressão v1.0.0: importlib invisível ao PyInstaller)
+          curl -sf http://127.0.0.1:8899/openapi.json | python3 -c "
+          import json, sys
+          paths = json.load(sys.stdin)['paths']
+          need = ['/api/v1/shorts', '/api/v1/brand-kits', '/api/v1/renders/batch',
+                  '/api/v1/cuts/bulk', '/api/v1/projects/{project_id}/sources',
+                  '/api/v1/media/{render_id}/file', '/api/v1/reports/sources/{source_id}']
+          missing = [p for p in need if p not in paths]
+          assert not missing, f'rotas ausentes no binário empacotado: {missing}'
+          print(f'openapi ok: {len(paths)} rotas')
+          "
+          curl -sf -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8899/api/v1/brand-kits > /dev/null
           kill $ENGINE_PID
 
   build-windows:
@@ -118,8 +130,16 @@ jobs:
               $ok = $true; break
             } catch { Start-Sleep -Seconds 1 }
           }
+          if (-not $ok) { Stop-Process -Id $proc.Id -Force; throw "motor empacotado não respondeu ao /health" }
+          # Guarda contra rotas ausentes no binário (regressão v1.0.0)
+          $openapi = (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8899/openapi.json).Content | ConvertFrom-Json
+          $need = @('/api/v1/shorts', '/api/v1/brand-kits', '/api/v1/renders/batch',
+                    '/api/v1/cuts/bulk', '/api/v1/projects/{project_id}/sources')
+          $paths = $openapi.paths.PSObject.Properties.Name
+          $missing = $need | Where-Object { $paths -notcontains $_ }
           Stop-Process -Id $proc.Id -Force
-          if (-not $ok) { throw "motor empacotado não respondeu ao /health" }
+          if ($missing) { throw "rotas ausentes no binário empacotado: $($missing -join ', ')" }
+          Write-Host "openapi ok: $($paths.Count) rotas"
 
       - name: FFmpeg estático (win64)
         run: python scripts/fetch_ffmpeg.py --platform win64 --dest app/resources/ffmpeg

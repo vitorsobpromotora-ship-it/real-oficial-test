@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 # PyInstaller spec do motor Real Oficial (onedir).
 # Build:  pyinstaller engine.spec --distpath ../engine-dist
-from PyInstaller.utils.hooks import collect_all
+from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 datas, binaries, hiddenimports = [], [], []
 for pkg in ("ctranslate2", "faster_whisper", "onnxruntime"):
@@ -9,6 +9,10 @@ for pkg in ("ctranslate2", "faster_whisper", "onnxruntime"):
     datas += d
     binaries += b
     hiddenimports += h
+
+# Cinto e suspensório: garante TODOS os submódulos do app no bundle mesmo que
+# algum import dinâmico volte a aparecer (causa do 404 "Not Found" na v1.0.0).
+hiddenimports += collect_submodules("app")
 
 datas += [
     ("assets", "assets"),

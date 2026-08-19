@@ -6,7 +6,6 @@ retomada após restart reexecuta o job e continua de onde parou.
 
 from __future__ import annotations
 
-import importlib
 import logging
 import time
 
@@ -14,14 +13,17 @@ from ..db.base import session
 from ..db.models import SourceVideo, StageTiming
 from ..jobs.registry import job_handler
 
+# Imports ESTÁTICOS: importlib com string deixava os estágios fora do binário PyInstaller.
+from . import analyze, ingest, reframe, transcribe
+
 log = logging.getLogger(__name__)
 
-# (nome, módulo, função, progresso inicial, progresso final)
-STAGES: list[tuple[str, str, str, float, float]] = [
-    ("ingest", "app.pipeline.ingest", "stage_ingest", 0.00, 0.15),
-    ("transcribe", "app.pipeline.transcribe", "stage_transcribe", 0.15, 0.55),
-    ("analyze", "app.pipeline.analyze", "stage_analyze", 0.55, 0.85),
-    ("reframe", "app.pipeline.reframe", "stage_reframe", 0.85, 1.00),
+# (nome, função, progresso inicial, progresso final)
+STAGES = [
+    ("ingest", ingest.stage_ingest, 0.00, 0.15),
+    ("transcribe", transcribe.stage_transcribe, 0.15, 0.55),
+    ("analyze", analyze.stage_analyze, 0.55, 0.85),
+    ("reframe", reframe.stage_reframe, 0.85, 1.00),
 ]
 
 
@@ -32,13 +34,8 @@ def process_source(ctx) -> dict:
         raise ValueError("payload sem source_video_id")
 
     executed: list[str] = []
-    for name, mod_name, fn_name, p0, p1 in STAGES:
+    for name, fn, p0, p1 in STAGES:
         ctx.check_cancel()
-        try:
-            fn = getattr(importlib.import_module(mod_name), fn_name)
-        except (ModuleNotFoundError, AttributeError):
-            log.warning("Estágio '%s' indisponível — pulado", name)
-            continue
 
         def report(frac: float, msg: str = "", *, _n=name, _p0=p0, _p1=p1):
             ctx.report(stage=_n, progress=_p0 + max(0.0, min(1.0, frac)) * (_p1 - _p0),
