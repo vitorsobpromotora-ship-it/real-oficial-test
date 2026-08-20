@@ -75,6 +75,7 @@ export default function EditorPage() {
   const [playing, setPlaying] = useState(false);
   const [title, setTitle] = useState("");
   const [wordOv, setWordOv] = useState<Record<string, string>>({});
+  const [frSegs, setFrSegs] = useState<{ start_s: number; end_s: number; mode: string }[]>([]);
   const [editWord, setEditWord] = useState<number | null>(null);
   const [toast, setToast] = useState("");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -106,6 +107,7 @@ export default function EditorPage() {
     setSaved(JSON.stringify(d));
     setTitle(cut.title);
     setWordOv((cut.edits?.word_overrides as Record<string, string>) ?? {});
+    setFrSegs(((cut.edits?.framing_segments as never[]) ?? []).map((s) => ({ ...(s as object) })) as never);
     setWin({ a: Math.max(0, env0 - PAD_S), b: Math.min(dur, env1 + PAD_S) });
     setPlayhead(env0);
   }, [cut, source, draft]);
@@ -232,13 +234,18 @@ export default function EditorPage() {
     (JSON.stringify(draft) !== saved ||
       title !== (cut?.title ?? "") ||
       JSON.stringify(wordOv) !==
-        JSON.stringify((cut?.edits?.word_overrides as Record<string, string>) ?? {}));
+        JSON.stringify((cut?.edits?.word_overrides as Record<string, string>) ?? {}) ||
+      JSON.stringify(frSegs) !==
+        JSON.stringify((cut?.edits?.framing_segments as never[]) ?? []));
 
   const salvar = useMutation({
     mutationFn: async () => {
       const edits = { ...(cut?.edits ?? {}) } as Record<string, unknown>;
       if (Object.keys(wordOv).length) edits.word_overrides = wordOv;
       else delete edits.word_overrides;
+      const frOk = frSegs.filter((s) => s.end_s > s.start_s);
+      if (frOk.length) edits.framing_segments = frOk;
+      else delete edits.framing_segments;
       return patch<Cut>(`/api/v1/cuts/${cutId}`, {
         edl: draft,
         title,
@@ -601,6 +608,42 @@ export default function EditorPage() {
                      onChange={(e) => commit({ ...draft, audio: { ...draft.audio, fade_out_s: Math.max(0, Number(e.target.value) || 0) } })} />
             </div>
           </div>
+
+          <h3 style={{ marginTop: 18 }}>Enquadramento por trecho</h3>
+          <div className="sub" style={{ marginBottom: 6 }}>
+            Force o foco num intervalo específico (tempos do vídeo original) — o resto
+            do corte continua automático. Ex.: 18–24s → foco à esquerda.
+          </div>
+          {frSegs.map((s, i) => (
+            <div key={i} className="row" style={{ marginBottom: 6 }}>
+              <input type="number" min={0} step={0.5} value={s.start_s}
+                     style={{ width: 74 }}
+                     onChange={(e) => setFrSegs(frSegs.map((x, j) =>
+                       j === i ? { ...x, start_s: Number(e.target.value) } : x))} />
+              <span className="sub">→</span>
+              <input type="number" min={0} step={0.5} value={s.end_s}
+                     style={{ width: 74 }}
+                     onChange={(e) => setFrSegs(frSegs.map((x, j) =>
+                       j === i ? { ...x, end_s: Number(e.target.value) } : x))} />
+              <select value={s.mode} style={{ flex: 1 }}
+                      onChange={(e) => setFrSegs(frSegs.map((x, j) =>
+                        j === i ? { ...x, mode: e.target.value } : x))}>
+                <option value="left">Foco à esquerda</option>
+                <option value="center">Foco no centro</option>
+                <option value="right">Foco à direita</option>
+              </select>
+              <button className="danger" onClick={() =>
+                setFrSegs(frSegs.filter((_, j) => j !== i))}>×</button>
+            </div>
+          ))}
+          <button onClick={() => {
+            const a = sel != null ? segs[sel].src_start : Math.max(env0, playhead - 3);
+            const b = sel != null ? segs[sel].src_end : Math.min(env1, playhead + 3);
+            setFrSegs([...frSegs, { start_s: Math.round(a * 10) / 10,
+                                    end_s: Math.round(b * 10) / 10, mode: "left" }]);
+          }}>
+            + Adicionar {sel != null ? "no trecho selecionado" : "ao redor do cursor"}
+          </button>
 
           <h3 style={{ marginTop: 18 }}>Palavras da legenda</h3>
           <div className="sub" style={{ marginBottom: 8 }}>

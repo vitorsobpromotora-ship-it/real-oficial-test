@@ -29,6 +29,15 @@ const FRAMINGS: { id: string; label: string }[] = [
   { id: "right", label: "Direita" },
   { id: "center", label: "Centro" },
   { id: "blur", label: "Desfocado" },
+  { id: "fit", label: "Fit (sem corte)" },
+  { id: "two", label: "Duas pessoas" },
+  { id: "split", label: "Split Screen" },
+];
+
+const PUNCH: { id: string; label: string }[] = [
+  { id: "off", label: "Desligado" },
+  { id: "leve", label: "Leve (zoom 105%)" },
+  { id: "dinamico", label: "Dinâmico (alterna 110%)" },
 ];
 
 const VERDICT_LABEL: Record<string, string> = {
@@ -208,7 +217,13 @@ export default function CutReviewModal({ cut: cutInicial, kits, onClose }: Props
             </div>
             <div className="sub" style={{ marginTop: 4 }}>
               Se o Auto focar a pessoa errada, escolha o lado correto — a prévia é refeita.
+              “Duas pessoas” empilha os dois rostos; “Split” os põe lado a lado.
             </div>
+            <label>Punch-in (zoom sutil de energia)</label>
+            <select value={(cut.edits?.punch_in as string) ?? "off"}
+                    onChange={(e) => salvar.mutate({ punch_in: e.target.value })}>
+              {PUNCH.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+            </select>
           </div>
           <div>
             <label>Título</label>

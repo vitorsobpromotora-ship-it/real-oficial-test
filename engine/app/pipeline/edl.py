@@ -150,8 +150,8 @@ def slice_crop_plan(crop_plan: dict, edl: dict) -> dict:
     "src_start"/"src_end" no tempo da FONTE (é com estes que o ffmpeg faz o
     trim do input). Também anota o índice do segmento EDL de origem
     ("edl_seg"), para as transições de junção saberem onde aplicar fades."""
-    if crop_plan.get("mode") == "blur_pad":
-        return {**crop_plan, "segments": []}
+    if crop_plan.get("mode") in ("blur_pad", "fit_pad", "two_person", "split_screen"):
+        return {**crop_plan, "segments": []}  # modos sem linha do tempo de crop
     pieces: list[dict] = []
     acc = 0.0
     plan_segs = crop_plan.get("segments") or []
@@ -165,9 +165,12 @@ def slice_crop_plan(crop_plan: dict, edl: dict) -> dict:
             s, e = max(p["start"], a), min(p["end"], b)
             if e - s <= 0.04:
                 continue
-            locais.append({"src_start": s, "src_end": e,
-                           "x0": int(round(_x_at(p, s))), "x1": int(round(_x_at(p, e))),
-                           "edl_seg": idx})
+            piece = {"src_start": s, "src_end": e,
+                     "x0": int(round(_x_at(p, s))), "x1": int(round(_x_at(p, e))),
+                     "edl_seg": idx}
+            if p.get("zoom"):
+                piece["zoom"] = p["zoom"]  # punch-in sobrevive ao fatiamento da EDL
+            locais.append(piece)
         if not locais:
             x = int(plan_segs[0]["x0"]) if plan_segs else 0
             locais = [{"src_start": a, "src_end": b, "x0": x, "x1": x, "edl_seg": idx}]

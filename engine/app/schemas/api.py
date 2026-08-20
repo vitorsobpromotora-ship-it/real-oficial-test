@@ -157,7 +157,9 @@ class CutPatch(BaseModel):
     status: Literal["draft", "approved", "rejected"] | None = None
     start_s: float | None = Field(default=None, ge=0)
     end_s: float | None = Field(default=None, ge=0)
-    framing: Literal["auto", "left", "right", "center", "blur"] | None = None
+    framing: Literal["auto", "left", "right", "center", "blur",
+                     "fit", "two", "split"] | None = None
+    punch_in: Literal["off", "leve", "dinamico"] | None = None
     title: str | None = None
     caption_style: dict | None = None
     brand_kit_id: str | None = None

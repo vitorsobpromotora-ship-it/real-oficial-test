@@ -31,7 +31,7 @@ from ..jobs.registry import job_handler
 from ..services import ffmpeg
 from . import captions, censor, compose
 from . import edl as edl_mod
-from .reframe import apply_framing_override, plan_crop
+from .reframe import apply_framing_override, apply_punch_in, apply_segment_overrides, plan_crop
 
 log = logging.getLogger(__name__)
 
@@ -74,7 +74,8 @@ def _video_base_chains(*, crop_plan: dict, video_trims: list[dict] | None,
                        f"flags=lanczos,crop={out_w}:{out_h}")
     else:
         final_scale = f"scale={out_w}:{out_h}:flags=lanczos"
-    if crop_plan.get("mode") == "blur_pad":
+    mode = crop_plan.get("mode")
+    if mode in ("blur_pad", "fit_pad", "two_person", "split_screen"):
         src_v = "0:v"
         if video_trims and len(video_trims) > 1:
             n = len(video_trims)
@@ -85,29 +86,63 @@ def _video_base_chains(*, crop_plan: dict, video_trims: list[dict] | None,
             chains.append("".join(f"[bc{i}]" for i in range(n)) +
                           f"concat=n={n}:v=1:a=0[vcut]")
             src_v = "vcut"
-        chains.append(f"[{src_v}]split=2[bgsrc][fgsrc]")
-        chains.append(f"[bgsrc]scale={out_w}:{out_h}:force_original_aspect_ratio=increase,"
-                      f"crop={out_w}:{out_h},gblur=sigma=28[bg]")
-        chains.append(f"[fgsrc]scale={out_w}:-2[fg]")
-        chains.append("[bg][fg]overlay=(W-w)/2:(H-h)/2[vbase]")
+        if mode == "blur_pad":
+            chains.append(f"[{src_v}]split=2[bgsrc][fgsrc]")
+            chains.append(f"[bgsrc]scale={out_w}:{out_h}:force_original_aspect_ratio=increase,"
+                          f"crop={out_w}:{out_h},gblur=sigma=28[bg]")
+            chains.append(f"[fgsrc]scale={out_w}:-2[fg]")
+            chains.append("[bg][fg]overlay=(W-w)/2:(H-h)/2[vbase]")
+        elif mode == "fit_pad":
+            # vídeo INTEIRO (sem corte) com barras — modo "Fit"
+            chains.append(f"[{src_v}]scale={out_w}:{out_h}:force_original_aspect_ratio="
+                          f"decrease:flags=lanczos,"
+                          f"pad={out_w}:{out_h}:(ow-iw)/2:(oh-ih)/2:black[vbase]")
+        else:
+            # duas pessoas: painéis empilhados (two_person) ou lado a lado (split_screen)
+            panels = crop_plan.get("panels") or [{"x": 0}, {"x": 0}]
+            cw, ch = crop_plan["crop_w"], crop_plan["crop_h"]
+            if mode == "two_person":
+                pw, ph, stack = out_w, out_h // 2, "vstack"
+            else:
+                pw, ph, stack = out_w // 2, out_h, "hstack"
+            chains.append(f"[{src_v}]split=2[p0][p1]")
+            for i, p in enumerate(panels[:2]):
+                chains.append(f"[p{i}]crop={cw}:{ch}:{p['x']}:0,"
+                              f"scale={pw}:{ph}:flags=lanczos[pp{i}]")
+            chains.append(f"[pp0][pp1]{stack}[vbase]")
     else:
         segs = crop_plan["segments"]
         crop_w, crop_h = crop_plan["crop_w"], crop_plan["crop_h"]
+
+        def _zoom_geom(seg: dict) -> tuple[int, int, int, int]:
+            """(cw, ch, dx, dy) do punch-in do segmento (zoom central)."""
+            z = float(seg.get("zoom") or 1.0)
+            if z <= 1.001:
+                return crop_w, crop_h, 0, 0
+            cw2 = max(2, int(crop_w / z) // 2 * 2)
+            ch2 = max(2, int(crop_h / z) // 2 * 2)
+            return cw2, ch2, (crop_w - cw2) // 2, (crop_h - ch2) // 2
+
         if len(segs) == 1 and segs[0]["x0"] == segs[0]["x1"] and \
-                not segs[0].get("fade_in") and not segs[0].get("fade_out"):
+                not segs[0].get("fade_in") and not segs[0].get("fade_out") and \
+                not segs[0].get("zoom"):
             chains.append(f"[0:v]crop={crop_w}:{crop_h}:{segs[0]['x0']}:0,"
                           f"{final_scale}[vbase]")
         else:
             chains.append(f"[0:v]split={len(segs)}" + "".join(f"[s{i}]" for i in range(len(segs))))
             for i, seg in enumerate(segs):
                 d = max(0.05, seg["end"] - seg["start"])
+                cw2, ch2, dx, dy = _zoom_geom(seg)
                 if seg["x0"] == seg["x1"]:
-                    x_expr = str(seg["x0"])
+                    x_expr = str(seg["x0"] + dx)
                 else:
-                    x_expr = f"{seg['x0']}+({seg['x1']}-{seg['x0']})*(t/{d:.3f})"
-                chains.append(f"[s{i}]trim={seg['start']:.3f}:{seg['end']:.3f},"
-                              f"setpts=PTS-STARTPTS,crop={crop_w}:{crop_h}:{x_expr}:0"
-                              f"{_fade_tags(seg, audio=False)}[c{i}]")
+                    x_expr = f"{seg['x0'] + dx}+({seg['x1']}-{seg['x0']})*(t/{d:.3f})"
+                piece = (f"[s{i}]trim={seg['start']:.3f}:{seg['end']:.3f},"
+                         f"setpts=PTS-STARTPTS,crop={cw2}:{ch2}:{x_expr}:{dy}")
+                if (cw2, ch2) != (crop_w, crop_h):
+                    # zoom muda a dimensão do pedaço: volta ao tamanho comum p/ o concat
+                    piece += f",scale={crop_w}:{crop_h}:flags=lanczos"
+                chains.append(piece + f"{_fade_tags(seg, audio=False)}[c{i}]")
             concat_in = "".join(f"[c{i}]" for i in range(len(segs)))
             chains.append(f"{concat_in}concat=n={len(segs)}:v=1:a=0,"
                           f"{final_scale}[vbase]")
@@ -339,13 +374,16 @@ def render_cut(ctx) -> dict:
             row = s.get(CutCandidate, cut["id"])
             if row is not None:
                 row.crop_plan = crop_plan
-    framing = (cut["edits"] or {}).get("framing")
-    crop_plan = apply_framing_override(crop_plan, framing, src["width"], src["height"],
-                                       env_a, env_b)
+    edits = cut["edits"] or {}
+    crop_plan = apply_framing_override(crop_plan, edits.get("framing"),
+                                       src["width"], src["height"], env_a, env_b)
+    crop_plan = apply_segment_overrides(crop_plan, edits.get("framing_segments"),
+                                        src["width"])
+    crop_plan = apply_punch_in(crop_plan, edits.get("punch_in"))
     plan_rel = edl_mod.slice_crop_plan(crop_plan, edl)
     video_trims = None
-    if plan_rel.get("mode") == "blur_pad":
-        if multi:  # blur_pad também precisa selecionar os segmentos da EDL
+    if plan_rel.get("mode") in ("blur_pad", "fit_pad", "two_person", "split_screen"):
+        if multi:  # modos sem segmentos também precisam selecionar os trechos da EDL
             video_trims = [{"start": round(a - env_a, 3), "end": round(b - env_a, 3),
                             "edl_seg": i}
                            for i, (a, b) in enumerate(edl_mod.segments_of(edl))]

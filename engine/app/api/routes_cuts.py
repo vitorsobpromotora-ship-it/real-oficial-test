@@ -139,8 +139,8 @@ def cut_waveform(cut_id: str, pps: int = Query(default=40, ge=10, le=100),
             "pps": round(1.0 / spp, 3), "peaks": peaks, "source_duration_s": src_dur}
 
 
-VISUAL_FIELDS = {"start_s", "end_s", "framing", "title", "caption_style", "brand_kit_id",
-                 "edits", "edl"}
+VISUAL_FIELDS = {"start_s", "end_s", "framing", "punch_in", "title", "caption_style",
+                 "brand_kit_id", "edits", "edl"}
 
 
 def _edl_efetiva(c: CutCandidate, edl_in: dict | None) -> dict:
@@ -155,6 +155,8 @@ def _apply_patch(s, c: CutCandidate, patch: CutPatch) -> None:
     def _mudou(field: str, value) -> bool:
         if field == "framing":
             return ((c.edits or {}).get("framing") or "auto") != (value or "auto")
+        if field == "punch_in":
+            return ((c.edits or {}).get("punch_in") or "off") != (value or "off")
         if field in ("start_s", "end_s"):
             return value is not None and getattr(c, field) != value
         if field == "edl":  # compara as EDLs EFETIVAS (normalizadas), não o JSON cru
@@ -216,6 +218,14 @@ def _apply_patch(s, c: CutCandidate, patch: CutPatch) -> None:
             edits["framing"] = f
         else:
             edits.pop("framing", None)  # auto/null → volta ao enquadramento automático
+        c.edits = edits or None
+    if "punch_in" in data:
+        p = data.pop("punch_in")
+        edits = dict(c.edits or {})
+        if p and p != "off":
+            edits["punch_in"] = p
+        else:
+            edits.pop("punch_in", None)
         c.edits = edits or None
     if visual_change:
         _invalidate_previews(s, c.id)

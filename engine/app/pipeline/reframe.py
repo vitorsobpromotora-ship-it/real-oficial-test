@@ -38,7 +38,11 @@ TRACK_TIMEOUT_S = 2.5      # track sem detecção recente não gera sinal de boc
 MAX_TRACKS = 4
 MIN_TRACK_PRESENCE = 0.10  # tracks vistos em <10% das detecções são espúrios
 FACE_HIT_RATE_MIN = 0.6
-FRAMING_MODES = ("auto", "left", "right", "center", "blur")
+X_DEADZONE_PCT = 0.04      # variação de x menor que isto não gera novo segmento (anti-tremor)
+FRAMING_MODES = ("auto", "left", "right", "center", "blur", "fit", "two", "split")
+PUNCH_IN_MODES = ("off", "leve", "dinamico")
+PUNCH_LEVE = 1.05          # zoom constante do punch-in leve
+PUNCH_DINAMICO = 1.10      # zoom alternado por segmento no modo dinâmico
 
 
 class FaceDetector:
@@ -319,6 +323,10 @@ def plan_crop(video_path: str, start: float, end: float, src_w: int, src_h: int,
     for seg in segments:
         cx = clusters_sorted[seg["cluster"]]
         x = int(np.clip(cx - crop_w / 2, 0, src_w - crop_w))
+        # anti-tremor: deslocamento minúsculo não vira jump cut — mantém o x anterior
+        if out_segments and abs(x - out_segments[-1]["x0"]) < crop_w * X_DEADZONE_PCT:
+            out_segments[-1]["end"] = round(seg["end"], 3)
+            continue
         out_segments.append({"start": round(seg["start"], 3), "end": round(seg["end"], 3),
                              "x0": x, "x1": x})
     if out_segments:
@@ -330,24 +338,108 @@ def plan_crop(video_path: str, start: float, end: float, src_w: int, src_h: int,
             "segments": out_segments}
 
 
+def _cluster_cx(plan: dict, framing: str, src_w: int) -> float:
+    clusters = plan.get("clusters") or []
+    if framing == "left":
+        return min(clusters) if clusters else src_w * 0.28
+    if framing == "right":
+        return max(clusters) if clusters else src_w * 0.72
+    return src_w / 2
+
+
+def _panel_crop_w(src_w: int, src_h: int, panel_ar: float) -> int:
+    return min(src_w // 2 * 2, max(2, int(src_h * panel_ar) // 2 * 2))
+
+
 def apply_framing_override(plan: dict, framing: str | None, src_w: int, src_h: int,
                            start: float, end: float) -> dict:
-    """Força o enquadramento escolhido pelo usuário sobre o plano automático."""
+    """Força o enquadramento escolhido pelo usuário sobre o plano automático.
+
+    Modos: auto | left | right | center | blur (fundo desfocado) |
+    fit (vídeo inteiro com barras) | two (duas pessoas empilhadas) |
+    split (lado a lado). two/split usam os dois rostos mais afastados; sem dois
+    rostos detectados, caem em posições padrão esquerda/direita."""
     if not framing or framing == "auto":
         return plan
     crop_w = plan.get("crop_w") or int(src_h * 9 / 16) // 2 * 2
+    crop_h = plan.get("crop_h") or src_h
     if framing == "blur":
         return {**plan, "mode": "blur_pad", "segments": []}
-    clusters = plan.get("clusters") or []
-    if framing == "left":
-        cx = min(clusters) if clusters else src_w * 0.28
-    elif framing == "right":
-        cx = max(clusters) if clusters else src_w * 0.72
-    else:  # center
-        cx = src_w / 2
+    if framing == "fit":
+        return {**plan, "mode": "fit_pad", "segments": []}
+    if framing in ("two", "split"):
+        clusters = sorted(plan.get("clusters") or [])
+        if len(clusters) >= 2:
+            cxa, cxb = clusters[0], clusters[-1]
+        else:
+            cxa, cxb = src_w * 0.27, src_w * 0.73
+        panel_ar = (1080 / 960) if framing == "two" else (540 / 1920)
+        cw = _panel_crop_w(src_w, src_h, panel_ar)
+        xa = int(np.clip(cxa - cw / 2, 0, max(0, src_w - cw)))
+        xb = int(np.clip(cxb - cw / 2, 0, max(0, src_w - cw)))
+        return {**plan, "mode": "two_person" if framing == "two" else "split_screen",
+                "crop_w": cw, "crop_h": crop_h,
+                "panels": [{"x": xa}, {"x": xb}], "segments": []}
+    cx = _cluster_cx(plan, framing, src_w)
     x = int(np.clip(cx - crop_w / 2, 0, max(0, src_w - crop_w)))
-    return {**plan, "mode": "crop", "crop_w": crop_w, "crop_h": plan.get("crop_h") or src_h,
+    return {**plan, "mode": "crop", "crop_w": crop_w, "crop_h": crop_h,
             "segments": [{"start": round(start, 3), "end": round(end, 3), "x0": x, "x1": x}]}
+
+
+def apply_segment_overrides(plan: dict, overrides: list[dict] | None,
+                            src_w: int) -> dict:
+    """Overrides manuais POR TRECHO (tempos da FONTE) sobre o plano automático.
+
+    overrides = [{"start_s": 18.0, "end_s": 24.0, "mode": "left|right|center"}].
+    Fatia os segmentos do plano nas bordas de cada override e força o x do
+    trecho — o resto do plano continua automático."""
+    if not overrides or plan.get("mode") != "crop":
+        return plan
+    crop_w = plan["crop_w"]
+    segs = [dict(s) for s in plan.get("segments") or []]
+    for ov in sorted(overrides, key=lambda o: float(o.get("start_s", 0))):
+        modo = ov.get("mode") or "center"
+        if modo not in ("left", "right", "center"):
+            continue
+        a, b = float(ov.get("start_s", 0)), float(ov.get("end_s", 0))
+        if b - a <= 0.05:
+            continue
+        cx = _cluster_cx(plan, modo, src_w)
+        x = int(np.clip(cx - crop_w / 2, 0, max(0, src_w - crop_w)))
+        novos: list[dict] = []
+        for s in segs:
+            if s["end"] <= a or s["start"] >= b:  # fora do override
+                novos.append(s)
+                continue
+            if s["start"] < a:  # pedaço antes
+                novos.append({**s, "end": round(a, 3)})
+            novos.append({"start": round(max(s["start"], a), 3),
+                          "end": round(min(s["end"], b), 3), "x0": x, "x1": x})
+            if s["end"] > b:  # pedaço depois
+                novos.append({**s, "start": round(b, 3)})
+        # funde vizinhos idênticos criados pelo fatiamento
+        segs = []
+        for s in novos:
+            if segs and segs[-1]["x0"] == s["x0"] and segs[-1]["x1"] == s["x1"] \
+                    and abs(segs[-1]["end"] - s["start"]) < 0.002:
+                segs[-1]["end"] = s["end"]
+            else:
+                segs.append(s)
+    return {**plan, "segments": segs}
+
+
+def apply_punch_in(plan: dict, mode: str | None) -> dict:
+    """Punch-in opcional: leve = zoom constante 105%; dinâmico = alterna
+    100%/110% a cada troca de segmento (energia visual sem tremor)."""
+    if not mode or mode == "off" or plan.get("mode") != "crop":
+        return plan
+    segs = [dict(s) for s in plan.get("segments") or []]
+    for i, s in enumerate(segs):
+        if mode == "leve":
+            s["zoom"] = PUNCH_LEVE
+        elif mode == "dinamico" and i % 2 == 1:
+            s["zoom"] = PUNCH_DINAMICO
+    return {**plan, "segments": segs}
 
 
 def stage_reframe(ctx, source_id: str, report) -> None:
