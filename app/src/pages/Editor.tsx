@@ -50,7 +50,7 @@ function fmtT(t: number): string {
 }
 
 export default function EditorPage() {
-  const { cutId = "" } = useParams();
+  const { projectId = "", cutId = "" } = useParams();
   const nav = useNavigate();
   const qc = useQueryClient();
 
@@ -59,6 +59,9 @@ export default function EditorPage() {
     queryFn: () => get<Cut>(`/api/v1/cuts/${cutId}`),
   });
   const cut = cutQ.data;
+  // rota canônica: /projeto/:projectId/corte/:cutId/editor — Voltar e
+  // Salvar e fechar retornam SEMPRE à análise deste mesmo corte
+  const rotaCorte = `/projeto/${projectId || cut?.project_id || ""}/corte/${cutId}`;
   const srcQ = useQuery({
     enabled: !!cut,
     queryKey: ["sources", "detail", cut?.source_video_id],
@@ -242,29 +245,36 @@ export default function EditorPage() {
 
   const salvar = useMutation({
     mutationFn: async () => {
+      const enviado = draft;
       const edits = { ...(cut?.edits ?? {}) } as Record<string, unknown>;
       if (Object.keys(wordOv).length) edits.word_overrides = wordOv;
       else delete edits.word_overrides;
       const frOk = frSegs.filter((s) => s.end_s > s.start_s);
       if (frOk.length) edits.framing_segments = frOk;
       else delete edits.framing_segments;
-      return patch<Cut>(`/api/v1/cuts/${cutId}`, {
-        edl: draft,
+      const novo = await patch<Cut>(`/api/v1/cuts/${cutId}`, {
+        edl: enviado,
         title,
         edits: Object.keys(edits).length ? edits : null,
       });
+      return { novo, enviado };
     },
-    onSuccess: (novo) => {
+    onSuccess: ({ novo, enviado }) => {
+      // NÃO recria o draft: o usuário pode já estar editando por cima do
+      // autosave — só registra o que foi persistido e atualiza o cache.
       qc.setQueryData(["cuts", "detail", cutId], novo);
-      qc.invalidateQueries({ queryKey: ["cuts"] });
-      const d = draftFromCut(novo);
-      setDraft(d);
-      setSaved(JSON.stringify(d));
-      setTitle(novo.title);
-      flash("Edição salva — a prévia e o render usarão exatamente esta versão.");
+      qc.invalidateQueries({ queryKey: ["cuts", novo.project_id] });
+      setSaved(JSON.stringify(enviado));
     },
     onError: (e: Error) => flash(`Falha ao salvar: ${e.message}`, 5200),
   });
+
+  // autosave: persiste sozinho ~1.2s após a última alteração (header: Salvando…/Salvo)
+  useEffect(() => {
+    if (!dirty || salvar.isPending) return;
+    const t = window.setTimeout(() => salvar.mutate(), 1200);
+    return () => window.clearTimeout(t);
+  }, [dirty, draft, title, wordOv, frSegs, salvar.isPending]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------- operações de edição (com histórico p/ desfazer) ----------
   function commit(next: Draft) {
@@ -475,7 +485,21 @@ export default function EditorPage() {
         return; // o toast do onError explica; não fecha perdendo trabalho
       }
     }
-    nav(`/projeto/${cut?.project_id ?? ""}`);
+    nav(rotaCorte); // sempre de volta à análise do MESMO corte
+  }
+
+  async function voltar() {
+    // Voltar também preserva alterações; só abandona a tela com aval explícito
+    if (dirty) {
+      try {
+        await salvar.mutateAsync();
+      } catch {
+        const sair = window.confirm(
+          "Não foi possível salvar as alterações. Sair mesmo assim e perdê-las?");
+        if (!sair) return;
+      }
+    }
+    nav(rotaCorte);
   }
 
   // ---------- derivados de exibição ----------
@@ -507,7 +531,7 @@ export default function EditorPage() {
     <div className="editor">
       <div className="pagehead">
         <div className="row" style={{ flex: 1, minWidth: 0 }}>
-          <button onClick={() => nav(`/projeto/${cut.project_id}`)}>← Voltar</button>
+          <button onClick={voltar} data-testid="btn-back">← Voltar</button>
           <input
             className="ed-title"
             value={title}
@@ -516,14 +540,16 @@ export default function EditorPage() {
           />
         </div>
         <div className="row">
+          <span className={`ed-savestate${salvar.isPending ? " saving" : dirty ? " dirty" : ""}`}
+                data-testid="save-state">
+            {salvar.isPending ? "Salvando…" : dirty ? "Alterações pendentes…" : "Salvo"}
+          </span>
           <button onClick={undo} disabled={!history.length} title="Ctrl+Z">↶ Desfazer</button>
           <button onClick={redo} disabled={!future.length} title="Ctrl+Shift+Z">↷ Refazer</button>
           <button onClick={gerarPrevia}>Gerar prévia real</button>
-          <button className="primary" disabled={!dirty || salvar.isPending}
-                  onClick={() => salvar.mutate()}>
-            {salvar.isPending ? "Salvando…" : dirty ? "Salvar" : "Salvo"}
+          <button className="ok" onClick={salvarEFechar} data-testid="btn-save-close">
+            Salvar e fechar
           </button>
-          <button className="ok" onClick={salvarEFechar}>Salvar e fechar</button>
         </div>
       </div>
 

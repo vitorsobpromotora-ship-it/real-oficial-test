@@ -4,23 +4,26 @@ import { useNavigate, useParams } from "react-router-dom";
 import { get, post } from "../api/client";
 import type { BrandKit, Cut, Job, Project, Settings, Source } from "../api/types";
 import CutCard, { fmtDur, fmtRange, scoreClass } from "../components/CutCard";
-import CutReviewModal from "../components/CutReviewModal";
 import ImportDialog from "../components/ImportDialog";
 import JobProgress from "../components/JobProgress";
 import Thumb from "../components/Thumb";
 
-type Filtro = "todos" | "draft" | "approved" | "rejected";
+// abas por estado EDITORIAL: "Para revisar" é a tela padrão e contém APENAS o
+// que ainda exige decisão (aprovado/rejeitado sai dela na hora)
+type Filtro = "pending_review" | "approved" | "rejected";
+const FILTRO_LABEL: Record<Filtro, string> = {
+  pending_review: "Para revisar", approved: "Aprovados", rejected: "Rejeitados",
+};
 
 export default function ProjectPage() {
   const { id = "" } = useParams();
   const qc = useQueryClient();
   const nav = useNavigate();
   const [mostrarImport, setMostrarImport] = useState(false);
-  const [filtro, setFiltro] = useState<Filtro>("todos");
+  const [filtro, setFiltro] = useState<Filtro>("pending_review");
   const [modo, setModo] = useState<"cards" | "lista">("cards");
   const [ordem, setOrdem] = useState<"score" | "time">("score");
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
-  const [aberto, setAberto] = useState<Cut | null>(null);
   const [toast, setToast] = useState("");
 
   const project = useQuery({
@@ -109,10 +112,14 @@ export default function ProjectPage() {
     },
   });
 
-  const listaFiltrada = useMemo(() => {
-    const lista = cuts.data ?? [];
-    return filtro === "todos" ? lista : lista.filter((c) => c.status === filtro);
-  }, [cuts.data, filtro]);
+  const listaFiltrada = useMemo(
+    () => (cuts.data ?? []).filter((c) => c.status === filtro),
+    [cuts.data, filtro]);
+  const contagem = useMemo(() => {
+    const n: Record<Filtro, number> = { pending_review: 0, approved: 0, rejected: 0 };
+    for (const c of cuts.data ?? []) if (c.status in n) n[c.status as Filtro] += 1;
+    return n;
+  }, [cuts.data]);
 
   const jobsAtivos = (jobs.data ?? []).filter(
     (j) => (j.status === "running" || j.status === "queued") && j.project_id === id);
@@ -121,6 +128,11 @@ export default function ProjectPage() {
     (j) => j.project_id === id && j.status === "done" && j.type === "process_source"
       && (j.result as { funil?: unknown } | null)?.funil);
   const funil = (jobFunil?.result as { funil?: Record<string, number> } | undefined)?.funil;
+
+  function trocarAba(f: Filtro) {
+    setFiltro(f);
+    setSelecionados(new Set()); // seleção não atravessa abas (ação em massa errada)
+  }
 
   function toggle(cutId: string) {
     setSelecionados((prev) => {
@@ -196,9 +208,10 @@ export default function ProjectPage() {
       ) : null}
 
       <div className="row wrap" style={{ marginBottom: 14 }}>
-        {(["todos", "draft", "approved", "rejected"] as Filtro[]).map((f) => (
-          <button key={f} className={filtro === f ? "primary" : ""} onClick={() => setFiltro(f)}>
-            {f === "todos" ? "Todos" : f === "draft" ? "Rascunhos" : f === "approved" ? "Aprovados" : "Rejeitados"}
+        {(["pending_review", "approved", "rejected"] as Filtro[]).map((f) => (
+          <button key={f} className={filtro === f ? "primary" : ""} onClick={() => trocarAba(f)}
+                  data-testid={`tab-${f}`}>
+            {FILTRO_LABEL[f]} ({contagem[f]})
           </button>
         ))}
         {(reservas.data?.length ?? 0) > 0 ? (
@@ -227,7 +240,9 @@ export default function ProjectPage() {
         <div className="empty">
           {cuts.data.length === 0
             ? "Nenhum corte ainda. Importe um vídeo para a IA sugerir os melhores momentos."
-            : "Nenhum corte neste filtro."}
+            : filtro === "pending_review"
+              ? "Tudo revisado! Nada aqui exige decisão. Veja Aprovados e Rejeitados."
+              : `Nenhum corte em ${FILTRO_LABEL[filtro]}.`}
         </div>
       ) : null}
 
@@ -239,7 +254,7 @@ export default function ProjectPage() {
               cut={c}
               selected={selecionados.has(c.id)}
               onToggle={() => toggle(c.id)}
-              onOpen={() => setAberto(c)}
+              onOpen={() => nav(`/projeto/${id}/corte/${c.id}`)}
             />
           ))}
         </div>
@@ -273,11 +288,18 @@ export default function ProjectPage() {
                 <td><span className={`chip verdict-${c.verdict}`}>{c.verdict}</span></td>
                 <td><span className={`chip ${c.status}`}>
                   {c.status === "approved" ? "aprovado"
-                    : c.status === "rejected" ? "rejeitado" : "rascunho"}</span></td>
+                    : c.status === "rejected" ? "rejeitado" : "para revisar"}</span>
+                  {c.render_outdated ? <span className="chip warnc">render desatualizado</span> : null}
+                </td>
                 <td>
                   <div className="row" style={{ gap: 6 }}>
-                    <button onClick={() => setAberto(c)}>Revisar</button>
-                    <button onClick={() => nav(`/editor/${c.id}`)}>✂ Editor</button>
+                    <button onClick={() => nav(`/projeto/${id}/corte/${c.id}`)}>Abrir</button>
+                    {c.status === "rejected" ? (
+                      <button onClick={() => bulk.mutate({ cut_ids: [c.id],
+                        patch: { status: "pending_review" } })}>Restaurar</button>
+                    ) : (
+                      <button onClick={() => nav(`/projeto/${id}/corte/${c.id}/editor`)}>✂ Editor</button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -289,35 +311,42 @@ export default function ProjectPage() {
       {idsSel.length > 0 ? (
         <div className="bulkbar">
           <b>{idsSel.length} selecionado(s)</b>
-          <button onClick={() => bulk.mutate({ cut_ids: idsSel, patch: { status: "approved" } })}>
-            Aprovar
-          </button>
-          <button onClick={() => bulk.mutate({ cut_ids: idsSel, patch: { status: "rejected" } })}>
-            Rejeitar
-          </button>
-          {kitPadrao ? (
-            <button
-              onClick={() => bulk.mutate({ cut_ids: idsSel, patch: { brand_kit_id: kitPadrao.id } })}
-            >
-              Aplicar kit “{kitPadrao.name}”
+          {filtro === "rejected" ? (
+            <button onClick={() => bulk.mutate({ cut_ids: idsSel,
+              patch: { status: "pending_review" } })}>
+              Restaurar para revisão
             </button>
-          ) : null}
-          <button
-            className="primary right"
-            disabled={renderLote.isPending}
-            onClick={() => renderLote.mutate(idsSel)}
-          >
-            Renderizar selecionados
-          </button>
+          ) : (
+            <>
+              <button className="ok"
+                      onClick={() => bulk.mutate({ cut_ids: idsSel, patch: { status: "approved" } })}>
+                Aprovar
+              </button>
+              <button className="danger"
+                      onClick={() => bulk.mutate({ cut_ids: idsSel, patch: { status: "rejected" } })}>
+                Rejeitar
+              </button>
+              {kitPadrao ? (
+                <button onClick={() => bulk.mutate({ cut_ids: idsSel,
+                  patch: { brand_kit_id: kitPadrao.id } })}>
+                  Aplicar kit “{kitPadrao.name}”
+                </button>
+              ) : null}
+              <button
+                className="primary right"
+                disabled={renderLote.isPending}
+                onClick={() => renderLote.mutate(idsSel)}
+              >
+                Renderizar selecionados
+              </button>
+            </>
+          )}
           <button onClick={() => setSelecionados(new Set())}>Limpar</button>
         </div>
       ) : null}
 
       {mostrarImport ? (
         <ImportDialog projectId={id} onClose={() => setMostrarImport(false)} />
-      ) : null}
-      {aberto ? (
-        <CutReviewModal cut={aberto} kits={kits.data ?? []} onClose={() => setAberto(null)} />
       ) : null}
       {toast ? <div className="toast">{toast}</div> : null}
     </div>

@@ -10,9 +10,11 @@ const cut: Cut = {
   score_breakdown: { hook_strength: 9, humor: 3.5 },
   rhpt_score: 70, semantic_score: 88, hook_text: "Eu nunca contei isso",
   title: "O segredo revelado", hashtags: ["#x"], reason: "",
-  verdict: "postar", analysis: null, status: "draft",
+  verdict: "postar", analysis: null, status: "pending_review",
   rank: 1, origin: "claude", crop_plan: { mode: "crop", segments: [] },
   censor_plan: null, caption_style: null, brand_kit_id: null, edits: null, edl: null,
+  description: "", platform_metadata: null, edit_revision: 1,
+  render_state: "not_rendered", render_outdated: false, latest_render_id: null,
   human_rank: null, review_started_at: null, reviewed_at: null,
   created_at: "", updated_at: "",
 };
@@ -36,7 +38,7 @@ describe("CutCard", () => {
     render(<CutCard cut={cut} selected={false} onToggle={vi.fn()} onOpen={vi.fn()} />);
     expect(screen.getByText("O segredo revelado")).toBeInTheDocument();
     expect(screen.getByText("83")).toBeInTheDocument();
-    expect(screen.getByText("rascunho")).toBeInTheDocument();
+    expect(screen.getByText("para revisar")).toBeInTheDocument();
     expect(screen.getByText("IA Claude")).toBeInTheDocument();
     expect(screen.getByText("reenquadrado")).toBeInTheDocument();
   });

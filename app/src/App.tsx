@@ -1,14 +1,28 @@
 import { useQuery } from "@tanstack/react-query";
-import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { NavLink, Navigate, Route, Routes, useParams } from "react-router-dom";
 import { get } from "./api/client";
+import type { Cut } from "./api/types";
 import BrandKits from "./pages/BrandKits";
 import BrandStudio from "./pages/BrandStudio";
+import CutPage from "./pages/CutPage";
 import Dashboard from "./pages/Dashboard";
 import EditorPage from "./pages/Editor";
 import ProjectPage from "./pages/Project";
 import RenderQueue from "./pages/RenderQueue";
 import Reports from "./pages/Reports";
 import SettingsPage from "./pages/Settings";
+
+/** Rota legada /editor/:cutId — descobre o projeto e leva à rota canônica. */
+function LegacyEditorRedirect() {
+  const { cutId = "" } = useParams();
+  const cut = useQuery({
+    queryKey: ["cuts", "detail", cutId],
+    queryFn: () => get<Cut>(`/api/v1/cuts/${cutId}`),
+  });
+  if (cut.isError) return <Navigate to="/" replace />;
+  if (!cut.data) return <div className="ed-loading">Abrindo o Editor…</div>;
+  return <Navigate to={`/projeto/${cut.data.project_id}/corte/${cutId}/editor`} replace />;
+}
 
 const I = {
   painel: (
@@ -77,7 +91,11 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/projeto/:id" element={<ProjectPage />} />
-          <Route path="/editor/:cutId" element={<EditorPage />} />
+          {/* rotas explícitas Corte ↔ Editor: o Editor sempre sabe seu cutId e
+              Voltar/Salvar e fechar retornam SEMPRE à análise do mesmo corte */}
+          <Route path="/projeto/:projectId/corte/:cutId" element={<CutPage />} />
+          <Route path="/projeto/:projectId/corte/:cutId/editor" element={<EditorPage />} />
+          <Route path="/editor/:cutId" element={<LegacyEditorRedirect />} />
           <Route path="/kits" element={<BrandKits />} />
           <Route path="/estudio/:kitId" element={<BrandStudio />} />
           <Route path="/fila" element={<RenderQueue />} />

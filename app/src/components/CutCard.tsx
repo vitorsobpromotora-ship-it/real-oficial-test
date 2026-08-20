@@ -58,8 +58,14 @@ export default function CutCard({ cut, selected, onToggle, onOpen }: Props) {
           {cut.verdict === "postar" ? "✓ postar" : cut.verdict === "descartar" ? "✗ descartar" : "− revisar"}
         </span>
         <span className={`chip ${cut.status}`}>
-          {cut.status === "approved" ? "aprovado" : cut.status === "rejected" ? "rejeitado" : "rascunho"}
+          {cut.status === "approved" ? "aprovado" : cut.status === "rejected" ? "rejeitado" : "para revisar"}
         </span>
+        {cut.status === "approved" && cut.render_state === "rendered" ? (
+          <span className="chip approved">{cut.render_outdated ? "render desatualizado" : "renderizado"}</span>
+        ) : null}
+        {cut.render_state === "rendering" || cut.render_state === "queued" ? (
+          <span className="chip">renderizando…</span>
+        ) : null}
         <span className={`chip ${cut.origin !== "heuristic" ? "claude" : ""}`}>
           {cut.origin === "claude" ? "IA Claude" : cut.origin === "gpt" ? "IA GPT" : "análise local"}
         </span>

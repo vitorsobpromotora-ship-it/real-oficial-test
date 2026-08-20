@@ -100,7 +100,7 @@ export interface Cut {
     sugestao?: string;
     publico?: string;
   } | null;
-  status: "draft" | "approved" | "rejected";
+  status: "pending_review" | "approved" | "rejected" | "reserve";
   rank: number | null;
   origin: "claude" | "gpt" | "heuristic";
   crop_plan: { mode: string; segments: unknown[]; face_hit_rate?: number } | null;
@@ -109,6 +109,13 @@ export interface Cut {
   brand_kit_id: string | null;
   edits: Record<string, unknown> | null;
   edl: Edl | null;
+  description: string;
+  platform_metadata: Record<string, unknown> | null;
+  edit_revision: number;
+  // ciclo de RENDER (derivado no motor; nunca confundir com o status editorial)
+  render_state: "not_rendered" | "queued" | "rendering" | "rendered" | "render_failed";
+  render_outdated: boolean;
+  latest_render_id: string | null;
   human_rank: number | null;
   review_started_at: string | null;
   reviewed_at: string | null;
