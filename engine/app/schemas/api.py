@@ -73,6 +73,7 @@ class JobOut(BaseModel):
 
 class SettingsOut(BaseModel):
     default_agent: str
+    cut_profile: str
     claude_model: str
     claude_fallback_model: str
     openai_model: str
@@ -98,6 +99,10 @@ class SettingsOut(BaseModel):
 
 class SettingsUpdate(BaseModel):
     default_agent: Literal["claude", "gpt", "local"] | None = None
+    cut_profile: Literal["conservador", "balanceado", "alto_volume", "personalizado"] | None = None
+    cut_score_min: float | str | None = None
+    cut_min_gap: float | str | None = None
+    max_total_cuts: int | None = Field(default=None, ge=0, le=200)
     anthropic_api_key: str | None = None
     claude_model: str | None = None
     claude_fallback_model: str | None = None
@@ -132,7 +137,7 @@ class CutOut(BaseModel):
     reason: str
     verdict: str
     analysis: dict | None
-    status: str
+    status: str  # draft | approved | rejected | reserve
     rank: int | None
     origin: str
     crop_plan: dict | None

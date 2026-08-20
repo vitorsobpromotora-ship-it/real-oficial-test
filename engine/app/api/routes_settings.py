@@ -35,6 +35,7 @@ def get_settings(request: Request):
     openai_key = s.get("openai_api_key") or ""
     return SettingsOut(
         default_agent=s.get("default_agent", "claude") or "claude",
+        cut_profile=s.get("cut_profile", "balanceado") or "balanceado",
         claude_model=s.get("claude_model", "claude-opus-5"),
         claude_fallback_model=s.get("claude_fallback_model", "claude-sonnet-5"),
         openai_model=s.get("openai_model", "gpt-5.1") or "gpt-5.1",

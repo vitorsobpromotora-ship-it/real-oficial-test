@@ -122,6 +122,34 @@ def get_transcript(source_id: str, include_words: bool = Query(default=False)):
         return body
 
 
+@router.post("/sources/{source_id}/promote-reserves")
+def promote_reserves(source_id: str, body: dict | None = None):
+    """"Mostrar mais oportunidades": promove as melhores reservas a rascunho,
+    sem reanalisar o vídeo. body: {"count": N} (padrão 3)."""
+    from ..db.models import CutCandidate  # noqa: PLC0415
+
+    count = max(1, min(20, int((body or {}).get("count", 3))))
+    with session() as s:
+        if s.get(SourceVideo, source_id) is None:
+            raise HTTPException(404, "Fonte não encontrada")
+        reservas = s.execute(
+            select(CutCandidate).where(CutCandidate.source_video_id == source_id,
+                                    CutCandidate.status == "reserve")
+            .order_by(CutCandidate.score.desc()).limit(count)).scalars().all()
+        maior_rank = s.execute(
+            select(func.max(CutCandidate.rank)).where(
+                CutCandidate.source_video_id == source_id)).scalar() or 0
+        for i, c in enumerate(reservas, start=1):
+            c.status = "draft"
+            c.rank = maior_rank + i
+        promovidos = len(reservas)
+        restantes = s.execute(
+            select(func.count()).select_from(CutCandidate).where(
+                CutCandidate.source_video_id == source_id,
+                CutCandidate.status == "reserve")).scalar() or 0
+    return {"promovidos": promovidos, "reservas_restantes": int(restantes)}
+
+
 @router.post("/sources/{source_id}/process")
 def process_source(source_id: str, request: Request, body: dict | None = None):
     with session() as s:

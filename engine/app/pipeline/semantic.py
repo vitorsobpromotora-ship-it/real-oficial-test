@@ -29,13 +29,25 @@ Você receberá um trecho de transcrição com timestamps por frase no formato \
 [hh:mm:ss–hh:mm:ss], seguido de SINAIS DE ÁUDIO detectados automaticamente \
 (picos de energia, risadas, pausas) e da quantidade de segmentos esperada.
 
+Sua tarefa é DESCOBERTA AMPLA: gere um BANCO de candidatos, não só "os melhores".
+O sistema depois refina bordas, ranqueia e escolhe — você nunca deve se autocensurar
+por proximidade entre momentos nem limitar-se aos óbvios.
+
+Procure TODOS os tipos de evento clipável:
+- afirmações fortes e opiniões firmes; histórias completas; controvérsias;
+- respostas inesperadas; humor que funciona sozinho; revelações e segredos;
+- conhecimento útil/acionável; conflito ou tensão entre pessoas;
+- pergunta marcante + resposta; viradas emocionais; frases altamente citáveis;
+- momentos casados com os SINAIS DE ÁUDIO (pico de energia, risada).
+
 Regras de seleção:
 - start_s e end_s em SEGUNDOS ABSOLUTOS do vídeo original (converta dos timestamps).
 - Cada segmento deve durar entre 15 e 90 segundos, começar em início de frase e terminar em \
 fim de frase, formando uma unidade compreensível SOZINHA: gancho → desenvolvimento → payoff.
 - Nunca comece em "Então, como eu estava dizendo" ou frases que dependem de contexto anterior.
 - Prefira aberturas com gancho forte: revelação, pergunta provocativa, número, opinião firme.
-- Considere os SINAIS DE ÁUDIO: pico de energia ou risada dentro do segmento é bom sinal.
+- INCLUA também candidatos bons-mas-imperfeitos (nota mediana honesta) — eles alimentam a
+reserva. Dois momentos próximos ou parcialmente sobrepostos podem AMBOS ser listados.
 - Se o trecho realmente não tiver momentos bons, retorne menos segmentos — não invente.
 
 CALIBRAÇÃO DOS 18 PARÂMETROS (notas 0–10) — seja honesto e use a régua inteira:
@@ -101,10 +113,11 @@ def build_chunks(sentences: list[dict], duration: float,
 
 
 def segment_range_for(chunk: dict) -> tuple[int, int]:
-    """Quantos segmentos pedir por chunk: ~1 corte a cada 2 min de conteúdo."""
+    """Descoberta ampla (Passagem A): pedir um BANCO por chunk — ~1 candidato por
+    minuto de conteúdo, teto 14 — pois dedup/diversidade/reserva filtram depois."""
     minutes = max(1.0, (chunk["end"] - chunk["start"]) / 60.0)
-    lo = max(2, round(minutes / 3))
-    hi = max(lo + 2, min(10, round(minutes / 1.5)))
+    lo = max(3, round(minutes / 2))
+    hi = max(lo + 3, min(14, round(minutes / 0.9)))
     return lo, hi
 
 

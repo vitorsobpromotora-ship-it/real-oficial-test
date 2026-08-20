@@ -200,7 +200,12 @@ class JobRunner:
                 if status == "done":
                     job.progress = 1.0
                 if result is not None:
-                    job.result = result
+                    # instrumentação gravada durante o job (ex.: funil da análise)
+                    # sobrevive ao resultado final do handler
+                    if isinstance(result, dict) and isinstance(job.result, dict):
+                        job.result = {**job.result, **result}
+                    else:
+                        job.result = result
                 if error:
                     job.error = error
                 final = {"job_id": job_id, "type": job_type, "status": status, "stage": job.stage,

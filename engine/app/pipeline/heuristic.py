@@ -48,7 +48,7 @@ def analyze_heuristic(sentences: list[dict], features: Features, target_count: i
     peaks = _find_peaks(features.peak_curve, features.hop)
     riso_ts = [e["t"] for e in features.events if e["type"] == "riso"]
     cands: list[dict] = []
-    for t in peaks[: target_count * 3]:
+    for t in peaks[: target_count * 4]:
         start = max(0.0, t - 20.0)
         end = min(duration, t + 25.0)
         window = [s for s in sentences if s["end_s"] > start and s["start_s"] < end]
@@ -94,6 +94,6 @@ def analyze_heuristic(sentences: list[dict], features: Features, target_count: i
             },
             "origin": "heuristic",
         })
-        if len(cands) >= target_count * 2:
+        if len(cands) >= target_count * 3:
             break
     return cands

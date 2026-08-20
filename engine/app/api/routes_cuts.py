@@ -35,6 +35,8 @@ def list_cuts(project_id: str, status: str | None = Query(default=None),
         q = select(CutCandidate).where(CutCandidate.project_id == project_id)
         if status:
             q = q.where(CutCandidate.status == status)
+        else:  # reservas só aparecem quando pedidas ("Mostrar mais oportunidades")
+            q = q.where(CutCandidate.status != "reserve")
         if source_video_id:
             q = q.where(CutCandidate.source_video_id == source_video_id)
         if sort == "time":

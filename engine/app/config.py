@@ -28,7 +28,11 @@ DEFAULT_SETTINGS: dict = {
     "whisper_model": "small",
     "output_dir": "",  # vazio → <data_dir>/renders
     "use_batches": False,
+    "cut_profile": "balanceado",  # conservador | balanceado | alto_volume | personalizado
     "max_cuts_per_30min": 15,
+    "cut_score_min": "",   # personalizado: score mínimo (vazio = padrão do perfil)
+    "cut_min_gap": "",     # personalizado: distância mínima entre centros (s)
+    "max_total_cuts": 0,   # personalizado: teto absoluto (0 = sem teto)
     "min_cut_seconds": 15.0,
     "max_cut_seconds": 90.0,
     "censor_enabled": False,

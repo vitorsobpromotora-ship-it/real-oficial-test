@@ -194,14 +194,16 @@ def test_snap_dedup_diversify():
         {"start_s": 40, "end_s": 56, "params": dict.fromkeys(PARAM_KEYS, 7.0),
          "title": "C", "origin": "claude"},
     ]
-    final, stats = cand.finalize_candidates(raw, sentences, feats, min_s=15, max_s=90,
-                                            duration=60, target_count=5)
+    final, reservas, stats = cand.finalize_candidates(raw, sentences, feats, min_s=15, max_s=90,
+                                                      duration=60, target_count=5)
     assert stats["brutos"] == 3 and stats["finais"] == len(final) and stats["alvo"] == 5
     titles = [c["title"] for c in final]
     assert "B" not in titles, "sobreposto de score menor deve ser removido (IoU)"
     assert set(titles) == {"A", "C"}
     assert final[0]["score"] >= final[-1]["score"]
     assert all("semantic_score" in c and "rhpt_score" in c for c in final)
+    # instrumentação: o descarte do B carrega estágio e motivo técnico
+    assert any(d["estagio"] == "dedup" and "IoU" in d["motivo"] for d in stats["descartes"])
 
 
 def _raw(start, end, nota, title):
@@ -330,6 +332,123 @@ def test_agente_explicito_sem_chave_retorna_422(client, auth, tmp_path):
                     json={"origin": "file", "file_path": str(video), "auto_process": False},
                     headers=auth)
     assert r.status_code == 201
+
+
+def test_refino_de_bordas_prefere_pergunta_e_pausa():
+    """Passagem B: início desliza para a frase-gancho (pergunta) e o fim para o
+    fechamento seguido de pausa — sem aceitar cegamente o timestamp do LLM."""
+    from app.pipeline.audio_features import Features
+
+    sentences = [
+        {"start_s": 0.0, "end_s": 4.0, "text": "Então como eu estava dizendo antes."},
+        {"start_s": 4.0, "end_s": 8.0, "text": "Você sabe quanto custa errar isso?"},
+        {"start_s": 8.0, "end_s": 30.0, "text": "A história toda aconteceu assim."},
+        {"start_s": 30.0, "end_s": 34.0, "text": "E foi assim que eu aprendi."},
+        {"start_s": 34.0, "end_s": 38.0, "text": "aí depois a gente continuou falando"},
+    ]
+    feats = Features(hop=1.0, times=np.arange(60), rms=np.zeros(60),
+                     peak_curve=np.full(60, 0.3), pauses=[(34.0, 35.2)])
+    c = {"start_s": 5.5, "end_s": 36.5, "params": dict.fromkeys(PARAM_KEYS, 7.0)}
+    cand.refine_borders(c, sentences, feats, min_s=15, max_s=90, duration=60)
+    assert c["start_s"] == 4.0, "início deve pular para a pergunta-gancho"
+    assert c["end_s"] == 34.0, "fim deve fechar no payoff seguido de pausa"
+
+
+def test_diversidade_guarda_de_concentracao():
+    """Passagem D: >60% dos escolhidos no primeiro terço + alternativa equivalente
+    à frente → troca; qualidade muito menor NÃO entra só por distribuição."""
+    def c(a, b, nota, t):
+        return {"start_s": a, "end_s": b, "score": nota, "title": t}
+
+    cands = [c(10, 40, 90, "A"), c(120, 150, 88, "B"), c(230, 260, 86, "C"),
+             c(300, 330, 84, "D"), c(700, 730, 83, "tarde-boa"), c(800, 830, 40, "tarde-ruim")]
+    picked, sobra = cand.diversify(cands, target=4, min_center_gap=60,
+                                   duration=1000.0, descartes=[])
+    nomes = {x["title"] for x in picked}
+    assert "tarde-boa" in nomes, "corte equivalente fora do início entra no lugar do pior"
+    assert "tarde-ruim" not in nomes, "distribuição nunca compra qualidade ruim"
+    assert len(picked) == 4 and len(sobra) == 2
+
+
+def test_score_minimo_descarta_com_motivo():
+    from app.pipeline.audio_features import Features
+
+    sentences = _sentencas_60s()
+    feats = Features(hop=1.0, times=np.arange(60), rms=np.zeros(60),
+                     peak_curve=np.full(60, 0.5))
+    raw = [{"start_s": 0, "end_s": 20, "params": dict.fromkeys(PARAM_KEYS, 8.5),
+            "title": "Forte", "origin": "claude"},
+           {"start_s": 30, "end_s": 50, "params": dict.fromkeys(PARAM_KEYS, 2.0),
+            "title": "Fraco", "origin": "claude"}]
+    final, _, stats = cand.finalize_candidates(raw, sentences, feats, min_s=15, max_s=90,
+                                               duration=60, target_count=5, score_min=55.0)
+    assert [c["title"] for c in final] == ["Forte"]
+    assert any(d["estagio"] == "qualidade" and "abaixo do padrão" in d["motivo"]
+               for d in stats["descartes"])
+
+
+def test_perfis_de_quantidade():
+    from app.pipeline.analyze import resolve_profile
+
+    dur = 1800.0  # 30 min
+    cons = resolve_profile({"profile": "conservador"}, dur)
+    bal = resolve_profile({"profile": "balanceado"}, dur)
+    alto = resolve_profile({"profile": "alto_volume"}, dur)
+    assert cons["target"] < bal["target"] < alto["target"]
+    assert cons["score_min"] > bal["score_min"] > alto["score_min"]
+    assert alto["allow_close"] and not cons["allow_close"]
+    pers = resolve_profile({"profile": "personalizado", "score_min": 77, "max_total": 4}, dur)
+    assert pers["score_min"] == 77.0 and pers["target"] == 4
+
+
+def test_reservas_persistidas_e_promoveis(client, auth, monkeypatch):
+    """Alto volume gera reservas; galeria não as mostra; 'Mostrar mais
+    oportunidades' promove as melhores sem reanalisar."""
+    from pathlib import Path
+
+    from .fixtures import make_media
+    from .test_ingest_transcribe import _FakeWhisper
+
+    if not make_media.have_espeak():
+        pytest.skip("espeak-ng indisponível")
+    video = make_media.fixture_video("fixture_30s.mp4", duration=30.0)
+    monkeypatch.setattr("app.pipeline.transcribe.get_model", lambda size: _FakeWhisper())
+    # snap/refino têm testes próprios; aqui viram identidade para o funil ser determinístico
+    monkeypatch.setattr("app.pipeline.candidates.snap_to_sentences",
+                        lambda a, b, *args, **kw: (a, b))
+    monkeypatch.setattr("app.pipeline.candidates.refine_borders",
+                        lambda c, *args, **kw: None)
+    monkeypatch.setattr(
+        "app.pipeline.analyze.analyze_semantic",
+        lambda ctx, sid, sentences, features, duration, report, **kw: ([
+            _raw(0, 15, 9.0, "Corte 0"), _raw(8, 23, 8.5, "Corte 1"),
+            _raw(14, 29, 8.0, "Corte 2"), _raw(4, 19, 7.5, "Corte 3"),
+        ], {"agent": "local", "model": "", "chunks": 1, "ia_ok": 0, "erro": None}))
+
+    pid = client.post("/api/v1/projects", json={"name": "Reservas"}, headers=auth).json()["id"]
+    r = client.post(f"/api/v1/projects/{pid}/sources",
+                    json={"origin": "file", "file_path": str(Path(video)), "auto_process": True,
+                          "options": {"profile": "personalizado", "max_total": 2,
+                                      "score_min": 0, "min_gap": 1, "allow_close": True}},
+                    headers=auth)
+    from .conftest import wait_job
+
+    final = wait_job(client, auth, r.json()["job_id"], timeout=180)
+    assert final["status"] == "done", final
+    assert "funil" in (final.get("result") or {}), "funil instrumentado no resultado do job"
+
+    src_id = r.json()["source"]["id"]
+    visiveis = client.get(f"/api/v1/projects/{pid}/cuts", headers=auth).json()
+    assert len(visiveis) == 2, "alvo personalizado = 2 na galeria"
+    reservas = client.get(f"/api/v1/projects/{pid}/cuts?status=reserve", headers=auth).json()
+    assert len(reservas) >= 1, "excedente vira reserva"
+
+    resp = client.post(f"/api/v1/sources/{src_id}/promote-reserves",
+                       json={"count": 2}, headers=auth).json()
+    assert resp["promovidos"] >= 1
+    depois = client.get(f"/api/v1/projects/{pid}/cuts", headers=auth).json()
+    assert len(depois) == 2 + resp["promovidos"], "promovidas aparecem na galeria com rank novo"
+    assert all(c["rank"] is not None for c in depois)
 
 
 def test_test_ai_endpoint_reporta_erro_amigavel(client, auth, monkeypatch):

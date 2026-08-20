@@ -61,7 +61,8 @@ def source_report(source_id: str) -> dict:
         src = s.get(SourceVideo, source_id)
         if src is None:
             raise ValueError("Fonte não encontrada")
-        cuts = s.execute(select(CutCandidate).where(CutCandidate.source_video_id == source_id)
+        cuts = s.execute(select(CutCandidate).where(CutCandidate.source_video_id == source_id,
+                               CutCandidate.status != "reserve")
                          .order_by(CutCandidate.rank)).scalars().all()
         calls = s.execute(select(ClaudeCall).where(ClaudeCall.source_video_id == source_id)
                           ).scalars().all()

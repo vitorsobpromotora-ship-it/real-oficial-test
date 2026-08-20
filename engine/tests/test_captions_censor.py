@@ -17,16 +17,151 @@ PALAVRAS = _words([
 ])
 
 
+def _eventos(ass: str, layer: str = "Dialogue: 0,") -> list[tuple[float, float]]:
+    def s2t(x):
+        h, m, s = x.split(":")
+        return int(h) * 3600 + int(m) * 60 + float(s)
+
+    out = []
+    for ln in ass.splitlines():
+        if ln.startswith(layer):
+            p = ln.split(",")
+            out.append((s2t(p[1]), s2t(p[2])))
+    return out
+
+
+def _palavras_rapidas(n=40, dur=0.28, gap=0.02):
+    t, out = 0.0, []
+    for i in range(n):
+        out.append({"start_s": round(t, 3), "end_s": round(t + dur, 3), "word": f"palavra{i}"})
+        t += dur + gap
+    return out
+
+
 def test_build_ass_estrutura_e_karaoke():
     ass = captions.build_ass(PALAVRAS, {"preset": "bold_karaoke"})
     assert "[Script Info]" in ass and "PlayResX: 1080" in ass and "PlayResY: 1920" in ass
-    assert "Style: Default,Montserrat,72" in ass
+    assert "Style: Default,Montserrat,74" in ass
     assert "{\\k" in ass, "preset bold_karaoke deve emitir tags de karaokê"
     assert "NUNCA" in ass, "preset bold_karaoke é uppercase"
-    # duração do karaokê ≈ duração da palavra (centisegundos)
     assert "{\\k50}NUNCA" in ass  # 0.4→0.9 = 50cs
     # pausa de 0.7s entre 2.9 e 3.6 quebra em dois cartões
     assert ass.count("Dialogue: 0,") == 2
+
+
+def test_regra_temporal_cartoes_nunca_coexistem():
+    """P0: fim_N < início_N+1 em QUALQUER preset e FPS — sem colisão do libass,
+    sem legenda 'empilhando' em faixas diferentes."""
+    cenarios = {
+        "fala_rapida": _palavras_rapidas(),
+        "pausa_curta": PALAVRAS,
+        "pausa_longa": _words([(0, 0.5, "Uma"), (0.5, 1.0, "frase"), (5.0, 5.5, "depois"),
+                               (5.5, 6.2, "do"), (6.2, 6.9, "silêncio")]),
+    }
+    for preset in captions.PRESETS:
+        for fps in (24.0, 30.0, 60.0):
+            for nome, palavras in cenarios.items():
+                ass = captions.build_ass(palavras, {"preset": preset}, fps=fps)
+                evs = _eventos(ass)
+                frame = 1.0 / fps
+                for (s1, e1), (s2, _e2) in zip(evs, evs[1:], strict=False):
+                    assert e1 <= s2 + 1e-9, \
+                        f"{preset}@{fps}fps/{nome}: cartão termina {e1} após o próximo começar {s2}"
+                    if s2 - s1 > 3 * frame:  # quando o dado permite, folga ≥ meio frame
+                        assert s2 - e1 >= frame * 0.49 - 1e-9, \
+                            f"{preset}@{fps}fps/{nome}: folga {s2 - e1:.4f} < meio frame"
+
+
+def test_ancora_unica_em_sequencia_1_2_1_linhas():
+    """Cartão de 1 linha → 2 linhas → 1 linha: todos usam o MESMO estilo ancorado
+    no topo (o texto cresce para baixo; nenhum cartão muda de faixa)."""
+    palavras = _words([
+        (0.0, 0.4, "Curto"),                                # 1 linha
+        (1.2, 1.6, "Agora"), (1.6, 2.0, "uma"), (2.0, 2.5, "frase"),
+        (2.5, 3.0, "bem"), (3.0, 3.5, "comprida"), (3.5, 4.0, "aqui"),  # 2 linhas
+        (5.0, 5.4, "Fim"),                                  # 1 linha
+    ])
+    ass = captions.build_ass(palavras, {"preset": "clean"})
+    estilos = [ln for ln in ass.splitlines() if ln.startswith("Style: Default,")]
+    assert len(estilos) == 1, "um único estilo — âncora única para todos os cartões"
+    campos = estilos[0].split(",")
+    assert campos[18] == "8" and campos[21] == "1300"
+    for ln in ass.splitlines():
+        if ln.startswith("Dialogue: 0,"):
+            assert "\\pos(" not in ln and "\\an" not in ln, \
+                "cartões não podem redefinir posição individualmente"
+
+
+def test_presets_sao_realmente_distintos():
+    assinaturas = set()
+    for _nome, p in captions.PRESETS.items():
+        assinaturas.add((p["font_size"], p["border_style"], p["word_mode"],
+                         p["anim_word"], p["anchor_top"], p["max_lines"]))
+    assert len(assinaturas) == len(captions.PRESETS), \
+        "cada preset precisa diferir de verdade (tamanho/caixa/modo/animação/âncora/linhas)"
+
+
+def test_palavra_pop_um_cartao_por_palavra_com_animacao():
+    palavras = _palavras_rapidas(6)
+    ass = captions.build_ass(palavras, {"preset": "palavra_pop"})
+    evs = _eventos(ass)
+    assert len(evs) == 6, "word_mode: um cartão por palavra"
+    assert "\\t(0," in ass and "\\fscx" in ass, "animação de pop por palavra"
+    for (_s1, e1), (s2, _) in zip(evs, evs[1:], strict=False):
+        assert e1 <= s2 + 1e-9
+
+
+def test_bounce_tem_overshoot_e_subtitle_bar_tem_caixa():
+    ass_b = captions.build_ass(PALAVRAS, {"preset": "bounce"})
+    assert "\\fscx114" in ass_b, "bounce: overshoot acima de 100%"
+    ass_s = captions.build_ass(PALAVRAS, {"preset": "subtitle_bar"})
+    style = next(ln for ln in ass_s.splitlines() if ln.startswith("Style: Default,"))
+    assert style.split(",")[15] == "3", "subtitle_bar usa BorderStyle=3 (caixa de fundo)"
+    assert style.split(",")[21] == "1680", "barra ancorada no rodapé"
+
+
+def test_max_words_cria_cartao_sequencial_sem_comprimir():
+    palavras = _palavras_rapidas(9, dur=0.4, gap=0.05)
+    ass = captions.build_ass(palavras, {"preset": "highlight_box"})  # max_words=4
+    assert ass.count("Dialogue: 0,") == 3, "9 palavras ÷ 4 por cartão = 3 cartões"
+    assert "Style: Default,Montserrat,64" in ass, "fonte NÃO encolhe para caber"
+
+
+def test_config_explicita_largura_e_alinhamento():
+    ass = captions.build_ass(PALAVRAS, {"preset": "clean", "max_width_pct": 60,
+                                        "align": "left", "anchor_top": 900})
+    style = next(ln for ln in ass.splitlines() if ln.startswith("Style: Default,"))
+    campos = style.split(",")
+    assert campos[18] == "7", "align left no topo (7) mantém âncora fixa"
+    assert campos[19] == campos[20] == str(int(1080 * 40 / 200)), "margens de 60% de largura"
+    assert campos[21] == "900"
+
+
+def test_kit_sobrescreve_estilo_sem_quebrar_regras():
+    kit = {"caption_preset": "podcast", "primary_color": "#00FF00",
+           "caption_style": {"anchor_top": 1500, "max_words": 3}}
+    palavras = _palavras_rapidas(7, dur=0.35, gap=0.03)
+    ass = captions.build_ass(palavras, None, brand_kit=kit)
+    style = next(ln for ln in ass.splitlines() if ln.startswith("Style: Default,"))
+    assert style.split(",")[21] == "1500", "âncora do kit vale para TODOS os cartões"
+    evs = _eventos(ass)
+    assert len(evs) == 3, "max_words=3 do kit agrupa 7 palavras em 3 cartões"
+    for (_s1, e1), (s2, _) in zip(evs, evs[1:], strict=False):
+        assert e1 <= s2 + 1e-9, "override do kit não pode reintroduzir sobreposição"
+
+
+def test_karaoke_nao_ultrapassa_janela_do_cartao():
+    palavras = _palavras_rapidas(12)
+    ass = captions.build_ass(palavras, {"preset": "bold_karaoke"}, fps=30.0)
+    import re
+
+    for ln in ass.splitlines():
+        if not ln.startswith("Dialogue: 0,"):
+            continue
+        (s, e), = _eventos("\n" + ln)
+        soma_cs = sum(int(m) for m in re.findall(r"\\k(\d+)", ln))
+        assert soma_cs <= round((e - s) * 100) + 1, \
+            "soma dos {\\k} não pode ultrapassar a duração do cartão"
 
 
 def test_ancora_fixa_topo_evita_pulos_de_altura():
