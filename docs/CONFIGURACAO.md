@@ -187,3 +187,40 @@ Novas versões chegam como novas tags/releases. No instalador, baixe o novo
 `RealOficial-Setup-*.exe` e instale por cima; no portátil, extraia o novo zip e substitua a pasta.
 Dados e configurações são preservados nos dois casos — ficam em `engine-data`, fora da pasta do
 app (o desinstalador também não apaga).
+
+
+## 12. Novidades da v2 — Editor, Estúdio e seleção com perfis
+
+### Editor de Corte (botão “✂ Abrir no Editor” na revisão, ou “Editor” na lista)
+- **Timeline real**: miniaturas do vídeo, waveform do áudio, régua com timecode e zoom.
+- **Trim** arrastando as bordas dos trechos (snap em palavra, pausa e segundo), **Dividir no
+  cursor** (tecla S), **Excluir trecho** (Delete) e **restaurar** clicando na área sombreada.
+- **Remover pausas**: Leve / Normal / Agressivo. Os silêncios viram jump cuts visíveis na
+  timeline; pausas dramáticas (depois de “!”/“?”) são preservadas fora do Agressivo. Nada é
+  aplicado até você **Salvar** — e Ctrl+Z desfaz.
+- **Fades** de entrada/saída, transição nas junções, **volume/mudo/fades de áudio**.
+- **Correção de palavra**: clique na palavra e digite o texto certo — vale só naquele corte;
+  a transcrição original não muda.
+- A edição é **não destrutiva** (EDL): o arquivo original nunca é alterado, e a MESMA edição
+  alimenta a prévia e o render final (“Gerar prévia real” renderiza pelo pipeline completo).
+
+### Estúdio de Marca (botão “Abrir Estúdio” no kit)
+- Canvas 9:16 com camadas: vídeo do corte (cantos arredondados, borda, sombra), imagens/logo,
+  textos com `{titulo}`, formas, vídeo decorativo (sempre mudo) e a **área das legendas**
+  (define onde os cartões aparecem).
+- Fundos: cor, degradê, **vídeo desfocado**, imagem ou vídeo. Animações de entrada e timing
+  por camada. **Templates prontos** para começar.
+- Kits antigos abrem automaticamente convertidos; só passam a usar o novo layout ao salvar.
+
+### Enquadramento e punch-in (na revisão do corte)
+- Modos: Auto (falante ativo) · Esquerda · Direita · Centro · Desfocado · **Fit (sem corte)** ·
+  **Duas pessoas (empilhado)** · **Split Screen**.
+- **Enquadramento por trecho** (no Editor): force o foco num intervalo — ex.: 18–24s → esquerda.
+- **Punch-in**: Leve (zoom constante 105%) ou Dinâmico (alterna 110% a cada troca de segmento).
+
+### Perfis de quantidade e reservas
+- Na importação (ou em Configurações → Cortes): **Conservador** (poucos e fortes),
+  **Balanceado**, **Alto volume**, **Personalizado** (score mínimo, distância mínima e teto).
+- O projeto mostra o **funil da análise** (candidatos → válidos → dedup → recomendados) e, se o
+  vídeo render menos cortes que a meta, o app **avisa em vez de inventar cortes ruins** — as
+  sobras boas ficam em reserva no botão **“Mostrar mais oportunidades”** (sem custo de IA).
