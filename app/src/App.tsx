@@ -3,6 +3,7 @@ import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { get } from "./api/client";
 import BrandKits from "./pages/BrandKits";
 import Dashboard from "./pages/Dashboard";
+import EditorPage from "./pages/Editor";
 import ProjectPage from "./pages/Project";
 import RenderQueue from "./pages/RenderQueue";
 import Reports from "./pages/Reports";
@@ -75,6 +76,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/projeto/:id" element={<ProjectPage />} />
+          <Route path="/editor/:cutId" element={<EditorPage />} />
           <Route path="/kits" element={<BrandKits />} />
           <Route path="/fila" element={<RenderQueue />} />
           <Route path="/relatorios" element={<Reports />} />

@@ -45,6 +45,36 @@ export interface Job {
   result?: Record<string, unknown> | null;
 }
 
+export interface EdlSegment {
+  src_start: number;
+  src_end: number;
+}
+
+/** Edição NÃO destrutiva do Editor de Corte — a mesma EDL alimenta prévia e render. */
+export interface Edl {
+  version?: number;
+  segments: EdlSegment[];
+  fade_in_s?: number;
+  fade_out_s?: number;
+  transition_s?: number;
+  audio?: { gain_db?: number; mute?: boolean; fade_in_s?: number; fade_out_s?: number };
+}
+
+export interface TranscriptWord {
+  idx: number;
+  start_s: number;
+  end_s: number;
+  word: string;
+}
+
+export interface Waveform {
+  start_s: number;
+  end_s: number;
+  pps: number;
+  peaks: number[];
+  source_duration_s: number;
+}
+
 export interface Cut {
   id: string;
   source_video_id: string;
@@ -78,6 +108,7 @@ export interface Cut {
   caption_style: Record<string, unknown> | null;
   brand_kit_id: string | null;
   edits: Record<string, unknown> | null;
+  edl: Edl | null;
   human_rank: number | null;
   review_started_at: string | null;
   reviewed_at: string | null;

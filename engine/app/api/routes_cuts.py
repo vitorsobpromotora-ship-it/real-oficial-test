@@ -72,6 +72,32 @@ def _invalidate_previews(s, cut_id: str) -> None:
             f.unlink(missing_ok=True)
 
 
+@router.get("/cuts/{cut_id}/words")
+def cut_words(cut_id: str, pad_s: float = Query(default=15.0, ge=0.0, le=60.0)):
+    """Palavras da transcrição na janela do corte ± pad_s (tempos da FONTE).
+
+    O Editor usa isto para snapping e correção de palavras sem baixar a
+    transcrição inteira de fontes longas."""
+    from ..db.models import Transcript, TranscriptWord  # noqa: PLC0415
+
+    with session() as s:
+        c = s.get(CutCandidate, cut_id)
+        if c is None:
+            raise HTTPException(404, "Corte não encontrado")
+        t = s.execute(select(Transcript).where(Transcript.source_video_id == c.source_video_id)
+                      .order_by(Transcript.created_at.desc())).scalars().first()
+        if t is None:
+            return {"words": []}
+        env_a, env_b = edl_mod.envelope(_edl_efetiva(c, c.edl))
+        rows = s.execute(select(TranscriptWord)
+                         .where(TranscriptWord.transcript_id == t.id,
+                                TranscriptWord.end_s > env_a - pad_s,
+                                TranscriptWord.start_s < env_b + pad_s)
+                         .order_by(TranscriptWord.idx)).scalars().all()
+        return {"words": [{"idx": w.idx, "start_s": w.start_s, "end_s": w.end_s,
+                           "word": w.word} for w in rows]}
+
+
 @router.get("/cuts/{cut_id}/waveform")
 def cut_waveform(cut_id: str, pps: int = Query(default=40, ge=10, le=100),
                  pad_s: float = Query(default=15.0, ge=0.0, le=60.0)):

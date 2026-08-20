@@ -290,3 +290,84 @@ table.list tr:hover td { background: #ffffff06; }
 }
 iframe.report { width: 100%; height: 75vh; border: 1px solid var(--line);
   border-radius: var(--r); background: #fff; }
+
+/* ---------- Editor de Corte (F1) ---------- */
+.editor { display: flex; flex-direction: column; gap: 14px; }
+.ed-title { max-width: 520px; font-weight: 650; }
+.ed-main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 14px;
+  align-items: start; }
+.ed-player video { width: 100%; aspect-ratio: 16/9; background: #000;
+  border-radius: var(--r-sm); cursor: pointer; }
+.ed-loading {
+  aspect-ratio: 16/9; background: #000; border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted); font-size: 13px; text-align: center; padding: 12px;
+}
+.tc { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); }
+.tc b { color: var(--fg); }
+.ed-side h3 { margin: 0 0 4px; font-size: 13.5px; font-weight: 650; }
+.ed-check { display: flex; align-items: center; gap: 8px; font-size: 13px;
+  color: var(--fg); font-weight: 500; margin: 12px 0 4px; }
+.ed-words { display: flex; flex-wrap: wrap; gap: 4px; max-height: 180px;
+  overflow-y: auto; padding: 2px; }
+.ed-word { padding: 2px 7px; font-size: 12px; border-radius: 7px; background: var(--bg2); }
+.ed-word.fixed { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
+.ed-word-input { width: 110px; padding: 2px 7px; font-size: 12px; border-radius: 7px; }
+
+.ed-tl-card { padding: 14px 16px; }
+.tl-scroll { overflow-x: auto; overflow-y: hidden; border: 1px solid var(--line);
+  border-radius: var(--r-sm); background: var(--bg2); }
+.tl-content { position: relative; height: 178px; min-width: 100%; }
+.tl-ruler { position: absolute; top: 0; left: 0; right: 0; height: 24px;
+  border-bottom: 1px solid var(--line); cursor: ew-resize; user-select: none; }
+.tl-tick { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--line-strong); }
+.tl-tick span { position: absolute; top: 3px; left: 4px; font-size: 10px;
+  color: var(--faint); font-variant-numeric: tabular-nums; }
+.tl-strip { position: absolute; top: 24px; left: 0; right: 0; height: 56px;
+  overflow: hidden; cursor: ew-resize; }
+.tl-strip img { width: 100%; height: 100%; object-fit: fill; display: block;
+  opacity: .9; }
+.tl-wave { position: absolute; top: 80px; left: 0; height: 44px; cursor: ew-resize; }
+.tl-segrow { position: absolute; top: 128px; left: 0; right: 0; height: 46px;
+  cursor: ew-resize; }
+.tl-seg {
+  position: absolute; top: 5px; height: 36px; border-radius: 8px;
+  background: linear-gradient(180deg, #ff475726, #ff475715);
+  border: 1.5px solid var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; z-index: 3;
+}
+.tl-seg.on { box-shadow: 0 0 0 2px var(--accent), 0 4px 14px #ff475740; }
+.tl-seglabel { font-size: 11px; font-weight: 700; color: var(--fg);
+  font-variant-numeric: tabular-nums; pointer-events: none;
+  text-shadow: 0 1px 3px #000; }
+.tl-seg .h {
+  position: absolute; top: -1.5px; bottom: -1.5px; width: 9px;
+  background: var(--accent); cursor: col-resize; z-index: 4;
+}
+.tl-seg .h.l { left: -1.5px; border-radius: 8px 0 0 8px; }
+.tl-seg .h.r { right: -1.5px; border-radius: 0 8px 8px 0; }
+.tl-seg .h:hover { background: var(--accent2); }
+.tl-shade {
+  position: absolute; top: 24px; bottom: 0; background: #06081099; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+}
+.tl-shade.gap { cursor: pointer;
+  background: repeating-linear-gradient(45deg, #06081088, #06081088 7px,
+    #0f131a99 7px, #0f131a99 14px); }
+.tl-shade.gap span {
+  width: 22px; height: 22px; border-radius: 99px; background: var(--panel2);
+  border: 1px solid var(--line-strong); color: var(--muted);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 700;
+}
+.tl-shade.gap:hover span { color: var(--ok); border-color: var(--ok); }
+.tl-playhead {
+  position: absolute; top: 0; bottom: 0; width: 2px; background: #fff;
+  box-shadow: 0 0 6px #fff8; z-index: 5; pointer-events: none;
+}
+.tl-playhead::before {
+  content: ""; position: absolute; top: 0; left: -5px;
+  border: 6px solid transparent; border-top: 8px solid #fff;
+}
+@media (max-width: 1100px) { .ed-main { grid-template-columns: 1fr; } }

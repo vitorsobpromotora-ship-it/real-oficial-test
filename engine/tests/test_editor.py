@@ -229,6 +229,24 @@ def test_waveform_da_janela_do_corte(client, auth):
     assert max(body["peaks"]) > 0.4, "picos devem refletir a amplitude real do áudio"
 
 
+def test_words_da_janela_do_corte(client, auth):
+    from app.db.base import session
+    from app.db.models import Transcript, TranscriptWord
+
+    cut_id, src_id, _ = _seed_cut(start=20.0, end=30.0, duration=600.0)
+    with session() as s:
+        t = Transcript(source_video_id=src_id, full_text="…")
+        s.add(t)
+        s.flush()
+        for i, ts in enumerate([1.0, 12.0, 25.0, 44.0, 500.0]):
+            s.add(TranscriptWord(transcript_id=t.id, idx=i, start_s=ts, end_s=ts + 0.4,
+                                 word=f"w{i}"))
+    r = client.get(f"/api/v1/cuts/{cut_id}/words?pad_s=15", headers=auth)
+    assert r.status_code == 200
+    idxs = [w["idx"] for w in r.json()["words"]]
+    assert idxs == [1, 2, 3], "só a janela do corte ± pad (fonte longa não é baixada inteira)"
+
+
 # ---------------------------------------------------------------- e2e render
 
 

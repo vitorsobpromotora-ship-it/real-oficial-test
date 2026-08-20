@@ -12,7 +12,7 @@ const cut: Cut = {
   title: "O segredo revelado", hashtags: ["#x"], reason: "",
   verdict: "postar", analysis: null, status: "draft",
   rank: 1, origin: "claude", crop_plan: { mode: "crop", segments: [] },
-  censor_plan: null, caption_style: null, brand_kit_id: null, edits: null,
+  censor_plan: null, caption_style: null, brand_kit_id: null, edits: null, edl: null,
   human_rank: null, review_started_at: null, reviewed_at: null,
   created_at: "", updated_at: "",
 };

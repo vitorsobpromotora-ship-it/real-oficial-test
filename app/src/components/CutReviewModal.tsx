@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { get, mediaUrl, patch, post } from "../api/client";
 import type { BrandKit, Cut, Render } from "../api/types";
 import { fmtRange } from "./CutCard";
@@ -12,10 +13,14 @@ interface Props {
 }
 
 const PRESETS = [
-  { id: "bold_karaoke", label: "Karaokê em destaque" },
-  { id: "clean", label: "Limpo" },
+  { id: "bold_karaoke", label: "Karaokê Bold" },
+  { id: "clean", label: "Clean" },
   { id: "podcast", label: "Podcast" },
-  { id: "minimal", label: "Minimalista" },
+  { id: "minimal", label: "Minimal" },
+  { id: "palavra_pop", label: "Palavra Pop" },
+  { id: "highlight_box", label: "Highlight Box" },
+  { id: "bounce", label: "Bounce" },
+  { id: "subtitle_bar", label: "Subtitle Bar" },
 ];
 
 const FRAMINGS: { id: string; label: string }[] = [
@@ -42,6 +47,7 @@ const ANALYSIS_LABELS: [keyof NonNullable<Cut["analysis"]>, string][] = [
 
 export default function CutReviewModal({ cut: cutInicial, kits, onClose }: Props) {
   const qc = useQueryClient();
+  const nav = useNavigate();
   const [title, setTitle] = useState(cutInicial.title);
   const [preset, setPreset] = useState<string>(
     (cutInicial.caption_style?.preset as string) ?? "bold_karaoke");
@@ -182,6 +188,12 @@ export default function CutReviewModal({ cut: cutInicial, kits, onClose }: Props
               <button onClick={() => ajustarTrim("end_s", -1)}>−1s</button>
               <button onClick={() => ajustarTrim("end_s", +1)}>+1s</button>
             </div>
+            {cut.edl ? (
+              <div className="sub" style={{ marginTop: 6, color: "var(--warn)" }}>
+                Este corte tem edição feita no Editor ({cut.edl.segments.length} trechos).
+                O trim rápido acima apara essa edição — para mexer nos detalhes, abra o Editor.
+              </div>
+            ) : null}
             <label>Enquadramento (quem fica em foco no 9:16)</label>
             <div className="row wrap">
               {FRAMINGS.map((f) => (
@@ -264,6 +276,15 @@ export default function CutReviewModal({ cut: cutInicial, kits, onClose }: Props
         </div>
         <div className="row" style={{ marginTop: 18 }}>
           <button onClick={onClose}>Fechar</button>
+          <button
+            onClick={() => {
+              onClose();
+              nav(`/editor/${cut.id}`);
+            }}
+            title="Timeline completa: aparar com precisão, dividir, remover trechos, fades e áudio"
+          >
+            ✂ Abrir no Editor
+          </button>
           {toast ? <span className="sub">{toast}</span> : null}
           <button className="danger right" onClick={() => decidir("rejected")}>Rejeitar</button>
           <button className="ok" onClick={() => decidir("approved")}>Aprovar</button>
