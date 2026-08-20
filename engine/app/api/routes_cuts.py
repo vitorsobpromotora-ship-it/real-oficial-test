@@ -98,6 +98,42 @@ def cut_words(cut_id: str, pad_s: float = Query(default=15.0, ge=0.0, le=60.0)):
                            "word": w.word} for w in rows]}
 
 
+@router.post("/cuts/{cut_id}/pauses-preview")
+def pauses_preview(cut_id: str, body: dict | None = None):
+    """Calcula (SEM aplicar) a EDL com pausas removidas no nível pedido.
+
+    body: {"nivel": "leve" | "normal" | "agressivo"}. O Editor mostra o
+    resultado na timeline; nada muda até o usuário salvar. Respeita a edição
+    existente: só corta pausas DENTRO dos trechos mantidos."""
+    from ..db.models import Transcript, TranscriptWord  # noqa: PLC0415
+    from ..pipeline import pauses  # noqa: PLC0415
+
+    nivel = (body or {}).get("nivel", "normal")
+    if nivel not in pauses.NIVEIS:
+        raise HTTPException(422, "nivel deve ser leve, normal ou agressivo")
+    with session() as s:
+        c = s.get(CutCandidate, cut_id)
+        if c is None:
+            raise HTTPException(404, "Corte não encontrado")
+        eff = _edl_efetiva(c, c.edl)
+        t = s.execute(select(Transcript).where(Transcript.source_video_id == c.source_video_id)
+                      .order_by(Transcript.created_at.desc())).scalars().first()
+        if t is None:
+            raise HTTPException(422, "Sem transcrição — processe a fonte primeiro")
+        env_a, env_b = edl_mod.envelope(eff)
+        rows = s.execute(select(TranscriptWord)
+                         .where(TranscriptWord.transcript_id == t.id,
+                                TranscriptWord.end_s > env_a,
+                                TranscriptWord.start_s < env_b)
+                         .order_by(TranscriptWord.idx)).scalars().all()
+        words = [{"start_s": w.start_s, "end_s": w.end_s, "word": w.word} for w in rows]
+    edl_novo, stats = pauses.edl_sem_pausas(words, edl_mod.segments_of(eff), nivel)
+    # preserva fades/áudio da edição atual — só a linha de segmentos muda
+    edl_novo.update({"fade_in_s": eff["fade_in_s"], "fade_out_s": eff["fade_out_s"],
+                     "transition_s": eff["transition_s"], "audio": eff["audio"]})
+    return {"edl": edl_novo, **stats}
+
+
 @router.get("/cuts/{cut_id}/waveform")
 def cut_waveform(cut_id: str, pps: int = Query(default=40, ge=10, le=100),
                  pad_s: float = Query(default=15.0, ge=0.0, le=60.0)):

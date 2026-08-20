@@ -78,6 +78,12 @@ def source_report(source_id: str) -> dict:
         revisados = [c for c in cuts if _review_seconds(c) is not None]
         review_secs = [_review_seconds(c) for c in revisados]
         editados = sum(1 for c in cuts if c.edits)
+        com_edl = sum(1 for c in cuts if c.edl)
+        palavras_corrigidas = sum(len((c.edits or {}).get("word_overrides") or {})
+                                  for c in cuts)
+        enquadramento_manual = sum(
+            1 for c in cuts
+            if (c.edits or {}).get("framing") or (c.edits or {}).get("framing_segments"))
 
         duracao_min = (src.duration_s or 0.0) / 60.0
         baseline_min = duracao_min + MANUAL_MIN_PER_CUT * aprovados
@@ -115,6 +121,11 @@ def source_report(source_id: str) -> dict:
                 "mediana_s": round(float(np.median(review_secs)), 1) if review_secs else None,
                 "pct_editados": round(editados / gerados, 3) if gerados else None,
             },
+            "edicao": {
+                "cortes_com_edicao_no_editor": com_edl,
+                "palavras_corrigidas": palavras_corrigidas,
+                "enquadramento_manual": enquadramento_manual,
+            },
             "score_quality": {"spearman_rank_ia_vs_humano": corr, "n_avaliados": len(com_rank)},
             "custo_claude": {
                 "chamadas": len(calls),
@@ -135,6 +146,46 @@ def source_report(source_id: str) -> dict:
                 "origin": c.origin, "human_rank": c.human_rank,
             } for c in cuts],
         }
+
+
+def editorial_profile(per_source: list[dict]) -> dict:
+    """Perfil editorial LOCAL e transparente, aprendido das decisões do usuário.
+
+    Nada é alterado automaticamente: o perfil descreve padrões (duração
+    preferida, taxa de aprovação por faixa de score) e sugere ajustes que o
+    usuário aplica — ou não — nas Configurações."""
+    detalhes = [c for r in per_source for c in r["cortes_detalhe"]]
+    decididos = [c for c in detalhes if c["status"] in ("approved", "rejected")]
+    if len(decididos) < 5:
+        return {"pronto": False, "amostra": len(decididos),
+                "nota": "Aprove ou rejeite pelo menos 5 cortes para o perfil aparecer."}
+    aprov = [c for c in decididos if c["status"] == "approved"]
+    faixas = []
+    for lo, hi in ((0, 50), (50, 65), (65, 80), (80, 101)):
+        band = [c for c in decididos if lo <= c["score"] < hi]
+        if band:
+            ap = sum(1 for c in band if c["status"] == "approved")
+            faixas.append({"faixa": f"{lo}–{min(hi - 1, 100)}", "aprovados": ap,
+                           "total": len(band), "taxa": round(ap / len(band), 2)})
+    sugestoes: list[str] = []
+    dur = [c["end_s"] - c["start_s"] for c in aprov]
+    faixa_dur = None
+    if len(dur) >= 3:
+        p25, p75 = int(np.percentile(dur, 25)), int(np.percentile(dur, 75))
+        faixa_dur = [p25, p75]
+        sugestoes.append(f"Você aprova mais cortes entre {p25}s e {p75}s — se quiser, "
+                         f"ajuste a duração mín/máx em Configurações → Cortes.")
+    fracas = [f for f in faixas if f["taxa"] <= 0.25 and f["total"] >= 3]
+    if fracas:
+        topo = fracas[-1]["faixa"].split("–")[1]
+        sugestoes.append(f"Cortes com score até {topo} raramente passam na sua revisão — "
+                         f"o perfil Personalizado permite subir o score mínimo.")
+    return {"pronto": True, "amostra": len(decididos),
+            "duracao_mediana_aprovados_s": round(float(np.median(dur)), 1) if dur else None,
+            "faixa_duracao_preferida_s": faixa_dur,
+            "taxa_por_faixa_score": faixas, "sugestoes": sugestoes,
+            "nota": "Calculado localmente a partir das SUAS decisões. Nada muda sozinho — "
+                    "as sugestões só valem se você aplicá-las nas Configurações."}
 
 
 def project_report(project_id: str) -> dict:
@@ -158,5 +209,6 @@ def project_report(project_id: str) -> dict:
             "economia_min": round(sum(r["tempo"]["economia_min"] for r in per_source), 1),
             "custo_claude_usd": round(sum(r["custo_claude"]["total_usd"] for r in per_source), 4),
         },
+        "perfil_editorial": editorial_profile(per_source),
         "fontes": per_source,
     }

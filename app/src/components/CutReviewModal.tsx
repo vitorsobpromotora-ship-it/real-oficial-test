@@ -64,6 +64,7 @@ export default function CutReviewModal({ cut: cutInicial, kits, onClose }: Props
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [previewMsg, setPreviewMsg] = useState("Preparando pré-visualização…");
   const [toast, setToast] = useState("");
+  const [verAnalise, setVerAnalise] = useState(false);
   const marcouRevisao = useRef(false);
   const solicitouPreview = useRef(false);
 
@@ -256,37 +257,48 @@ export default function CutReviewModal({ cut: cutInicial, kits, onClose }: Props
                 <div className="sub" style={{ fontStyle: "italic" }}>“{cut.hook_text}”</div>
               </>
             ) : null}
-            {analysisEntries.length > 0 ? (
+            {!verAnalise ? (
+              <button style={{ marginTop: 14 }} onClick={() => setVerAnalise(true)}>
+                Ver análise completa (editorial + 18 parâmetros)
+              </button>
+            ) : (
               <>
-                <label>Análise editorial</label>
-                <div className="analysis">
-                  {analysisEntries.map((e) => (
-                    <div key={e.key} className="analysis-item">
-                      <b>{e.label}</b>
-                      <span>{e.text}</span>
+                {analysisEntries.length > 0 ? (
+                  <>
+                    <label>Análise editorial</label>
+                    <div className="analysis">
+                      {analysisEntries.map((e) => (
+                        <div key={e.key} className="analysis-item">
+                          <b>{e.label}</b>
+                          <span>{e.text}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </>
+                ) : cut.reason ? (
+                  <>
+                    <label>Por que a IA escolheu</label>
+                    <div className="sub">{cut.reason}</div>
+                  </>
+                ) : null}
+                <label>Detalhamento do score (18 parâmetros)</label>
+                <ScoreBreakdown breakdown={cut.score_breakdown} />
+                <label>Sua avaliação do ranking (opcional — alimenta os relatórios)</label>
+                <input
+                  type="number"
+                  min={1}
+                  placeholder="ex.: 1 = melhor corte na sua opinião"
+                  defaultValue={cut.human_rank ?? ""}
+                  onBlur={(e) => {
+                    const v = parseInt(e.target.value, 10);
+                    if (!Number.isNaN(v) && v >= 1) salvar.mutate({ human_rank: v });
+                  }}
+                />
+                <button style={{ marginTop: 10 }} onClick={() => setVerAnalise(false)}>
+                  Ocultar análise
+                </button>
               </>
-            ) : cut.reason ? (
-              <>
-                <label>Por que a IA escolheu</label>
-                <div className="sub">{cut.reason}</div>
-              </>
-            ) : null}
-            <label>Detalhamento do score (18 parâmetros)</label>
-            <ScoreBreakdown breakdown={cut.score_breakdown} />
-            <label>Sua avaliação do ranking (opcional — alimenta os relatórios)</label>
-            <input
-              type="number"
-              min={1}
-              placeholder="ex.: 1 = melhor corte na sua opinião"
-              defaultValue={cut.human_rank ?? ""}
-              onBlur={(e) => {
-                const v = parseInt(e.target.value, 10);
-                if (!Number.isNaN(v) && v >= 1) salvar.mutate({ human_rank: v });
-              }}
-            />
+            )}
           </div>
         </div>
         <div className="row" style={{ marginTop: 18 }}>

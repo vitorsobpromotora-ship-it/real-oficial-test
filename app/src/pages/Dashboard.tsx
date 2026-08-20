@@ -5,10 +5,21 @@ import { get, post } from "../api/client";
 import type { Job, Project } from "../api/types";
 import JobProgress from "../components/JobProgress";
 
+const STATUS_JOB: Record<string, string> = {
+  queued: "na fila", running: "processando", done: "concluído",
+  failed: "falhou", canceled: "cancelado",
+};
+const TIPO_JOB: Record<string, string> = {
+  process_source: "Processamento de vídeo", render_cut: "Renderização",
+  model_download: "Download de modelo",
+};
+
 export default function Dashboard() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [novoNome, setNovoNome] = useState("");
+  const [onboardOculto, setOnboardOculto] = useState(
+    () => localStorage.getItem("ro_onboarding_ok") === "1");
 
   const projects = useQuery({
     queryKey: ["projects"],
@@ -53,6 +64,33 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {!onboardOculto ? (
+        <div className="card onboard">
+          <div className="row" style={{ alignItems: "flex-start" }}>
+            <div style={{ flex: 1 }}>
+              <h3>Como funciona (3 passos)</h3>
+              <ol className="onboard-steps">
+                <li><b>Importe um vídeo longo</b> (arquivo ou URL) dentro de um projeto —
+                  escolha quem analisa (Claude, GPT ou local) e o perfil de quantidade.</li>
+                <li><b>Revise os cortes sugeridos</b>: score, veredito e análise por corte.
+                  Ajuste fino no <b>Editor</b> (timeline, pausas, fades) e o visual no{" "}
+                  <b>Estúdio de Marca</b>.</li>
+                <li><b>Renderize em lote</b> — os MP4 9:16 com legendas saem prontos na{" "}
+                  <b>Fila de Renderização</b>.</li>
+              </ol>
+              <div className="sub">
+                Dica: configure sua chave de IA em Configurações → IA para ter análise
+                editorial de verdade (sem chave, vale a análise local por picos de áudio).
+              </div>
+            </div>
+            <button onClick={() => {
+              localStorage.setItem("ro_onboarding_ok", "1");
+              setOnboardOculto(true);
+            }}>Entendi</button>
+          </div>
+        </div>
+      ) : null}
+
       {ativos.length > 0 ? (
         <>
           <div className="sub" style={{ margin: "6px 0 10px" }}>Processando agora</div>
@@ -81,6 +119,33 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {(jobs.data ?? []).length > 0 ? (
+        <div style={{ marginTop: 26 }}>
+          <div className="sub" style={{ marginBottom: 8 }}>Atividade recente</div>
+          <table className="list">
+            <tbody>
+              {(jobs.data ?? []).slice(0, 8).map((j) => (
+                <tr key={j.id} className={j.project_id ? "click" : ""}
+                    onClick={() => j.project_id && navigate(`/projeto/${j.project_id}`)}
+                    style={j.project_id ? { cursor: "pointer" } : undefined}>
+                  <td>{TIPO_JOB[j.type] ?? j.type}</td>
+                  <td className="sub">{j.message?.slice(0, 90) || j.stage}</td>
+                  <td style={{ width: 110 }}>
+                    <span className={`chip ${j.status === "done" ? "approved"
+                      : j.status === "failed" ? "rejected" : ""}`}>
+                      {STATUS_JOB[j.status] ?? j.status}
+                    </span>
+                  </td>
+                  <td className="sub" style={{ width: 150 }}>
+                    {(j.finished_at ?? j.created_at ?? "").slice(0, 16).replace("T", " ")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
     </div>
   );
 }

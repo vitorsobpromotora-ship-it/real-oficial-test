@@ -8,7 +8,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { get, mediaUrl, patch, post } from "../api/client";
-import type { Cut, Edl, EdlSegment, Render, Source, TranscriptWord, Waveform } from "../api/types";
+import type {
+  Cut, Edl, EdlSegment, Render, Source, TranscriptWord, Waveform,
+} from "../api/types";
 
 interface Draft {
   segments: EdlSegment[];
@@ -586,6 +588,36 @@ export default function EditorPage() {
             <option value="0.25">Média — 0,25s</option>
             <option value="0.5">Longa — 0,5s</option>
           </select>
+
+          <h3 style={{ marginTop: 18 }}>Remover pausas</h3>
+          <div className="sub" style={{ marginBottom: 6 }}>
+            Corta silêncios automaticamente (jump cuts visíveis na timeline). Pausas
+            dramáticas após “!” ou “?” são preservadas — só o Agressivo corta tudo.
+            Nada é aplicado até você salvar; Ctrl+Z desfaz.
+          </div>
+          <div className="row wrap">
+            {(["leve", "normal", "agressivo"] as const).map((n) => (
+              <button key={n} onClick={async () => {
+                try {
+                  const r = await post<{ edl: Edl; removidas: number;
+                    tempo_removido_s: number }>(
+                    `/api/v1/cuts/${cutId}/pauses-preview`, { nivel: n });
+                  const segsNovos = (r.edl.segments ?? []).map((s) => ({ ...s }));
+                  if (!segsNovos.length) return;
+                  commit({ ...draft, segments: segsNovos });
+                  setSel(null);
+                  flash(r.removidas
+                    ? `${r.removidas} pausa(s) removida(s) · −${r.tempo_removido_s.toFixed(1)}s. `
+                      + "Revise na timeline e salve (Ctrl+Z desfaz)."
+                    : "Nenhuma pausa acima do limite deste nível.", 4500);
+                } catch (e) {
+                  flash(`Não deu: ${(e as Error).message}`, 5000);
+                }
+              }}>
+                {n === "leve" ? "Leve" : n === "normal" ? "Normal" : "Agressivo"}
+              </button>
+            ))}
+          </div>
 
           <h3 style={{ marginTop: 18 }}>Áudio</h3>
           <label>Volume do corte: {draft.audio.gain_db > 0 ? "+" : ""}{draft.audio.gain_db.toFixed(1)} dB</label>

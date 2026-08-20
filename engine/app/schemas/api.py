@@ -74,6 +74,9 @@ class JobOut(BaseModel):
 class SettingsOut(BaseModel):
     default_agent: str
     cut_profile: str
+    cut_score_min: float | str = ""
+    cut_min_gap: float | str = ""
+    max_total_cuts: int = 0
     claude_model: str
     claude_fallback_model: str
     openai_model: str
@@ -191,6 +194,7 @@ class RenderBatchCreate(BaseModel):
 class RenderOut(BaseModel):
     id: str
     cut_id: str
+    cut_title: str = ""
     batch_id: str | None
     brand_kit_id: str | None
     kind: str

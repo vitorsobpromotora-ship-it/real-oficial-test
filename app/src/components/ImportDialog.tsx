@@ -21,7 +21,15 @@ export default function ImportDialog({ projectId, onClose }: Props) {
   const [url, setUrl] = useState("");
   const [filePath, setFilePath] = useState("");
   const [agent, setAgent] = useState<Agent | null>(null);
+  const [perfil, setPerfil] = useState("");
   const [error, setError] = useState("");
+
+  const PERFIS = [
+    { id: "", nome: "Padrão das Configurações", desc: "" },
+    { id: "conservador", nome: "Conservador", desc: "poucos cortes, só os muito fortes" },
+    { id: "balanceado", nome: "Balanceado", desc: "equilíbrio entre volume e qualidade" },
+    { id: "alto_volume", nome: "Alto volume", desc: "o máximo de cortes aproveitáveis" },
+  ];
 
   const disponivel: Record<Agent, boolean> = {
     claude: !!settings.data?.has_anthropic_api_key,
@@ -43,6 +51,7 @@ export default function ImportDialog({ projectId, onClose }: Props) {
         ...body,
         auto_process: true,
         agent,
+        options: perfil ? { cut_profile: perfil } : {},
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["sources", projectId] });
@@ -109,6 +118,19 @@ export default function ImportDialog({ projectId, onClose }: Props) {
               </button>
             );
           })}
+        </div>
+
+        <label>Quantidade de cortes (perfil de seleção)</label>
+        <select value={perfil} onChange={(e) => setPerfil(e.target.value)}>
+          {PERFIS.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.nome}{p.desc ? ` — ${p.desc}` : ""}
+            </option>
+          ))}
+        </select>
+        <div className="sub" style={{ marginTop: 4 }}>
+          Se o vídeo tiver menos momentos bons que a meta, o app avisa em vez de
+          inventar cortes ruins — e guarda reservas para “Mostrar mais oportunidades”.
         </div>
 
         {error ? <div className="err" style={{ marginTop: 10 }}>{error}</div> : null}

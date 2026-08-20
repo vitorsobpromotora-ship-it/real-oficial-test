@@ -13,11 +13,12 @@ from .deps import require_token
 router = APIRouter(dependencies=[Depends(require_token)])
 
 
-def to_out(r: Render) -> RenderOut:
+def to_out(r: Render, cut_title: str | None = None) -> RenderOut:
     return RenderOut(id=r.id, cut_id=r.cut_id, batch_id=r.batch_id, brand_kit_id=r.brand_kit_id,
                      kind=r.kind, status=r.status, progress=r.progress, output_path=r.output_path,
                      job_id=r.job_id, error=r.error, created_at=r.created_at,
-                     started_at=r.started_at, finished_at=r.finished_at)
+                     started_at=r.started_at, finished_at=r.finished_at,
+                     cut_title=cut_title or "")
 
 
 def _create_render(request: Request, cut_id: str, kind: str, brand_kit_id: str | None,
@@ -78,7 +79,13 @@ def list_renders(status: str | None = Query(default=None),
             q = q.where(Render.batch_id == batch_id)
         if cut_id:
             q = q.where(Render.cut_id == cut_id)
-        return [to_out(r) for r in s.execute(q).scalars().all()]
+        rows = s.execute(q).scalars().all()
+        titulos = {}
+        ids = {r.cut_id for r in rows}
+        if ids:
+            titulos = dict(s.execute(select(CutCandidate.id, CutCandidate.title)
+                                     .where(CutCandidate.id.in_(ids))).all())
+        return [to_out(r, titulos.get(r.cut_id)) for r in rows]
 
 
 @router.get("/renders/batches/{batch_id}", response_model=RenderBatchOut)

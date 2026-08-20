@@ -192,6 +192,7 @@ export interface BrandKit {
 export interface Render {
   id: string;
   cut_id: string;
+  cut_title: string;
   batch_id: string | null;
   brand_kit_id: string | null;
   kind: "final" | "preview";
@@ -219,6 +220,10 @@ export type Agent = "claude" | "gpt" | "local";
 
 export interface Settings {
   default_agent: Agent;
+  cut_profile: "conservador" | "balanceado" | "alto_volume" | "personalizado";
+  cut_score_min: number | string;
+  cut_min_gap: number | string;
+  max_total_cuts: number;
   claude_model: string;
   claude_fallback_model: string;
   openai_model: string;

@@ -1,20 +1,24 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { get, post } from "../api/client";
 import type { BrandKit, Cut, Job, Project, Settings, Source } from "../api/types";
-import CutCard from "../components/CutCard";
+import CutCard, { fmtDur, fmtRange, scoreClass } from "../components/CutCard";
 import CutReviewModal from "../components/CutReviewModal";
 import ImportDialog from "../components/ImportDialog";
 import JobProgress from "../components/JobProgress";
+import Thumb from "../components/Thumb";
 
 type Filtro = "todos" | "draft" | "approved" | "rejected";
 
 export default function ProjectPage() {
   const { id = "" } = useParams();
   const qc = useQueryClient();
+  const nav = useNavigate();
   const [mostrarImport, setMostrarImport] = useState(false);
   const [filtro, setFiltro] = useState<Filtro>("todos");
+  const [modo, setModo] = useState<"cards" | "lista">("cards");
+  const [ordem, setOrdem] = useState<"score" | "time">("score");
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [aberto, setAberto] = useState<Cut | null>(null);
   const [toast, setToast] = useState("");
@@ -28,8 +32,12 @@ export default function ProjectPage() {
     queryFn: () => get<Source[]>(`/api/v1/projects/${id}/sources`),
   });
   const cuts = useQuery({
-    queryKey: ["cuts", id],
-    queryFn: () => get<Cut[]>(`/api/v1/projects/${id}/cuts`),
+    queryKey: ["cuts", id, ordem],
+    queryFn: () => get<Cut[]>(`/api/v1/projects/${id}/cuts?sort=${ordem}`),
+  });
+  const reservas = useQuery({
+    queryKey: ["cuts", id, "reservas"],
+    queryFn: () => get<Cut[]>(`/api/v1/projects/${id}/cuts?status=reserve`),
   });
   const kits = useQuery({
     queryKey: ["brand-kits"],
@@ -82,6 +90,24 @@ export default function ProjectPage() {
       qc.invalidateQueries({ queryKey: ["renders"] });
     },
   });
+  const maisOportunidades = useMutation({
+    mutationFn: () => {
+      const fonte = (sources.data ?? []).find((s) => s.status === "ready");
+      if (!fonte) throw new Error("Nenhuma fonte pronta");
+      return post<{ promovidos: number; reservas_restantes: number }>(
+        `/api/v1/sources/${fonte.id}/promote-reserves`, { count: 3 });
+    },
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["cuts", id] });
+      setToast(`${r.promovidos} oportunidade(s) adicionada(s) — sem reanalisar o vídeo. `
+        + `${r.reservas_restantes} ainda em reserva.`);
+      setTimeout(() => setToast(""), 4000);
+    },
+    onError: (e: Error) => {
+      setToast(e.message);
+      setTimeout(() => setToast(""), 4000);
+    },
+  });
 
   const listaFiltrada = useMemo(() => {
     const lista = cuts.data ?? [];
@@ -90,6 +116,11 @@ export default function ProjectPage() {
 
   const jobsAtivos = (jobs.data ?? []).filter(
     (j) => (j.status === "running" || j.status === "queued") && j.project_id === id);
+  // transparência do funil: o último processamento concluído explica as contagens
+  const jobFunil = (jobs.data ?? []).find(
+    (j) => j.project_id === id && j.status === "done" && j.type === "process_source"
+      && (j.result as { funil?: unknown } | null)?.funil);
+  const funil = (jobFunil?.result as { funil?: Record<string, number> } | undefined)?.funil;
 
   function toggle(cutId: string) {
     setSelecionados((prev) => {
@@ -154,13 +185,42 @@ export default function ProjectPage() {
         </div>
       ) : null}
 
-      <div className="row" style={{ marginBottom: 14 }}>
+      {funil ? (
+        <div className="sub" style={{ marginBottom: 10 }}>
+          Funil da última análise: <b>{funil.brutos ?? "?"}</b> candidatos →{" "}
+          <b>{funil.validos ?? "?"}</b> válidos → <b>{funil.apos_dedup ?? "?"}</b> após
+          dedup → <b>{funil.finais ?? "?"}</b> recomendados (meta {funil.alvo ?? "?"}
+          {typeof funil.reservas === "number" && funil.reservas > 0
+            ? ` · ${funil.reservas} em reserva` : ""})
+        </div>
+      ) : null}
+
+      <div className="row wrap" style={{ marginBottom: 14 }}>
         {(["todos", "draft", "approved", "rejected"] as Filtro[]).map((f) => (
           <button key={f} className={filtro === f ? "primary" : ""} onClick={() => setFiltro(f)}>
             {f === "todos" ? "Todos" : f === "draft" ? "Rascunhos" : f === "approved" ? "Aprovados" : "Rejeitados"}
           </button>
         ))}
-        <span className="right sub">ordenado por score</span>
+        {(reservas.data?.length ?? 0) > 0 ? (
+          <button onClick={() => maisOportunidades.mutate()}
+                  disabled={maisOportunidades.isPending}
+                  title="Promove as melhores reservas da análise já feita — sem custo de IA">
+            + Mostrar mais oportunidades ({reservas.data!.length})
+          </button>
+        ) : null}
+        <div className="right row">
+          <select value={ordem} onChange={(e) => setOrdem(e.target.value as never)}
+                  style={{ width: 150 }}>
+            <option value="score">Por score</option>
+            <option value="time">Por tempo</option>
+          </select>
+          <div className="seg" style={{ margin: 0 }}>
+            <button className={modo === "cards" ? "on" : ""}
+                    onClick={() => setModo("cards")}>Cards</button>
+            <button className={modo === "lista" ? "on" : ""}
+                    onClick={() => setModo("lista")}>Lista</button>
+          </div>
+        </div>
       </div>
 
       {cuts.isSuccess && listaFiltrada.length === 0 ? (
@@ -171,17 +231,60 @@ export default function ProjectPage() {
         </div>
       ) : null}
 
-      <div className="cutgrid">
-        {listaFiltrada.map((c) => (
-          <CutCard
-            key={c.id}
-            cut={c}
-            selected={selecionados.has(c.id)}
-            onToggle={() => toggle(c.id)}
-            onOpen={() => setAberto(c)}
-          />
-        ))}
-      </div>
+      {modo === "cards" ? (
+        <div className="cutgrid">
+          {listaFiltrada.map((c) => (
+            <CutCard
+              key={c.id}
+              cut={c}
+              selected={selecionados.has(c.id)}
+              onToggle={() => toggle(c.id)}
+              onOpen={() => setAberto(c)}
+            />
+          ))}
+        </div>
+      ) : (
+        <table className="list">
+          <thead>
+            <tr>
+              <th style={{ width: 30 }} />
+              <th>Corte</th><th>Trecho</th><th>Duração</th><th>Score</th>
+              <th>Veredito</th><th>Status</th><th style={{ width: 190 }}>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {listaFiltrada.map((c) => (
+              <tr key={c.id}>
+                <td>
+                  <input type="checkbox" checked={selecionados.has(c.id)}
+                         onChange={() => toggle(c.id)} style={{ width: 15 }} />
+                </td>
+                <td>
+                  <div className="row" style={{ gap: 8 }}>
+                    <Thumb cutId={c.id} className="row-thumb" />
+                    <span>{c.title || "(sem título)"}{c.edl ? " ✂" : ""}</span>
+                  </div>
+                </td>
+                <td className="sub">{fmtRange(c.start_s, c.end_s)}</td>
+                <td className="sub">{fmtDur(c.duration_s)}</td>
+                <td><span className={`score ${scoreClass(c.score)}`}
+                          style={{ position: "static", padding: "2px 8px", fontSize: 13 }}>
+                  {c.score.toFixed(0)}</span></td>
+                <td><span className={`chip verdict-${c.verdict}`}>{c.verdict}</span></td>
+                <td><span className={`chip ${c.status}`}>
+                  {c.status === "approved" ? "aprovado"
+                    : c.status === "rejected" ? "rejeitado" : "rascunho"}</span></td>
+                <td>
+                  <div className="row" style={{ gap: 6 }}>
+                    <button onClick={() => setAberto(c)}>Revisar</button>
+                    <button onClick={() => nav(`/editor/${c.id}`)}>✂ Editor</button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
 
       {idsSel.length > 0 ? (
         <div className="bulkbar">

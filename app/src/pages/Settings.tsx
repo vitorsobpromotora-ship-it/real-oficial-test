@@ -82,6 +82,12 @@ export default function SettingsPage() {
       output_dir: form.output_dir ?? "",
       use_batches: form.use_batches,
       max_cuts_per_30min: form.max_cuts_per_30min,
+      cut_profile: form.cut_profile ?? "balanceado",
+      cut_score_min: form.cut_score_min ?? "",
+      cut_min_gap: form.cut_min_gap ?? "",
+      max_total_cuts: form.max_total_cuts ?? 0,
+      min_cut_seconds: form.min_cut_seconds,
+      max_cut_seconds: form.max_cut_seconds,
       censor_enabled: form.censor_enabled,
       censor_mode: form.censor_mode,
       censor_extra_words: form.censor_extra_words,
@@ -94,12 +100,26 @@ export default function SettingsPage() {
   if (!settings.data) return <div className="empty">Carregando…</div>;
   const s = settings.data;
 
+  const SECOES = [
+    ["sec-ia", "IA"], ["sec-transcricao", "Transcrição"], ["sec-cortes", "Cortes"],
+    ["sec-legendas", "Legendas"], ["sec-render", "Renderização"],
+    ["sec-armazenamento", "Armazenamento"], ["sec-api", "API"],
+  ] as const;
+
   return (
     <div style={{ maxWidth: 780 }}>
       <div className="pagehead"><h1>Configurações</h1></div>
+      <div className="row wrap set-nav">
+        {SECOES.map(([sid, nome]) => (
+          <a key={sid} className="chip" href={`#/config`} onClick={(e) => {
+            e.preventDefault();
+            document.getElementById(sid)?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}>{nome}</a>
+        ))}
+      </div>
 
-      <div className="card">
-        <h3>Agente de IA padrão</h3>
+      <div className="card" id="sec-ia">
+        <h3>IA · Agente padrão</h3>
         <div className="sub">Quem analisa e escolhe os cortes quando você não escolher na
         importação. A escolha também aparece a cada processamento.</div>
         <div className="agent-picker" style={{ marginTop: 10 }}>
@@ -206,29 +226,88 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: 14 }}>
-        <h3>Transcrição e cortes</h3>
-        <div className="row" style={{ gap: 16 }}>
-          <div style={{ flex: 1 }}>
-            <label>Modelo Whisper (transcrição local)</label>
-            <select value={form.whisper_model ?? ""} onChange={(e) => set("whisper_model", e.target.value)}>
-              <option value="tiny">tiny — mais rápido</option>
-              <option value="base">base</option>
-              <option value="small">small — recomendado</option>
-              <option value="medium">medium — mais preciso</option>
-            </select>
-          </div>
-          <div style={{ flex: 1 }}>
-            <label>Cortes por 30 min de vídeo</label>
-            <input type="number" min={1} max={100} value={form.max_cuts_per_30min ?? 15}
-                   onChange={(e) => set("max_cuts_per_30min", parseInt(e.target.value, 10) || 15)} />
-          </div>
-        </div>
+      <div className="card" style={{ marginTop: 14 }} id="sec-transcricao">
+        <h3>Transcrição</h3>
+        <label>Modelo Whisper (transcrição local, sem custo)</label>
+        <select value={form.whisper_model ?? ""} onChange={(e) => set("whisper_model", e.target.value)}>
+          <option value="tiny">tiny — mais rápido</option>
+          <option value="base">base</option>
+          <option value="small">small — recomendado</option>
+          <option value="medium">medium — mais preciso</option>
+        </select>
       </div>
 
-      <div className="card" style={{ marginTop: 14 }}>
-        <h3>Censura de palavrões</h3>
-        <label>
+      <div className="card" style={{ marginTop: 14 }} id="sec-cortes">
+        <h3>Cortes · Perfil de seleção</h3>
+        <div className="sub">Quantos cortes buscar e com que rigor. O funil de cada
+        análise mostra exatamente o que foi descartado e por quê.</div>
+        <div className="agent-picker" style={{ marginTop: 10, gridTemplateColumns: "repeat(4,1fr)" }}>
+          {([["conservador", "Conservador", "poucos e muito fortes"],
+             ["balanceado", "Balanceado", "volume × qualidade"],
+             ["alto_volume", "Alto volume", "máximo aproveitável"],
+             ["personalizado", "Personalizado", "seus números abaixo"]] as const).map(
+            ([pid, nome, desc]) => (
+              <button key={pid}
+                      className={`agent-opt${(form.cut_profile ?? "balanceado") === pid ? " on" : ""}`}
+                      onClick={() => set("cut_profile", pid)}>
+                <b>{nome}</b>
+                <span>{desc}</span>
+              </button>
+            ))}
+        </div>
+        <div className="row" style={{ gap: 16 }}>
+          <div style={{ flex: 1 }}>
+            <label>Cortes por 30 min</label>
+            <input type="number" min={1} max={100} value={form.max_cuts_per_30min ?? 15}
+                   disabled={(form.cut_profile ?? "balanceado") !== "personalizado"}
+                   onChange={(e) => set("max_cuts_per_30min", parseInt(e.target.value, 10) || 15)} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label>Duração mín (s)</label>
+            <input type="number" min={5} max={60} value={form.min_cut_seconds ?? 15}
+                   onChange={(e) => set("min_cut_seconds", parseFloat(e.target.value) || 15)} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label>Duração máx (s)</label>
+            <input type="number" min={20} max={180} value={form.max_cut_seconds ?? 90}
+                   onChange={(e) => set("max_cut_seconds", parseFloat(e.target.value) || 90)} />
+          </div>
+        </div>
+        {(form.cut_profile ?? "balanceado") === "personalizado" ? (
+          <div className="row" style={{ gap: 16 }}>
+            <div style={{ flex: 1 }}>
+              <label>Score mínimo (0–100; vazio = sem piso)</label>
+              <input type="number" min={0} max={100}
+                     value={form.cut_score_min === "" ? "" : Number(form.cut_score_min)}
+                     placeholder="ex.: 65"
+                     onChange={(e) => set("cut_score_min",
+                       e.target.value === "" ? "" : parseFloat(e.target.value))} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label>Distância mín entre cortes (s)</label>
+              <input type="number" min={0} max={600}
+                     value={form.cut_min_gap === "" ? "" : Number(form.cut_min_gap)}
+                     placeholder="ex.: 60"
+                     onChange={(e) => set("cut_min_gap",
+                       e.target.value === "" ? "" : parseFloat(e.target.value))} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label>Teto total de cortes (0 = sem teto)</label>
+              <input type="number" min={0} max={200} value={form.max_total_cuts ?? 0}
+                     onChange={(e) => set("max_total_cuts", parseInt(e.target.value, 10) || 0)} />
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="card" style={{ marginTop: 14 }} id="sec-legendas">
+        <h3>Legendas</h3>
+        <div className="sub">
+          O estilo das legendas é escolhido POR CORTE (8 presets na revisão) ou pelo
+          Kit de Marca; a posição/largura pode vir da área de legendas do Estúdio de
+          Marca. A censura abaixo vale para todos os renders.
+        </div>
+        <label style={{ marginTop: 10 }}>
           <input type="checkbox" checked={!!form.censor_enabled}
                  onChange={(e) => set("censor_enabled", e.target.checked)}
                  style={{ width: 16, marginRight: 8 }} />
@@ -252,8 +331,8 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: 14 }}>
-        <h3>Saída e integração</h3>
+      <div className="card" style={{ marginTop: 14 }} id="sec-render">
+        <h3>Renderização</h3>
         <label>Pasta dos vídeos renderizados (vazio = pasta padrão do app)</label>
         <div className="row">
           <input value={form.output_dir ?? ""} onChange={(e) => set("output_dir", e.target.value)} />
@@ -264,13 +343,30 @@ export default function SettingsPage() {
             }}>Escolher…</button>
           ) : null}
         </div>
-        <label>Token da API local (para automações externas — API compatível com o fluxo /shorts)</label>
+        <div className="sub" style={{ marginTop: 6 }}>
+          Saída fixa em 1080×1920 (9:16), H.264 + AAC com faststart — pronta para
+          TikTok/Reels/Shorts. Prévias saem em 540×960 pelo MESMO pipeline.
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 14 }} id="sec-armazenamento">
+        <h3>Armazenamento</h3>
+        <div className="sub">
+          Dados do app (banco, prévias, miniaturas, modelos): <b>{s.data_dir}</b>
+          <br />Motor v{s.version}. Prévias e miniaturas são regeneráveis — podem ser
+          apagadas com o app fechado se precisar de espaço.
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 14 }} id="sec-api">
+        <h3>API local</h3>
+        <label>Token Bearer (para automações externas — inclui a fachada /shorts)</label>
         <div className="row">
           <input readOnly value={s.api_token} />
           <button onClick={() => navigator.clipboard.writeText(s.api_token)}>Copiar</button>
         </div>
         <div className="sub" style={{ marginTop: 6 }}>
-          Dados em {s.data_dir} · motor v{s.version}
+          Documentação interativa em <code>/docs</code> no endereço do motor.
         </div>
       </div>
 

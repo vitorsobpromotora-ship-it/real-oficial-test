@@ -1,4 +1,5 @@
 import type { Cut } from "../api/types";
+import Thumb from "./Thumb";
 
 export function fmtDur(s: number): string {
   const m = Math.floor(s / 60);
@@ -39,7 +40,8 @@ export default function CutCard({ cut, selected, onToggle, onOpen }: Props) {
           onChange={onToggle}
           style={{ width: 16, marginTop: 3 }}
         />
-        <div>
+        <Thumb cutId={cut.id} className="card-thumb" />
+        <div style={{ minWidth: 0 }}>
           <h3 style={{ paddingRight: 48 }}>{cut.title || "(sem título)"}</h3>
           <div className="sub">
             #{cut.rank ?? "—"} · {fmtDur(cut.duration_s)} · {fmtRange(cut.start_s, cut.end_s)}
@@ -66,6 +68,7 @@ export default function CutCard({ cut, selected, onToggle, onOpen }: Props) {
             {cut.crop_plan.mode === "blur_pad" ? "fundo desfocado" : "reenquadrado"}
           </span>
         ) : null}
+        {cut.edl ? <span className="chip warnc">✂ editado</span> : null}
       </div>
     </div>
   );
