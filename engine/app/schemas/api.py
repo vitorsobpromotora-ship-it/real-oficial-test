@@ -145,6 +145,7 @@ class CutOut(BaseModel):
     caption_style: dict | None
     brand_kit_id: str | None
     edits: dict | None
+    edl: dict | None  # edição não destrutiva do Editor (None = corte simples start→end)
     human_rank: int | None
     review_started_at: str | None
     reviewed_at: str | None
@@ -161,6 +162,7 @@ class CutPatch(BaseModel):
     caption_style: dict | None = None
     brand_kit_id: str | None = None
     edits: dict | None = None
+    edl: dict | None = None  # null explícito = descartar a edição (volta ao corte simples)
     human_rank: int | None = Field(default=None, ge=1)
     review_started: bool | None = None  # marca o início da revisão (métrica de relatório)
 

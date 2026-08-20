@@ -6,7 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 
 from ..db.base import session
-from ..db.models import CutCandidate, utcnow
+from ..db.models import CutCandidate, SourceVideo, utcnow
+from ..pipeline import edl as edl_mod
 from ..schemas.api import BulkCutsIn, CutOut, CutPatch, OkOut
 from .deps import require_token
 
@@ -22,7 +23,7 @@ def to_out(c: CutCandidate) -> CutOut:
         hashtags=c.hashtags, reason=c.reason, verdict=c.verdict or "revisar",
         analysis=c.analysis, status=c.status, rank=c.rank, origin=c.origin,
         crop_plan=c.crop_plan, censor_plan=c.censor_plan, caption_style=c.caption_style,
-        brand_kit_id=c.brand_kit_id, edits=c.edits, human_rank=c.human_rank,
+        brand_kit_id=c.brand_kit_id, edits=c.edits, edl=c.edl, human_rank=c.human_rank,
         review_started_at=c.review_started_at, reviewed_at=c.reviewed_at,
         created_at=c.created_at, updated_at=c.updated_at)
 
@@ -65,9 +66,59 @@ def _invalidate_previews(s, cut_id: str) -> None:
     for r in rows:
         s.delete(r)
     (config.data_dir() / "media" / "previews" / f"{cut_id}.mp4").unlink(missing_ok=True)
+    strips = config.data_dir() / "media" / "filmstrips"
+    if strips.exists():
+        for f in strips.glob(f"{cut_id}-*.jpg"):
+            f.unlink(missing_ok=True)
 
 
-VISUAL_FIELDS = {"start_s", "end_s", "framing", "title", "caption_style", "brand_kit_id", "edits"}
+@router.get("/cuts/{cut_id}/waveform")
+def cut_waveform(cut_id: str, pps: int = Query(default=40, ge=10, le=100),
+                 pad_s: float = Query(default=15.0, ge=0.0, le=60.0)):
+    """Picos de áudio para a timeline do Editor (janela do corte ± pad_s).
+
+    Lê do WAV da fonte apenas a janela necessária — fontes de horas continuam
+    baratas. `peaks` = amplitude 0–1, um valor a cada 1/pps segundos."""
+    from pathlib import Path  # noqa: PLC0415
+
+    import numpy as np  # noqa: PLC0415
+    import soundfile as sf  # noqa: PLC0415
+
+    with session() as s:
+        c = s.get(CutCandidate, cut_id)
+        if c is None:
+            raise HTTPException(404, "Corte não encontrado")
+        src = s.get(SourceVideo, c.source_video_id)
+        if src is None or not src.audio_path or not Path(src.audio_path).exists():
+            raise HTTPException(404, "Áudio da fonte não disponível — reprocesse a fonte")
+        eff = _edl_efetiva(c, c.edl)
+        audio_path, src_dur = src.audio_path, float(src.duration_s or 0.0)
+    env_a, env_b = edl_mod.envelope(eff)
+    a = max(0.0, env_a - pad_s)
+    b = env_b + pad_s
+    if src_dur > 0:
+        b = min(b, src_dur)
+    with sf.SoundFile(audio_path) as f:
+        sr = f.samplerate
+        f.seek(min(int(a * sr), len(f)))
+        data = f.read(max(0, int((b - a) * sr)), dtype="float32", always_2d=True)[:, 0]
+    bucket = max(1, sr // pps)
+    usable = (len(data) // bucket) * bucket
+    peaks: list[float] = []
+    if usable:
+        peaks = [round(float(p), 3)
+                 for p in np.abs(data[:usable]).reshape(-1, bucket).max(axis=1)]
+    spp = bucket / sr  # segundos por pico (pps efetivo = 1/spp)
+    return {"start_s": round(a, 3), "end_s": round(a + len(peaks) * spp, 3),
+            "pps": round(1.0 / spp, 3), "peaks": peaks, "source_duration_s": src_dur}
+
+
+VISUAL_FIELDS = {"start_s", "end_s", "framing", "title", "caption_style", "brand_kit_id",
+                 "edits", "edl"}
+
+
+def _edl_efetiva(c: CutCandidate, edl_in: dict | None) -> dict:
+    return edl_mod.cut_edl({"edl": edl_in, "start_s": c.start_s, "end_s": c.end_s})
 
 
 def _apply_patch(s, c: CutCandidate, patch: CutPatch) -> None:
@@ -80,6 +131,10 @@ def _apply_patch(s, c: CutCandidate, patch: CutPatch) -> None:
             return ((c.edits or {}).get("framing") or "auto") != (value or "auto")
         if field in ("start_s", "end_s"):
             return value is not None and getattr(c, field) != value
+        if field == "edl":  # compara as EDLs EFETIVAS (normalizadas), não o JSON cru
+            if value is None:
+                return c.edl is not None
+            return _edl_efetiva(c, c.edl) != _edl_efetiva(c, value)
         return getattr(c, field) != value
 
     # só invalida prévias quando o valor visual de fato muda (aprovar reenviando
@@ -104,9 +159,27 @@ def _apply_patch(s, c: CutCandidate, patch: CutPatch) -> None:
         if (new_start, new_end) != (c.start_s, c.end_s):
             c.start_s, c.end_s = new_start, new_end
             c.crop_plan = None  # trim invalida o plano de enquadramento; será recalculado
+            # trim rápido fora do Editor apara a EDL existente em vez de descartá-la
+            c.edl = edl_mod.edl_clamped(c.edl, new_start, new_end)
     else:
         data.pop("start_s", None)
         data.pop("end_s", None)
+    if "edl" in data:
+        new_edl = data.pop("edl")
+        if new_edl is None:
+            c.edl = None  # descarta a edição; volta ao corte simples start→end
+        else:
+            src = s.get(SourceVideo, c.source_video_id)
+            erros = edl_mod.validate_edl(new_edl, src.duration_s if src else None)
+            if erros:
+                raise HTTPException(422, "EDL inválida: " + "; ".join(erros))
+            eff = _edl_efetiva(c, new_edl)
+            env_a, env_b = edl_mod.envelope(eff)
+            if (round(env_a, 3), round(env_b, 3)) != (round(c.start_s, 3), round(c.end_s, 3)):
+                c.crop_plan = None  # envelope mudou → enquadramento recalculado no render
+                c.start_s, c.end_s = env_a, env_b
+            # edição equivalente ao corte simples não precisa de EDL persistida
+            c.edl = None if eff == _edl_efetiva(c, None) else eff
     for field in ("title", "caption_style", "brand_kit_id", "edits", "human_rank"):
         if field in data:
             setattr(c, field, "" if field == "title" and data[field] is None else data[field])

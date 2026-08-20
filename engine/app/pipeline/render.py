@@ -30,6 +30,7 @@ from ..db.models import (
 from ..jobs.registry import job_handler
 from ..services import ffmpeg
 from . import captions, censor
+from . import edl as edl_mod
 from .reframe import apply_framing_override, plan_crop
 
 log = logging.getLogger(__name__)
@@ -49,39 +50,50 @@ def slugify(text: str, max_len: int = 48) -> str:
     return text[:max_len] or "corte"
 
 
-def _shift_plan(crop_plan: dict, start: float, end: float) -> dict:
-    """Converte o plano (tempos da fonte) para tempos relativos ao clipe, cobrindo [0, dur]."""
-    dur = end - start
-    segs = []
-    for seg in crop_plan.get("segments", []):
-        s = max(0.0, seg["start"] - start)
-        e = min(dur, seg["end"] - start)
-        if e - s > 0.05:
-            segs.append({"start": round(s, 3), "end": round(e, 3),
-                         "x0": seg["x0"], "x1": seg["x1"]})
-    if not segs:
-        segs = [{"start": 0.0, "end": round(dur, 3),
-                 "x0": crop_plan.get("segments", [{}])[0].get("x0", 0) if crop_plan.get("segments") else 0,
-                 "x1": 0}]
-        segs[0]["x1"] = segs[0]["x0"]
-    segs[0]["start"] = 0.0
-    segs[-1]["end"] = round(dur, 3)
-    for prev, nxt in zip(segs, segs[1:], strict=False):
-        nxt["start"] = prev["end"]
-    return {**crop_plan, "segments": segs}
+def _fade_tags(item: dict, *, audio: bool) -> str:
+    """Sufixo de filtros fade/afade de junção de um pedaço já em tempo local (pós-setpts)."""
+    dur = item["end"] - item["start"]
+    f = "afade" if audio else "fade"
+    out = ""
+    if item.get("fade_in"):
+        out += f",{f}=t=in:st=0:d={item['fade_in']:.3f}"
+    if item.get("fade_out"):
+        out += f",{f}=t=out:st={max(0.0, dur - item['fade_out']):.3f}:d={item['fade_out']:.3f}"
+    return out
 
 
 def build_filtergraph(*, crop_plan: dict, duration: float, out_w: int, out_h: int,
                       subs_file: str | None, fonts_dir: str | None,
                       censor_intervals: list[dict], censor_mode: str,
                       logo: dict | None, beep_input_index: int | None,
-                      logo_input_index: int | None) -> tuple[str, str, str]:
-    """Retorna (filter_complex, video_label, audio_label)."""
+                      logo_input_index: int | None,
+                      video_trims: list[dict] | None = None,
+                      audio_chunks: list[dict] | None = None,
+                      audio_fx: dict | None = None,
+                      video_fades: dict | None = None) -> tuple[str, str, str]:
+    """Retorna (filter_complex, video_label, audio_label).
+
+    EDL: em modo crop os trims vêm embutidos nos segments do crop_plan (tempo
+    do INPUT + fades de junção); em blur_pad chegam via `video_trims`. O áudio
+    segue a MESMA EDL via `audio_chunks` (atrim/concat), depois `audio_fx`
+    (ganho/mute/fades) e `video_fades` (fades globais do clipe). Todos os
+    parâmetros novos são opcionais — ausentes, o grafo é o clássico de 1 trecho.
+    `duration` é a duração de SAÍDA (base dos fades globais)."""
     chains: list[str] = []
 
     # --- vídeo: crop por segmentos OU blur_pad ---
     if crop_plan.get("mode") == "blur_pad":
-        chains.append("[0:v]split=2[bgsrc][fgsrc]")
+        src_v = "0:v"
+        if video_trims and len(video_trims) > 1:
+            n = len(video_trims)
+            chains.append(f"[0:v]split={n}" + "".join(f"[bt{i}]" for i in range(n)))
+            for i, tr in enumerate(video_trims):
+                chains.append(f"[bt{i}]trim={tr['start']:.3f}:{tr['end']:.3f},"
+                              f"setpts=PTS-STARTPTS{_fade_tags(tr, audio=False)}[bc{i}]")
+            chains.append("".join(f"[bc{i}]" for i in range(n)) +
+                          f"concat=n={n}:v=1:a=0[vcut]")
+            src_v = "vcut"
+        chains.append(f"[{src_v}]split=2[bgsrc][fgsrc]")
         chains.append(f"[bgsrc]scale={out_w}:{out_h}:force_original_aspect_ratio=increase,"
                       f"crop={out_w}:{out_h},gblur=sigma=28[bg]")
         chains.append(f"[fgsrc]scale={out_w}:-2[fg]")
@@ -89,7 +101,8 @@ def build_filtergraph(*, crop_plan: dict, duration: float, out_w: int, out_h: in
     else:
         segs = crop_plan["segments"]
         crop_w, crop_h = crop_plan["crop_w"], crop_plan["crop_h"]
-        if len(segs) == 1 and segs[0]["x0"] == segs[0]["x1"]:
+        if len(segs) == 1 and segs[0]["x0"] == segs[0]["x1"] and \
+                not segs[0].get("fade_in") and not segs[0].get("fade_out"):
             chains.append(f"[0:v]crop={crop_w}:{crop_h}:{segs[0]['x0']}:0,"
                           f"scale={out_w}:{out_h}:flags=lanczos[vbase]")
         else:
@@ -101,7 +114,8 @@ def build_filtergraph(*, crop_plan: dict, duration: float, out_w: int, out_h: in
                 else:
                     x_expr = f"{seg['x0']}+({seg['x1']}-{seg['x0']})*(t/{d:.3f})"
                 chains.append(f"[s{i}]trim={seg['start']:.3f}:{seg['end']:.3f},"
-                              f"setpts=PTS-STARTPTS,crop={crop_w}:{crop_h}:{x_expr}:0[c{i}]")
+                              f"setpts=PTS-STARTPTS,crop={crop_w}:{crop_h}:{x_expr}:0"
+                              f"{_fade_tags(seg, audio=False)}[c{i}]")
             concat_in = "".join(f"[c{i}]" for i in range(len(segs)))
             chains.append(f"{concat_in}concat=n={len(segs)}:v=1:a=0,"
                           f"scale={out_w}:{out_h}:flags=lanczos[vbase]")
@@ -121,9 +135,45 @@ def build_filtergraph(*, crop_plan: dict, duration: float, out_w: int, out_h: in
                       f"colorchannelmixer=aa={opacity:.2f}[logo]")
         chains.append(f"[{v}][logo]overlay={x}:{y}[vlogo]")
         v = "vlogo"
+    fades = video_fades or {}
+    fi, fo = float(fades.get("fade_in_s") or 0.0), float(fades.get("fade_out_s") or 0.0)
+    if fi > 0 or fo > 0:  # fade global sobre a composição inteira (legendas e logo juntos)
+        parts = []
+        if fi > 0:
+            parts.append(f"fade=t=in:st=0:d={fi:.3f}")
+        if fo > 0:
+            parts.append(f"fade=t=out:st={max(0.0, duration - fo):.3f}:d={fo:.3f}")
+        chains.append(f"[{v}]{','.join(parts)}[vfade]")
+        v = "vfade"
 
-    # --- áudio: censura + loudnorm ---
+    # --- áudio: seleção EDL → ganho/fades → censura → loudnorm ---
     a = "0:a"
+    if audio_chunks and len(audio_chunks) > 1:
+        n = len(audio_chunks)
+        chains.append(f"[0:a]asplit={n}" + "".join(f"[aa{i}]" for i in range(n)))
+        for i, ch in enumerate(audio_chunks):
+            chains.append(f"[aa{i}]atrim={ch['start']:.3f}:{ch['end']:.3f},"
+                          f"asetpts=PTS-STARTPTS{_fade_tags(ch, audio=True)}[ac{i}]")
+        chains.append("".join(f"[ac{i}]" for i in range(n)) + f"concat=n={n}:v=0:a=1[acat]")
+        a = "acat"
+    fx = audio_fx or {}
+    if fx.get("mute"):
+        chains.append(f"[{a}]volume=0[amuteall]")
+        a = "amuteall"
+    else:
+        gain = float(fx.get("gain_db") or 0.0)
+        if abs(gain) >= 0.05:
+            chains.append(f"[{a}]volume={gain:+.1f}dB[again]")
+            a = "again"
+        afi, afo = float(fx.get("fade_in_s") or 0.0), float(fx.get("fade_out_s") or 0.0)
+        if afi > 0 or afo > 0:
+            parts = []
+            if afi > 0:
+                parts.append(f"afade=t=in:st=0:d={afi:.3f}")
+            if afo > 0:
+                parts.append(f"afade=t=out:st={max(0.0, duration - afo):.3f}:d={afo:.3f}")
+            chains.append(f"[{a}]{','.join(parts)}[afades]")
+            a = "afades"
     if censor_intervals:
         enable = "+".join(f"between(t\\,{i['start']:.3f}\\,{i['end']:.3f})"
                           for i in censor_intervals)
@@ -137,6 +187,24 @@ def build_filtergraph(*, crop_plan: dict, duration: float, out_w: int, out_h: in
             a = "amix"
     chains.append(f"[{a}]loudnorm=I=-14:TP=-1.5:LRA=11[aout]")
     return ";".join(chains), f"[{v}]", "[aout]"
+
+
+def _fades_de_juncao(items: list[dict], transition_s: float) -> None:
+    """Marca fade-out/fade-in nos pedaços vizinhos de cada junção da EDL.
+
+    Emendas internas do plano de crop (mesmo edl_seg) não recebem fade — são
+    trocas de enquadramento, não cortes de edição."""
+    if transition_s <= 0:
+        return
+    for prev, nxt in zip(items, items[1:], strict=False):
+        if prev.get("edl_seg") == nxt.get("edl_seg"):
+            continue
+        d_out = min(transition_s, max(0.0, (prev["end"] - prev["start"]) / 2))
+        d_in = min(transition_s, max(0.0, (nxt["end"] - nxt["start"]) / 2))
+        if d_out >= 0.03:
+            prev["fade_out"] = round(d_out, 3)
+        if d_in >= 0.03:
+            nxt["fade_in"] = round(d_in, 3)
 
 
 def _load_render_bundle(render_id: str) -> dict:
@@ -162,12 +230,14 @@ def _load_render_bundle(render_id: str) -> dict:
                        "headline_template": k.headline_template}
         t = s.execute(select(Transcript).where(Transcript.source_video_id == src.id)
                       .order_by(Transcript.created_at.desc())).scalars().first()
+        eff = edl_mod.cut_edl({"edl": cut.edl, "start_s": cut.start_s, "end_s": cut.end_s})
+        env_a, env_b = edl_mod.envelope(eff)
         words: list[dict] = []
         if t is not None:
             rows = s.execute(select(TranscriptWord)
                              .where(TranscriptWord.transcript_id == t.id,
-                                    TranscriptWord.end_s > cut.start_s,
-                                    TranscriptWord.start_s < cut.end_s)
+                                    TranscriptWord.end_s > env_a,
+                                    TranscriptWord.start_s < env_b)
                              .order_by(TranscriptWord.idx)).scalars().all()
             words = [{"idx": w.idx, "start_s": w.start_s, "end_s": w.end_s, "word": w.word}
                      for w in rows]
@@ -176,7 +246,7 @@ def _load_render_bundle(render_id: str) -> dict:
             "cut": {"id": cut.id, "start_s": cut.start_s, "end_s": cut.end_s,
                     "title": cut.title, "caption_style": cut.caption_style,
                     "censor_plan": cut.censor_plan, "crop_plan": cut.crop_plan,
-                    "edits": cut.edits},
+                    "edits": cut.edits, "edl": cut.edl},
             "source": {"id": src.id, "file_path": src.file_path,
                        "width": src.width or 1920, "height": src.height or 1080,
                        "fps": src.fps or 30.0},
@@ -213,8 +283,13 @@ def render_cut(ctx) -> dict:
     cut, src, kit = bundle["cut"], bundle["source"], bundle["kit"]
     overrides = bundle["render"]["overrides"]
     kind = bundle["render"]["kind"]
-    start, end = cut["start_s"], cut["end_s"]
-    duration = end - start
+    # A MESMA EDL dirige prévia e render final; cortes sem EDL usam a implícita
+    # [start_s → end_s] — o caminho clássico, byte a byte.
+    edl = edl_mod.cut_edl(cut)
+    env_a, env_b = edl_mod.envelope(edl)
+    in_dur = env_b - env_a          # janela decodificada do input (-ss/-t)
+    duration = edl_mod.out_duration(edl)   # duração de SAÍDA do clipe
+    multi = len(edl["segments"]) > 1
 
     _update_render(render_id, status="running", started_at=utcnow())
     ctx.publish("render.progress", {"render_id": render_id, "progress": 0.0, "status": "running"})
@@ -227,7 +302,7 @@ def render_cut(ctx) -> dict:
     crop_plan = cut["crop_plan"]
     if not crop_plan:
         ctx.report(stage="render", message="Calculando enquadramento…", force=True)
-        crop_plan = plan_crop(src["file_path"], start, end, src["width"], src["height"],
+        crop_plan = plan_crop(src["file_path"], env_a, env_b, src["width"], src["height"],
                               cancel_check=ctx.check_cancel)
         with session() as s:
             row = s.get(CutCandidate, cut["id"])
@@ -235,10 +310,31 @@ def render_cut(ctx) -> dict:
                 row.crop_plan = crop_plan
     framing = (cut["edits"] or {}).get("framing")
     crop_plan = apply_framing_override(crop_plan, framing, src["width"], src["height"],
-                                       start, end)
-    plan_rel = _shift_plan(crop_plan, start, end)
+                                       env_a, env_b)
+    plan_rel = edl_mod.slice_crop_plan(crop_plan, edl)
+    video_trims = None
+    if plan_rel.get("mode") == "blur_pad":
+        if multi:  # blur_pad também precisa selecionar os segmentos da EDL
+            video_trims = [{"start": round(a - env_a, 3), "end": round(b - env_a, 3),
+                            "edl_seg": i}
+                           for i, (a, b) in enumerate(edl_mod.segments_of(edl))]
+            _fades_de_juncao(video_trims, edl["transition_s"])
+    else:
+        # pedaços com trim em tempo do INPUT (fonte − env_a) + fades de junção
+        graph_segs = [{"start": round(p["src_start"] - env_a, 3),
+                       "end": round(p["src_end"] - env_a, 3),
+                       "x0": p["x0"], "x1": p["x1"], "edl_seg": p["edl_seg"]}
+                      for p in plan_rel["segments"]]
+        _fades_de_juncao(graph_segs, edl["transition_s"])
+        plan_rel = {**plan_rel, "segments": graph_segs}
 
-    words_rel = captions.words_for_cut(bundle["words"], start, end, cut["edits"])
+    audio_sel = None
+    if multi:
+        audio_sel = [{**ch, "edl_seg": i}
+                     for i, ch in enumerate(edl_mod.audio_chunks(edl, env_a))]
+        _fades_de_juncao(audio_sel, edl["transition_s"])
+
+    words_rel = edl_mod.map_words(bundle["words"], edl, cut["edits"])
     caption_style = overrides.get("caption_style") or cut["caption_style"]
     headline = overrides.get("headline")
     if headline is None and kit and kit.get("headline_template"):
@@ -249,10 +345,9 @@ def render_cut(ctx) -> dict:
         censor_enabled = bool(settings_store.get_setting("censor_enabled"))
     censor_mode = overrides.get("censor_mode") or settings_store.get_setting("censor_mode") or "beep"
     intervals: list[dict] = []
-    if censor_enabled:
+    if censor_enabled and not edl["audio"]["mute"]:
         if cut["censor_plan"]:
-            intervals = [{"start": max(0.0, i["start"] - start), "end": min(duration, i["end"] - start)}
-                         for i in cut["censor_plan"] if i["end"] > start and i["start"] < end]
+            intervals = edl_mod.map_intervals(cut["censor_plan"], edl)
         else:
             extra = settings_store.get_setting("censor_extra_words") or []
             intervals = censor.find_intervals(words_rel, censor.load_wordlist(extra))
@@ -276,7 +371,7 @@ def render_cut(ctx) -> dict:
             shutil.copytree(bundled_fonts_dir(), workdir / "fonts", dirs_exist_ok=True)
             fonts_dir = "fonts"
 
-        args: list[str] = ["-ss", f"{start:.3f}", "-t", f"{duration:.3f}", "-i", src["file_path"]]
+        args: list[str] = ["-ss", f"{env_a:.3f}", "-t", f"{in_dur:.3f}", "-i", src["file_path"]]
         next_idx = 1
         logo_idx = beep_idx = None
         if logo is not None:
@@ -292,7 +387,9 @@ def render_cut(ctx) -> dict:
             crop_plan=plan_rel, duration=duration, out_w=out_w, out_h=out_h,
             subs_file=subs_file, fonts_dir=fonts_dir, censor_intervals=intervals,
             censor_mode=censor_mode, logo=logo, beep_input_index=beep_idx,
-            logo_input_index=logo_idx)
+            logo_input_index=logo_idx, video_trims=video_trims, audio_chunks=audio_sel,
+            audio_fx=edl["audio"],
+            video_fades={"fade_in_s": edl["fade_in_s"], "fade_out_s": edl["fade_out_s"]})
 
         if kind == "preview":
             out_path = config.data_dir() / "media" / "previews" / f"{cut['id']}.mp4"

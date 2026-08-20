@@ -119,6 +119,7 @@ class CutCandidate(Base):
         ForeignKey("brand_kits.id", ondelete="SET NULL"), nullable=True
     )
     edits: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # trims, textos de legenda
+    edl: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # edição não destrutiva (Editor)
     human_rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
     review_started_at: Mapped[str | None] = mapped_column(String(32), nullable=True)
     reviewed_at: Mapped[str | None] = mapped_column(String(32), nullable=True)

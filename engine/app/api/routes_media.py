@@ -1,15 +1,16 @@
-"""Streaming de arquivos de mídia para a UI (tag <video> autentica via ?token=)."""
+"""Streaming de arquivos de mídia para a UI (tags <video>/<img> autenticam via ?token=)."""
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 
 from .. import config
 from ..db.base import session
-from ..db.models import Render
+from ..db.models import CutCandidate, Render, SourceVideo
 from .deps import require_token_query
 
 router = APIRouter(dependencies=[Depends(require_token_query)])
@@ -33,3 +34,50 @@ def cut_preview(cut_id: str):
     if not path.exists():
         raise HTTPException(404, "Preview ainda não renderizado")
     return FileResponse(path, media_type="video/mp4", filename=path.name)
+
+
+@router.get("/media/sources/{source_id}/file")
+def source_file(source_id: str):
+    """Vídeo-fonte original para o player do Editor (FileResponse atende Range/seek)."""
+    with session() as s:
+        v = s.get(SourceVideo, source_id)
+        if v is None or not v.file_path:
+            raise HTTPException(404, "Fonte não disponível")
+        path = Path(v.file_path)
+    if not path.exists():
+        raise HTTPException(404, "Arquivo da fonte não existe mais no disco")
+    return FileResponse(path, media_type="video/mp4", filename=path.name)
+
+
+@router.get("/media/cuts/{cut_id}/filmstrip")
+def cut_filmstrip(cut_id: str, t0: float | None = Query(default=None, ge=0),
+                  t1: float | None = Query(default=None, ge=0),
+                  frames: int = Query(default=10, ge=4, le=24)):
+    """Tira de miniaturas reais do trecho para a timeline do Editor (cache em disco).
+
+    Janela padrão = envelope do corte; o Editor pede t0/t1 explícitos quando
+    mostra contexto ao redor. A imagem é `frames` quadros de 160px lado a lado."""
+    from ..services import ffmpeg  # noqa: PLC0415
+
+    with session() as s:
+        c = s.get(CutCandidate, cut_id)
+        if c is None:
+            raise HTTPException(404, "Corte não encontrado")
+        src = s.get(SourceVideo, c.source_video_id)
+        if src is None or not src.file_path or not Path(src.file_path).exists():
+            raise HTTPException(404, "Vídeo da fonte não disponível")
+        video, ca, cb = src.file_path, c.start_s, c.end_s
+    a = ca if t0 is None else t0
+    b = cb if t1 is None else t1
+    if b - a < 0.2:
+        raise HTTPException(422, "Janela do filmstrip muito curta")
+    key = hashlib.sha1(f"{video}:{Path(video).stat().st_mtime_ns}:{a:.2f}:{b:.2f}:{frames}"
+                       .encode()).hexdigest()[:16]
+    out = config.data_dir() / "media" / "filmstrips" / f"{cut_id}-{key}.jpg"
+    if not out.exists():
+        out.parent.mkdir(parents=True, exist_ok=True)
+        dur = b - a
+        ffmpeg.run(["-ss", f"{a:.3f}", "-t", f"{dur:.3f}", "-i", video,
+                    "-vf", f"fps={frames * 1.05 / dur:.6f},scale=160:-2,tile={frames}x1",
+                    "-frames:v", "1", "-q:v", "5", str(out)])
+    return FileResponse(out, media_type="image/jpeg")

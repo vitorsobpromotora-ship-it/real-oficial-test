@@ -25,8 +25,14 @@ def _m2_analise_editorial(conn) -> None:
     _add_column(conn, "cut_candidates", "analysis JSON")
 
 
+def _m3_editor_edl(conn) -> None:
+    """v2.0.0: EDL não destrutiva do Editor de Corte (trim/split/fades por corte)."""
+    _add_column(conn, "cut_candidates", "edl JSON")
+
+
 MIGRATIONS: list = [
     (2, _m2_analise_editorial),
+    (3, _m3_editor_edl),
 ]
 
 
