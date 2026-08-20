@@ -27,10 +27,14 @@ def _create_render(request: Request, cut_id: str, kind: str, brand_kit_id: str |
         cut = s.get(CutCandidate, cut_id)
         if cut is None:
             raise HTTPException(404, f"Corte {cut_id} não encontrado")
+        if kind == "final" and cut.status == "rejected":
+            raise HTTPException(422, "Corte rejeitado não pode ser renderizado — "
+                                     "restaure-o para revisão primeiro")
         if brand_kit_id and s.get(BrandKit, brand_kit_id) is None:
             raise HTTPException(404, "Brand kit não encontrado")
         r = Render(cut_id=cut_id, kind=kind, brand_kit_id=brand_kit_id,
-                   preset_snapshot=overrides or {}, batch_id=batch_id)
+                   preset_snapshot=overrides or {}, batch_id=batch_id,
+                   edit_revision=cut.edit_revision or 1)
         s.add(r)
         s.flush()
         render_id, project_id, source_id = r.id, cut.project_id, cut.source_video_id

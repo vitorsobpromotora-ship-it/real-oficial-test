@@ -247,7 +247,7 @@ def test_stage_analyze_via_api(client, auth, monkeypatch):
     assert cuts[0]["rank"] == 1 and cuts[1]["rank"] == 2
     assert set(cuts[0]["score_breakdown"].keys()) == set(PARAM_KEYS)
     assert cuts[0]["score"] > cuts[1]["score"] > 0
-    assert all(c["status"] == "draft" for c in cuts)
+    assert all(c["status"] == "pending_review" for c in cuts)
 
     cut_id = cuts[0]["id"]
     r = client.patch(f"/api/v1/cuts/{cut_id}", json={"review_started": True}, headers=auth)

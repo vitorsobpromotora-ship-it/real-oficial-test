@@ -14,7 +14,27 @@ from .deps import require_token
 router = APIRouter(dependencies=[Depends(require_token)])
 
 
-def to_out(c: CutCandidate) -> CutOut:
+# ciclo de RENDER derivado dos registros de Render (kind=final) — nunca uma flag
+# no corte: o estado editorial e o estado técnico não podem se contaminar.
+RENDER_STATE = {"queued": "queued", "running": "rendering", "done": "rendered",
+                "failed": "render_failed", "canceled": "not_rendered"}
+
+
+def render_info(s, cut_ids: list[str]) -> dict:
+    """Render FINAL mais recente de cada corte, em uma única consulta."""
+    from ..db.models import Render  # noqa: PLC0415
+
+    if not cut_ids:
+        return {}
+    rows = s.execute(select(Render).where(Render.cut_id.in_(cut_ids), Render.kind == "final")
+                     .order_by(Render.created_at)).scalars().all()
+    return {r.cut_id: r for r in rows}  # ordem ascendente: o mais recente prevalece
+
+
+def to_out(c: CutCandidate, render=None) -> CutOut:
+    state = RENDER_STATE.get(render.status, "not_rendered") if render is not None else "not_rendered"
+    outdated = bool(render is not None and state == "rendered"
+                    and (render.edit_revision or 0) < (c.edit_revision or 1))
     return CutOut(
         id=c.id, source_video_id=c.source_video_id, project_id=c.project_id,
         start_s=c.start_s, end_s=c.end_s, duration_s=round(c.end_s - c.start_s, 3),
@@ -23,7 +43,11 @@ def to_out(c: CutCandidate) -> CutOut:
         hashtags=c.hashtags, reason=c.reason, verdict=c.verdict or "revisar",
         analysis=c.analysis, status=c.status, rank=c.rank, origin=c.origin,
         crop_plan=c.crop_plan, censor_plan=c.censor_plan, caption_style=c.caption_style,
-        brand_kit_id=c.brand_kit_id, edits=c.edits, edl=c.edl, human_rank=c.human_rank,
+        brand_kit_id=c.brand_kit_id, edits=c.edits, edl=c.edl,
+        description=c.description or "", platform_metadata=c.platform_metadata,
+        edit_revision=c.edit_revision or 1, render_state=state, render_outdated=outdated,
+        latest_render_id=render.id if render is not None else None,
+        human_rank=c.human_rank,
         review_started_at=c.review_started_at, reviewed_at=c.reviewed_at,
         created_at=c.created_at, updated_at=c.updated_at)
 
@@ -35,7 +59,8 @@ def list_cuts(project_id: str, status: str | None = Query(default=None),
     with session() as s:
         q = select(CutCandidate).where(CutCandidate.project_id == project_id)
         if status:
-            q = q.where(CutCandidate.status == status)
+            estados = [status, "pending_review"] if status == "draft" else [status]
+            q = q.where(CutCandidate.status.in_(estados))
         else:  # reservas só aparecem quando pedidas ("Mostrar mais oportunidades")
             q = q.where(CutCandidate.status != "reserve")
         if source_video_id:
@@ -44,7 +69,9 @@ def list_cuts(project_id: str, status: str | None = Query(default=None),
             q = q.order_by(CutCandidate.start_s)
         else:
             q = q.order_by(CutCandidate.score.desc())
-        return [to_out(c) for c in s.execute(q).scalars().all()]
+        rows = s.execute(q).scalars().all()
+        renders = render_info(s, [c.id for c in rows])
+        return [to_out(c, renders.get(c.id)) for c in rows]
 
 
 @router.get("/cuts/{cut_id}", response_model=CutOut)
@@ -53,7 +80,7 @@ def get_cut(cut_id: str):
         c = s.get(CutCandidate, cut_id)
         if c is None:
             raise HTTPException(404, "Corte não encontrado")
-        return to_out(c)
+        return to_out(c, render_info(s, [cut_id]).get(cut_id))
 
 
 def _invalidate_previews(s, cut_id: str) -> None:
@@ -208,9 +235,12 @@ def _apply_patch(s, c: CutCandidate, patch: CutPatch) -> None:
         if data.pop("review_started") and not c.review_started_at:
             c.review_started_at = utcnow()
     if data.get("status"):
-        c.status = data.pop("status")
+        novo = data.pop("status")
+        c.status = "pending_review" if novo == "draft" else novo  # "draft" = sinônimo legado
         if c.status in ("approved", "rejected"):
             c.reviewed_at = utcnow()
+        elif c.status == "pending_review":
+            c.reviewed_at = None  # Restaurar para revisão: volta a exigir decisão
     else:
         data.pop("status", None)
     if data.get("start_s") is not None or data.get("end_s") is not None:
@@ -244,9 +274,11 @@ def _apply_patch(s, c: CutCandidate, patch: CutPatch) -> None:
                 c.start_s, c.end_s = env_a, env_b
             # edição equivalente ao corte simples não precisa de EDL persistida
             c.edl = None if eff == _edl_efetiva(c, None) else eff
-    for field in ("title", "caption_style", "brand_kit_id", "edits", "human_rank"):
+    for field in ("title", "description", "platform_metadata", "caption_style",
+                  "brand_kit_id", "edits", "human_rank"):
         if field in data:
-            setattr(c, field, "" if field == "title" and data[field] is None else data[field])
+            limpa = data[field] is None and field in ("title", "description")
+            setattr(c, field, "" if limpa else data[field])
     if "framing" in data:
         f = data.pop("framing")
         edits = dict(c.edits or {})
@@ -265,6 +297,9 @@ def _apply_patch(s, c: CutCandidate, patch: CutPatch) -> None:
         c.edits = edits or None
     if visual_change:
         _invalidate_previews(s, c.id)
+        # revisão de edição: é ela que detecta "render desatualizado"
+        # (edit_revision > revisão carimbada no render concluído)
+        c.edit_revision = (c.edit_revision or 1) + 1
     c.updated_at = utcnow()
 
 
@@ -276,7 +311,7 @@ def patch_cut(cut_id: str, patch: CutPatch):
             raise HTTPException(404, "Corte não encontrado")
         _apply_patch(s, c, patch)
         s.flush()
-        return to_out(c)
+        return to_out(c, render_info(s, [cut_id]).get(cut_id))
 
 
 @router.post("/cuts/bulk", response_model=OkOut)

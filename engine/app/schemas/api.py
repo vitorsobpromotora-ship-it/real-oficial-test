@@ -140,7 +140,7 @@ class CutOut(BaseModel):
     reason: str
     verdict: str
     analysis: dict | None
-    status: str  # draft | approved | rejected | reserve
+    status: str  # estado EDITORIAL: pending_review | approved | rejected | reserve
     rank: int | None
     origin: str
     crop_plan: dict | None
@@ -149,6 +149,14 @@ class CutOut(BaseModel):
     brand_kit_id: str | None
     edits: dict | None
     edl: dict | None  # edição não destrutiva do Editor (None = corte simples start→end)
+    description: str = ""  # descrição do vídeo (publishing metadata futura)
+    platform_metadata: dict | None = None  # dados por plataforma (vazio nesta versão)
+    edit_revision: int = 1
+    # ciclo de RENDER, derivado (nunca confundido com o estado editorial):
+    # not_rendered | queued | rendering | rendered | render_failed
+    render_state: str = "not_rendered"
+    render_outdated: bool = False  # há alterações salvas depois do último render concluído
+    latest_render_id: str | None = None  # render final mais recente (assistir/re-renderizar)
     human_rank: int | None
     review_started_at: str | None
     reviewed_at: str | None
@@ -157,7 +165,10 @@ class CutOut(BaseModel):
 
 
 class CutPatch(BaseModel):
-    status: Literal["draft", "approved", "rejected"] | None = None
+    # "draft" é aceito como sinônimo legado de pending_review (Restaurar para revisão)
+    status: Literal["pending_review", "draft", "approved", "rejected"] | None = None
+    description: str | None = None
+    platform_metadata: dict | None = None
     start_s: float | None = Field(default=None, ge=0)
     end_s: float | None = Field(default=None, ge=0)
     framing: Literal["auto", "left", "right", "center", "blur",

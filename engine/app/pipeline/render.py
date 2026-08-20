@@ -312,7 +312,8 @@ def _load_render_bundle(render_id: str) -> dict:
             "cut": {"id": cut.id, "start_s": cut.start_s, "end_s": cut.end_s,
                     "title": cut.title, "caption_style": cut.caption_style,
                     "censor_plan": cut.censor_plan, "crop_plan": cut.crop_plan,
-                    "edits": cut.edits, "edl": cut.edl},
+                    "edits": cut.edits, "edl": cut.edl,
+                    "edit_revision": cut.edit_revision or 1},
             "source": {"id": src.id, "file_path": src.file_path,
                        "width": src.width or 1920, "height": src.height or 1080,
                        "fps": src.fps or 30.0},
@@ -357,7 +358,10 @@ def render_cut(ctx) -> dict:
     duration = edl_mod.out_duration(edl)   # duração de SAÍDA do clipe
     multi = len(edl["segments"]) > 1
 
-    _update_render(render_id, status="running", started_at=utcnow())
+    # carimba a revisão de edição que ESTE render materializa (o corte é lido
+    # agora, na execução): é a base do aviso "render desatualizado"
+    _update_render(render_id, status="running", started_at=utcnow(),
+                   edit_revision=cut.get("edit_revision") or 1)
     ctx.publish("render.progress", {"render_id": render_id, "progress": 0.0, "status": "running"})
     ctx.report(stage="render", progress=0.0, message=f"Renderizando {kind}…", force=True)
 

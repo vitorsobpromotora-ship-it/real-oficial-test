@@ -35,10 +35,24 @@ def _m4_brand_studio(conn) -> None:
     _add_column(conn, "brand_kits", "layout JSON")
 
 
+def _m5_estado_editorial(conn) -> None:
+    """v3: máquina de estados editorial, metadados de publicação e revisões.
+
+    'draft' vira 'pending_review' (o estado editorial explícito); descrição e
+    platform_metadata preparam a publicação futura; edit_revision/renders.edit_revision
+    permitem detectar "render desatualizado" (edit_revision > revisão renderizada)."""
+    _add_column(conn, "cut_candidates", "description TEXT DEFAULT ''")
+    _add_column(conn, "cut_candidates", "platform_metadata JSON")
+    _add_column(conn, "cut_candidates", "edit_revision INTEGER DEFAULT 1")
+    _add_column(conn, "renders", "edit_revision INTEGER")
+    conn.execute(text("UPDATE cut_candidates SET status = 'pending_review' WHERE status = 'draft'"))
+
+
 MIGRATIONS: list = [
     (2, _m2_analise_editorial),
     (3, _m3_editor_edl),
     (4, _m4_brand_studio),
+    (5, _m5_estado_editorial),
 ]
 
 

@@ -39,7 +39,7 @@ def db_semeado(client, auth):
                          review_started_at="2026-08-19T10:05:00+00:00",
                          reviewed_at="2026-08-19T10:05:30+00:00"),
             CutCandidate(source_video_id=src.id, project_id=p.id, start_s=300, end_s=330,
-                         score=60.0, score_breakdown=base, rank=4, status="draft",
+                         score=60.0, score_breakdown=base, rank=4, status="pending_review",
                          origin="heuristic", title="D"),
         ]
         s.add_all(cortes)

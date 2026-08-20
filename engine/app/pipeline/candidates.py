@@ -257,7 +257,7 @@ def persist_candidates(source_video_id: str, project_id: str, cands: list[dict],
     with session() as s:
         s.execute(delete(CutCandidate).where(CutCandidate.source_video_id == source_video_id))
         for rank, c in enumerate(cands, start=1):
-            s.add(_row(c, rank=rank, status="draft"))
+            s.add(_row(c, rank=rank, status="pending_review"))
         for c in reservas or []:
             s.add(_row(c, rank=None, status="reserve"))
     return len(cands)

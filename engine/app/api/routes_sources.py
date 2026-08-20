@@ -140,7 +140,7 @@ def promote_reserves(source_id: str, body: dict | None = None):
             select(func.max(CutCandidate.rank)).where(
                 CutCandidate.source_video_id == source_id)).scalar() or 0
         for i, c in enumerate(reservas, start=1):
-            c.status = "draft"
+            c.status = "pending_review"
             c.rank = maior_rank + i
         promovidos = len(reservas)
         restantes = s.execute(

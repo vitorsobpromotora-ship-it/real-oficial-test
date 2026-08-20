@@ -109,7 +109,8 @@ class CutCandidate(Base):
     reason: Mapped[str] = mapped_column(Text, default="")
     verdict: Mapped[str] = mapped_column(String(12), default="revisar")  # postar|revisar|descartar
     analysis: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # análise editorial detalhada
-    status: Mapped[str] = mapped_column(String(16), default="draft")  # draft|approved|rejected
+    # estado EDITORIAL (separado do ciclo de render): pending_review|approved|rejected|reserve
+    status: Mapped[str] = mapped_column(String(16), default="pending_review")
     rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
     origin: Mapped[str] = mapped_column(String(16), default="claude")  # claude|heuristic
     crop_plan: Mapped[dict | None] = mapped_column(JSON, nullable=True)
@@ -120,6 +121,10 @@ class CutCandidate(Base):
     )
     edits: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # trims, textos de legenda
     edl: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # edição não destrutiva (Editor)
+    description: Mapped[str] = mapped_column(Text, default="")  # descrição p/ publicação
+    platform_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # por plataforma (futuro)
+    # incrementada a cada alteração VISUAL salva; comparada à revisão do render
+    edit_revision: Mapped[int] = mapped_column(Integer, default=1)
     human_rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
     review_started_at: Mapped[str | None] = mapped_column(String(32), nullable=True)
     reviewed_at: Mapped[str | None] = mapped_column(String(32), nullable=True)
@@ -168,6 +173,8 @@ class Render(Base):
     output_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     kind: Mapped[str] = mapped_column(String(8), default="final")  # preview|final
     status: Mapped[str] = mapped_column(String(16), default="queued")
+    # revisão de edição do corte que este render materializa (carimbada ao executar)
+    edit_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
     progress: Mapped[float] = mapped_column(Float, default=0.0)
     job_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
