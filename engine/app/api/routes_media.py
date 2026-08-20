@@ -36,6 +36,20 @@ def cut_preview(cut_id: str):
     return FileResponse(path, media_type="video/mp4", filename=path.name)
 
 
+@router.get("/media/brand/{filename}")
+def brand_asset(filename: str):
+    """Logos e assets de camada do Brand Studio (nome de arquivo, sem caminhos)."""
+    if "/" in filename or "\\" in filename or filename.startswith("."):
+        raise HTTPException(404, "Arquivo inválido")
+    base = config.data_dir() / "media" / "brand"
+    for cand in (base / filename, base / "assets" / filename):
+        if cand.exists():
+            tipos = {".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp",
+                     ".mp4": "video/mp4", ".webm": "video/webm"}
+            return FileResponse(cand, media_type=tipos.get(cand.suffix, "application/octet-stream"))
+    raise HTTPException(404, "Asset não encontrado")
+
+
 @router.get("/media/sources/{source_id}/file")
 def source_file(source_id: str):
     """Vídeo-fonte original para o player do Editor (FileResponse atende Range/seek)."""

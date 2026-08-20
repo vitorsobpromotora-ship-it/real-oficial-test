@@ -116,6 +116,61 @@ export interface Cut {
   updated_at: string;
 }
 
+export interface KitLayer {
+  id: string;
+  type: "source" | "image" | "text" | "shape" | "video" | "captions";
+  x: number;
+  y: number;
+  w: number;
+  h?: number;
+  hidden?: boolean;
+  locked?: boolean;
+  opacity?: number;
+  // source
+  radius?: number;
+  border_w?: number;
+  border_color?: string;
+  shadow?: boolean;
+  // image/video
+  path?: string;
+  loop?: boolean;
+  // text
+  text?: string;
+  font?: string;
+  size?: number;
+  color?: string;
+  bg?: string | null;
+  align?: "left" | "center" | "right";
+  bold?: boolean;
+  // shape
+  fill?: string;
+  // animação/timing
+  anim?: string;
+  start_s?: number;
+  end_s?: number | null;
+}
+
+export interface KitLayout {
+  version: number;
+  canvas: { w: number; h: number };
+  background: {
+    type: "color" | "gradient" | "image" | "video" | "blur";
+    color?: string;
+    color2?: string;
+    direction?: "vertical" | "horizontal" | "diagonal";
+    path?: string;
+    blur_sigma?: number;
+  };
+  layers: KitLayer[];
+}
+
+export interface KitTemplate {
+  id: string;
+  name: string;
+  description: string;
+  layout: KitLayout;
+}
+
 export interface BrandKit {
   id: string;
   name: string;
@@ -127,6 +182,7 @@ export interface BrandKit {
   font_family: string;
   caption_preset: string;
   caption_style: Record<string, unknown> | null;
+  layout: KitLayout | null;
   headline_template: string;
   is_default: boolean;
   created_at: string;

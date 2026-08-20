@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { get } from "./api/client";
 import BrandKits from "./pages/BrandKits";
+import BrandStudio from "./pages/BrandStudio";
 import Dashboard from "./pages/Dashboard";
 import EditorPage from "./pages/Editor";
 import ProjectPage from "./pages/Project";
@@ -78,6 +79,7 @@ export default function App() {
           <Route path="/projeto/:id" element={<ProjectPage />} />
           <Route path="/editor/:cutId" element={<EditorPage />} />
           <Route path="/kits" element={<BrandKits />} />
+          <Route path="/estudio/:kitId" element={<BrandStudio />} />
           <Route path="/fila" element={<RenderQueue />} />
           <Route path="/relatorios" element={<Reports />} />
           <Route path="/config" element={<SettingsPage />} />

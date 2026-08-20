@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api, del, get, patch, post } from "../api/client";
 import type { BrandKit } from "../api/types";
 
-const PRESETS = ["bold_karaoke", "clean", "podcast", "minimal"];
+const PRESETS = ["bold_karaoke", "clean", "podcast", "minimal", "palavra_pop",
+  "highlight_box", "bounce", "subtitle_bar"];
 
 function KitForm({ kit, onDone }: { kit: BrandKit | null; onDone(): void }) {
   const qc = useQueryClient();
@@ -107,6 +109,7 @@ function KitForm({ kit, onDone }: { kit: BrandKit | null; onDone(): void }) {
 
 export default function BrandKits() {
   const qc = useQueryClient();
+  const nav = useNavigate();
   const [editing, setEditing] = useState<BrandKit | null | "novo">(null);
   const kits = useQuery({ queryKey: ["brand-kits"], queryFn: () => get<BrandKit[]>("/api/v1/brand-kits") });
 
@@ -145,8 +148,14 @@ export default function BrandKits() {
               <span className="chip">{k.font_family}</span>
               <span className="chip">{k.caption_preset}</span>
             </div>
-            <div className="sub">{k.logo_path ? "Logo enviado ✓" : "Sem logo"}</div>
+            <div className="sub">
+              {k.logo_path ? "Logo enviado ✓" : "Sem logo"}
+              {k.layout ? " · layout do Estúdio ativo" : " · layout clássico (tela cheia)"}
+            </div>
             <div className="row" style={{ marginTop: 10 }}>
+              <button className="primary" onClick={() => nav(`/estudio/${k.id}`)}>
+                Abrir Estúdio
+              </button>
               <button onClick={() => setEditing(k)}>Editar</button>
               <label style={{ margin: 0 }}>
                 <input type="file" accept="image/png,image/jpeg,image/webp" style={{ display: "none" }}
