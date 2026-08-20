@@ -123,6 +123,34 @@ export interface Cut {
   updated_at: string;
 }
 
+export interface CaptionWord {
+  idx: number | null;
+  start_s: number; // tempo de SAÍDA
+  end_s: number;
+  word: string;
+}
+
+export interface CaptionCard {
+  start: number; // janela de exibição (tempo de SAÍDA, regra temporal do motor)
+  end: number;
+  breaks: number[]; // índices de quebra de linha calculados pelo motor
+  words: CaptionWord[];
+}
+
+/** GET /cuts/{id}/caption-cards — cartões resolvidos pelo MESMO código do render. */
+export interface CaptionCards {
+  style: Record<string, unknown>;
+  fps: number;
+  out_duration: number;
+  cards: CaptionCard[];
+}
+
+export interface CaptionPreset {
+  id: string;
+  label: string;
+  [k: string]: unknown;
+}
+
 export interface KitLayer {
   id: string;
   type: "source" | "image" | "text" | "shape" | "video" | "captions";

@@ -1,53 +1,24 @@
-// Editor de Corte (F1): edição NÃO destrutiva sobre o vídeo original.
-// A timeline mostra a janela do corte com contexto ao redor; os trechos mantidos
-// são blocos com alças de trim (com snap em palavra/pausa/segundo), e os
-// removidos ficam sombreados — clique neles para restaurar. A reprodução pula
-// os trechos removidos, exatamente como o render fará com a MESMA EDL.
+// Editor de Corte v3 — shell "canvas em cima, inspector ao lado, timeline embaixo"
+// (Pontos 5, 32): o preview 9:16 é WYSIWYG (mesma composição do render), o
+// inspector é contextual por ferramenta e a timeline é a fonte da verdade
+// temporal, com relógio RELATIVO ao corte (00:00 → duração; Pontos 11–12).
+// A edição continua 100% não destrutiva: tudo vira a MESMA EDL/edits que o
+// motor usa na prévia real e no render final.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { get, mediaUrl, patch, post } from "../api/client";
 import type {
-  Cut, Edl, EdlSegment, Render, Source, TranscriptWord, Waveform,
+  BrandKit, CaptionCards, CaptionPreset, Cut, Edl, Render, Source,
+  TranscriptWord, Waveform,
 } from "../api/types";
-
-interface Draft {
-  segments: EdlSegment[];
-  fade_in_s: number;
-  fade_out_s: number;
-  transition_s: number;
-  audio: { gain_db: number; mute: boolean; fade_in_s: number; fade_out_s: number };
-}
-
-const PAD_S = 15; // contexto exibido antes/depois do corte na timeline
-
-function draftFromCut(cut: Cut): Draft {
-  const e: Edl | null = cut.edl;
-  return {
-    segments: e?.segments?.length
-      ? e.segments.map((s) => ({ ...s }))
-      : [{ src_start: cut.start_s, src_end: cut.end_s }],
-    fade_in_s: e?.fade_in_s ?? 0,
-    fade_out_s: e?.fade_out_s ?? 0,
-    transition_s: e?.transition_s ?? 0,
-    audio: {
-      gain_db: e?.audio?.gain_db ?? 0,
-      mute: e?.audio?.mute ?? false,
-      fade_in_s: e?.audio?.fade_in_s ?? 0,
-      fade_out_s: e?.audio?.fade_out_s ?? 0,
-    },
-  };
-}
-
-const outDur = (d: Draft) =>
-  d.segments.reduce((acc, s) => acc + (s.src_end - s.src_start), 0);
-
-function fmtT(t: number): string {
-  const m = Math.floor(Math.max(0, t) / 60);
-  const s = Math.max(0, t) - m * 60;
-  return `${m}:${s.toFixed(1).padStart(4, "0")}`;
-}
+import Canvas from "../editor/Canvas";
+import Inspector, { type Tool } from "../editor/Inspector";
+import {
+  PAD_S, draftFromCut, envelope, fmtT, outDur, outToSrc, patchFromDraft,
+  srcToOut, type Draft,
+} from "../editor/model";
 
 export default function EditorPage() {
   const { projectId = "", cutId = "" } = useParams();
@@ -59,8 +30,7 @@ export default function EditorPage() {
     queryFn: () => get<Cut>(`/api/v1/cuts/${cutId}`),
   });
   const cut = cutQ.data;
-  // rota canônica: /projeto/:projectId/corte/:cutId/editor — Voltar e
-  // Salvar e fechar retornam SEMPRE à análise deste mesmo corte
+  // rota canônica: Voltar/Salvar e fechar retornam SEMPRE à análise deste corte
   const rotaCorte = `/projeto/${projectId || cut?.project_id || ""}/corte/${cutId}`;
   const srcQ = useQuery({
     enabled: !!cut,
@@ -68,6 +38,20 @@ export default function EditorPage() {
     queryFn: () => get<Source>(`/api/v1/sources/${cut!.source_video_id}`),
   });
   const source = srcQ.data;
+  const kitsQ = useQuery({
+    queryKey: ["brand-kits"],
+    queryFn: () => get<BrandKit[]>("/api/v1/brand-kits"),
+  });
+  const presetsQ = useQuery({
+    queryKey: ["caption-presets"],
+    queryFn: () => get<{ presets: CaptionPreset[] }>("/api/v1/captions/presets"),
+    staleTime: Infinity,
+  });
+  const capsQ = useQuery({
+    enabled: !!cut,
+    queryKey: ["caption-cards", cutId],
+    queryFn: () => get<CaptionCards>(`/api/v1/cuts/${cutId}/caption-cards`),
+  });
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saved, setSaved] = useState("");
@@ -75,12 +59,11 @@ export default function EditorPage() {
   const [future, setFuture] = useState<Draft[]>([]);
   const [win, setWin] = useState<{ a: number; b: number } | null>(null);
   const [sel, setSel] = useState<number | null>(null);
+  const [tool, setTool] = useState<Tool>("corte");
   const [zoom, setZoom] = useState(18); // pixels por segundo
-  const [playhead, setPlayhead] = useState(0); // tempo da FONTE
+  const [playhead, setPlayhead] = useState(0); // tempo da FONTE (interno)
   const [playing, setPlaying] = useState(false);
   const [title, setTitle] = useState("");
-  const [wordOv, setWordOv] = useState<Record<string, string>>({});
-  const [frSegs, setFrSegs] = useState<{ start_s: number; end_s: number; mode: string }[]>([]);
   const [editWord, setEditWord] = useState<number | null>(null);
   const [toast, setToast] = useState("");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -105,14 +88,11 @@ export default function EditorPage() {
   useEffect(() => {
     if (!cut || !source || draft) return;
     const d = draftFromCut(cut);
-    const env0 = Math.min(...d.segments.map((s) => s.src_start));
-    const env1 = Math.max(...d.segments.map((s) => s.src_end));
+    const [env0, env1] = envelope(d.segments);
     const dur = source.duration_s ?? env1 + PAD_S;
     setDraft(d);
     setSaved(JSON.stringify(d));
     setTitle(cut.title);
-    setWordOv((cut.edits?.word_overrides as Record<string, string>) ?? {});
-    setFrSegs(((cut.edits?.framing_segments as never[]) ?? []).map((s) => ({ ...(s as object) })) as never);
     setWin({ a: Math.max(0, env0 - PAD_S), b: Math.min(dur, env1 + PAD_S) });
     setPlayhead(env0);
   }, [cut, source, draft]);
@@ -225,7 +205,7 @@ export default function EditorPage() {
     return () => cancelAnimationFrame(raf);
   }, [draft]);
 
-  // mute/ganho refletidos no player (ganho >0 não é amplificável no navegador —
+  // mute/ganho refletidos no player (ganho >0 não amplifica no navegador —
   // a prévia real renderiza com o valor exato)
   useEffect(() => {
     const v = videoRef.current;
@@ -234,29 +214,13 @@ export default function EditorPage() {
     v.volume = Math.min(1, Math.pow(10, Math.min(0, draft.audio.gain_db) / 20));
   }, [draft?.audio.mute, draft?.audio.gain_db]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const dirty =
-    !!draft &&
-    (JSON.stringify(draft) !== saved ||
-      title !== (cut?.title ?? "") ||
-      JSON.stringify(wordOv) !==
-        JSON.stringify((cut?.edits?.word_overrides as Record<string, string>) ?? {}) ||
-      JSON.stringify(frSegs) !==
-        JSON.stringify((cut?.edits?.framing_segments as never[]) ?? []));
+  const dirty = !!draft && (JSON.stringify(draft) !== saved || title !== (cut?.title ?? ""));
 
   const salvar = useMutation({
     mutationFn: async () => {
-      const enviado = draft;
-      const edits = { ...(cut?.edits ?? {}) } as Record<string, unknown>;
-      if (Object.keys(wordOv).length) edits.word_overrides = wordOv;
-      else delete edits.word_overrides;
-      const frOk = frSegs.filter((s) => s.end_s > s.start_s);
-      if (frOk.length) edits.framing_segments = frOk;
-      else delete edits.framing_segments;
-      const novo = await patch<Cut>(`/api/v1/cuts/${cutId}`, {
-        edl: enviado,
-        title,
-        edits: Object.keys(edits).length ? edits : null,
-      });
+      const enviado = draft!;
+      const novo = await patch<Cut>(`/api/v1/cuts/${cutId}`,
+        patchFromDraft(enviado, title, cut?.edits ?? null));
       return { novo, enviado };
     },
     onSuccess: ({ novo, enviado }) => {
@@ -264,6 +228,7 @@ export default function EditorPage() {
       // autosave — só registra o que foi persistido e atualiza o cache.
       qc.setQueryData(["cuts", "detail", cutId], novo);
       qc.invalidateQueries({ queryKey: ["cuts", novo.project_id] });
+      qc.invalidateQueries({ queryKey: ["caption-cards", cutId] });
       setSaved(JSON.stringify(enviado));
     },
     onError: (e: Error) => flash(`Falha ao salvar: ${e.message}`, 5200),
@@ -274,7 +239,7 @@ export default function EditorPage() {
     if (!dirty || salvar.isPending) return;
     const t = window.setTimeout(() => salvar.mutate(), 1200);
     return () => window.clearTimeout(t);
-  }, [dirty, draft, title, wordOv, frSegs, salvar.isPending]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dirty, draft, title, salvar.isPending]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------- operações de edição (com histórico p/ desfazer) ----------
   function commit(next: Draft) {
@@ -283,6 +248,7 @@ export default function EditorPage() {
     setFuture([]);
     setDraft(next);
   }
+  const upd = (patchDraft: Partial<Draft>) => draft && commit({ ...draft, ...patchDraft });
   function undo() {
     if (!history.length || !draft) return;
     setFuture([draft, ...future]);
@@ -313,6 +279,7 @@ export default function EditorPage() {
     segs.splice(i, 1, { src_start: s.src_start, src_end: t }, { src_start: t, src_end: s.src_end });
     commit({ ...draft, segments: segs });
     setSel(i + 1);
+    setTool("corte");
   }
 
   function removeSeg(i: number) {
@@ -330,7 +297,7 @@ export default function EditorPage() {
     if (!draft) return;
     const segs = [...draft.segments.map((s) => ({ ...s }))];
     segs.splice(i + 1, 0, { src_start: segs[i].src_end, src_end: segs[i + 1].src_start });
-    const merged: EdlSegment[] = [];
+    const merged: typeof segs = [];
     for (const s of segs) {
       const last = merged[merged.length - 1];
       if (last && Math.abs(last.src_end - s.src_start) < 0.02) last.src_end = s.src_end;
@@ -338,6 +305,24 @@ export default function EditorPage() {
     }
     commit({ ...draft, segments: merged });
     setSel(null);
+  }
+
+  async function aplicarPausas(nivel: "leve" | "normal" | "agressivo") {
+    if (!draft) return;
+    try {
+      const r = await post<{ edl: Edl; removidas: number; tempo_removido_s: number }>(
+        `/api/v1/cuts/${cutId}/pauses-preview`, { nivel });
+      const segsNovos = (r.edl.segments ?? []).map((s) => ({ ...s }));
+      if (!segsNovos.length) return;
+      commit({ ...draft, segments: segsNovos });
+      setSel(null);
+      flash(r.removidas
+        ? `${r.removidas} pausa(s) removida(s) · −${r.tempo_removido_s.toFixed(1)}s. `
+          + "Revise na timeline (Ctrl+Z desfaz)."
+        : "Nenhuma pausa acima do limite deste nível.", 4500);
+    } catch (e) {
+      flash(`Não deu: ${(e as Error).message}`, 5000);
+    }
   }
 
   // ---------- interação com a timeline ----------
@@ -350,14 +335,15 @@ export default function EditorPage() {
     [win, zoom],
   );
 
+  function seekSrc(t: number) {
+    setPlayhead(t);
+    if (videoRef.current) videoRef.current.currentTime = t;
+  }
+
   function scrubStart(e: React.PointerEvent) {
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    const move = (t: number) => {
-      setPlayhead(t);
-      if (videoRef.current) videoRef.current.currentTime = t;
-    };
-    move(timeAt(e.clientX));
-    const onMove = (ev: PointerEvent) => move(timeAt(ev.clientX));
+    seekSrc(timeAt(e.clientX));
+    const onMove = (ev: PointerEvent) => seekSrc(timeAt(ev.clientX));
     const onUp = () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
@@ -372,6 +358,7 @@ export default function EditorPage() {
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     dragRef.current = { idx, side, base: draft };
     setSel(idx);
+    setTool("corte");
   }
   function onTrimMove(e: React.PointerEvent) {
     const d = dragRef.current;
@@ -387,8 +374,7 @@ export default function EditorPage() {
       s.src_end = Math.max(Math.min(t, hi), s.src_start + 0.2);
     }
     setDraft({ ...draft, segments: segs });
-    setPlayhead(d.side === "l" ? s.src_start : s.src_end);
-    if (videoRef.current) videoRef.current.currentTime = d.side === "l" ? s.src_start : s.src_end;
+    seekSrc(d.side === "l" ? s.src_start : s.src_end);
   }
   function endTrim() {
     const d = dragRef.current;
@@ -509,26 +495,21 @@ export default function EditorPage() {
   }
   const winW = Math.round((win.b - win.a) * zoom);
   const segs = draft.segments;
-  const env0 = segs[0].src_start;
-  const env1 = segs[segs.length - 1].src_end;
-  const outNow = (() => {
-    let acc = 0;
-    for (const s of segs) {
-      if (playhead < s.src_start) break;
-      if (playhead < s.src_end) return acc + (playhead - s.src_start);
-      acc += s.src_end - s.src_start;
-    }
-    return acc;
-  })();
+  const [env0, env1] = envelope(segs);
+  const outTotal = outDur(segs);
+  const kit = (kitsQ.data ?? []).find((k) => k.id === draft.brand_kit_id) ?? null;
+  // régua RELATIVA (Ponto 11): ticks em tempo de SAÍDA, posicionados na fonte
   const tickStep = zoom >= 40 ? 1 : zoom >= 16 ? 5 : 10;
-  const ticks: number[] = [];
-  for (let t = Math.ceil(win.a / tickStep) * tickStep; t <= win.b; t += tickStep) ticks.push(t);
+  const outTicks: number[] = [];
+  for (let t = 0; t < outTotal; t += tickStep) outTicks.push(t);
   const wordsVisiveis = (wordsQ.data?.words ?? []).filter((w) =>
     segs.some((s) => w.end_s > s.src_start && w.start_s < s.src_end));
   const x = (t: number) => (t - win.a) * zoom;
+  const antesDisp = env0 - win.a;
+  const depoisDisp = win.b - env1;
 
   return (
-    <div className="editor">
+    <div className="editor ed3">
       <div className="pagehead">
         <div className="row" style={{ flex: 1, minWidth: 0 }}>
           <button onClick={voltar} data-testid="btn-back">← Voltar</button>
@@ -544,8 +525,8 @@ export default function EditorPage() {
                 data-testid="save-state">
             {salvar.isPending ? "Salvando…" : dirty ? "Alterações pendentes…" : "Salvo"}
           </span>
-          <button onClick={undo} disabled={!history.length} title="Ctrl+Z">↶ Desfazer</button>
-          <button onClick={redo} disabled={!future.length} title="Ctrl+Shift+Z">↷ Refazer</button>
+          <button onClick={undo} disabled={!history.length} title="Ctrl+Z">↶</button>
+          <button onClick={redo} disabled={!future.length} title="Ctrl+Shift+Z">↷</button>
           <button onClick={gerarPrevia}>Gerar prévia real</button>
           <button className="ok" onClick={salvarEFechar} data-testid="btn-save-close">
             Salvar e fechar
@@ -553,198 +534,42 @@ export default function EditorPage() {
         </div>
       </div>
 
-      <div className="ed-main">
-        <div className="card ed-player">
-          {videoUrl ? (
-            <div style={{ position: "relative" }}>
-              <video
-                ref={videoRef}
-                src={videoUrl}
-                onClick={togglePlay}
-                onError={() => setVideoErro(true)}
-                onLoadedMetadata={(e) => {
-                  setVideoErro(false);
-                  e.currentTarget.currentTime = env0;
-                }}
-              />
-              {videoErro ? (
-                <div className="ed-loading" style={{ position: "absolute", inset: 0 }}>
-                  O player não consegue decodificar este formato de vídeo.
-                  A edição na timeline funciona normalmente — use “Gerar prévia real”
-                  para assistir ao resultado.
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <div className="ed-loading">Abrindo vídeo original…</div>
-          )}
-          <div className="row" style={{ marginTop: 10 }}>
-            <button className="primary" onClick={togglePlay}>
-              {playing ? "⏸ Pausar" : "▶ Reproduzir"}
-            </button>
-            <span className="tc">
-              saída <b>{fmtT(outNow)}</b> / {fmtT(outDur(draft))}
-            </span>
-            <span className="sub right">fonte {fmtT(playhead)}</span>
-          </div>
-          <div className="sub" style={{ marginTop: 6 }}>
-            A reprodução pula os trechos removidos — o render final segue a mesma edição.
-          </div>
-        </div>
-
-        <div className="card ed-side">
-          <h3>Corte</h3>
-          <div className="row">
-            <div style={{ flex: 1 }}>
-              <label>Fade de entrada (s)</label>
-              <input type="number" min={0} max={3} step={0.1} value={draft.fade_in_s}
-                     onChange={(e) => commit({ ...draft, fade_in_s: Math.max(0, Number(e.target.value) || 0) })} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label>Fade de saída (s)</label>
-              <input type="number" min={0} max={3} step={0.1} value={draft.fade_out_s}
-                     onChange={(e) => commit({ ...draft, fade_out_s: Math.max(0, Number(e.target.value) || 0) })} />
-            </div>
-          </div>
-          <label>Transição nas junções (onde um trecho emenda no outro)</label>
-          <select value={String(draft.transition_s)}
-                  onChange={(e) => commit({ ...draft, transition_s: Number(e.target.value) })}>
-            <option value="0">Corte seco (sem transição)</option>
-            <option value="0.12">Suave — 0,12s</option>
-            <option value="0.25">Média — 0,25s</option>
-            <option value="0.5">Longa — 0,5s</option>
-          </select>
-
-          <h3 style={{ marginTop: 18 }}>Remover pausas</h3>
-          <div className="sub" style={{ marginBottom: 6 }}>
-            Corta silêncios automaticamente (jump cuts visíveis na timeline). Pausas
-            dramáticas após “!” ou “?” são preservadas — só o Agressivo corta tudo.
-            Nada é aplicado até você salvar; Ctrl+Z desfaz.
-          </div>
-          <div className="row wrap">
-            {(["leve", "normal", "agressivo"] as const).map((n) => (
-              <button key={n} onClick={async () => {
-                try {
-                  const r = await post<{ edl: Edl; removidas: number;
-                    tempo_removido_s: number }>(
-                    `/api/v1/cuts/${cutId}/pauses-preview`, { nivel: n });
-                  const segsNovos = (r.edl.segments ?? []).map((s) => ({ ...s }));
-                  if (!segsNovos.length) return;
-                  commit({ ...draft, segments: segsNovos });
-                  setSel(null);
-                  flash(r.removidas
-                    ? `${r.removidas} pausa(s) removida(s) · −${r.tempo_removido_s.toFixed(1)}s. `
-                      + "Revise na timeline e salve (Ctrl+Z desfaz)."
-                    : "Nenhuma pausa acima do limite deste nível.", 4500);
-                } catch (e) {
-                  flash(`Não deu: ${(e as Error).message}`, 5000);
-                }
-              }}>
-                {n === "leve" ? "Leve" : n === "normal" ? "Normal" : "Agressivo"}
-              </button>
-            ))}
-          </div>
-
-          <h3 style={{ marginTop: 18 }}>Áudio</h3>
-          <label>Volume do corte: {draft.audio.gain_db > 0 ? "+" : ""}{draft.audio.gain_db.toFixed(1)} dB</label>
-          <input type="range" min={-20} max={10} step={0.5} value={draft.audio.gain_db}
-                 onChange={(e) => commit({ ...draft, audio: { ...draft.audio, gain_db: Number(e.target.value) } })} />
-          <label className="ed-check">
-            <input type="checkbox" checked={draft.audio.mute}
-                   onChange={(e) => commit({ ...draft, audio: { ...draft.audio, mute: e.target.checked } })} />
-            Sem áudio (mudo)
-          </label>
-          <div className="row">
-            <div style={{ flex: 1 }}>
-              <label>Fade de áudio — entrada (s)</label>
-              <input type="number" min={0} max={3} step={0.1} value={draft.audio.fade_in_s}
-                     onChange={(e) => commit({ ...draft, audio: { ...draft.audio, fade_in_s: Math.max(0, Number(e.target.value) || 0) } })} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label>Fade de áudio — saída (s)</label>
-              <input type="number" min={0} max={3} step={0.1} value={draft.audio.fade_out_s}
-                     onChange={(e) => commit({ ...draft, audio: { ...draft.audio, fade_out_s: Math.max(0, Number(e.target.value) || 0) } })} />
-            </div>
-          </div>
-
-          <h3 style={{ marginTop: 18 }}>Enquadramento por trecho</h3>
-          <div className="sub" style={{ marginBottom: 6 }}>
-            Force o foco num intervalo específico (tempos do vídeo original) — o resto
-            do corte continua automático. Ex.: 18–24s → foco à esquerda.
-          </div>
-          {frSegs.map((s, i) => (
-            <div key={i} className="row" style={{ marginBottom: 6 }}>
-              <input type="number" min={0} step={0.5} value={s.start_s}
-                     style={{ width: 74 }}
-                     onChange={(e) => setFrSegs(frSegs.map((x, j) =>
-                       j === i ? { ...x, start_s: Number(e.target.value) } : x))} />
-              <span className="sub">→</span>
-              <input type="number" min={0} step={0.5} value={s.end_s}
-                     style={{ width: 74 }}
-                     onChange={(e) => setFrSegs(frSegs.map((x, j) =>
-                       j === i ? { ...x, end_s: Number(e.target.value) } : x))} />
-              <select value={s.mode} style={{ flex: 1 }}
-                      onChange={(e) => setFrSegs(frSegs.map((x, j) =>
-                        j === i ? { ...x, mode: e.target.value } : x))}>
-                <option value="left">Foco à esquerda</option>
-                <option value="center">Foco no centro</option>
-                <option value="right">Foco à direita</option>
-              </select>
-              <button className="danger" onClick={() =>
-                setFrSegs(frSegs.filter((_, j) => j !== i))}>×</button>
-            </div>
-          ))}
-          <button onClick={() => {
-            const a = sel != null ? segs[sel].src_start : Math.max(env0, playhead - 3);
-            const b = sel != null ? segs[sel].src_end : Math.min(env1, playhead + 3);
-            setFrSegs([...frSegs, { start_s: Math.round(a * 10) / 10,
-                                    end_s: Math.round(b * 10) / 10, mode: "left" }]);
-          }}>
-            + Adicionar {sel != null ? "no trecho selecionado" : "ao redor do cursor"}
-          </button>
-
-          <h3 style={{ marginTop: 18 }}>Palavras da legenda</h3>
-          <div className="sub" style={{ marginBottom: 8 }}>
-            Clique numa palavra para corrigir o texto — só neste corte; a transcrição
-            original não muda.
-          </div>
-          <div className="ed-words">
-            {wordsVisiveis.length === 0 ? (
-              <span className="sub">Sem palavras no trecho mantido.</span>
-            ) : (
-              wordsVisiveis.map((w) =>
-                editWord === w.idx ? (
-                  <input
-                    key={w.idx}
-                    className="ed-word-input"
-                    autoFocus
-                    defaultValue={wordOv[String(w.idx)] ?? w.word}
-                    onBlur={(e) => {
-                      const novo = e.target.value.trim();
-                      const m = { ...wordOv };
-                      if (!novo || novo === w.word) delete m[String(w.idx)];
-                      else m[String(w.idx)] = novo;
-                      setWordOv(m);
-                      setEditWord(null);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                      if (e.key === "Escape") setEditWord(null);
-                    }}
-                  />
-                ) : (
-                  <button
-                    key={w.idx}
-                    className={`ed-word${wordOv[String(w.idx)] ? " fixed" : ""}`}
-                    title={wordOv[String(w.idx)] ? `Original: “${w.word}”` : "Clique para corrigir"}
-                    onClick={() => setEditWord(w.idx)}
-                  >
-                    {wordOv[String(w.idx)] ?? w.word}
-                  </button>
-                ),
-              )
-            )}
-          </div>
+      <div className="ed3-mid">
+        <Canvas
+          cut={cut}
+          source={source}
+          draft={draft}
+          title={title}
+          videoUrl={videoUrl}
+          kit={kit}
+          captions={capsQ.data ?? null}
+          playhead={playhead}
+          playing={playing}
+          videoRef={videoRef}
+          videoErro={videoErro}
+          onVideoErro={() => setVideoErro(true)}
+          onTogglePlay={togglePlay}
+          onSeekOut={(tOut) => seekSrc(outToSrc(segs, tOut))}
+          onSelectCaption={() => setTool("legenda")}
+        />
+        <div className="card ed3-side">
+          <Inspector
+            tool={tool}
+            setTool={setTool}
+            cut={cut}
+            draft={draft}
+            upd={upd}
+            title={title}
+            kits={kitsQ.data ?? []}
+            presets={presetsQ.data?.presets ?? []}
+            words={wordsVisiveis}
+            editWord={editWord}
+            setEditWord={setEditWord}
+            sel={sel}
+            playhead={playhead}
+            onPauses={aplicarPausas}
+            onOpenStudio={(kid) => nav(`/estudio/${kid}`)}
+          />
         </div>
       </div>
 
@@ -759,10 +584,13 @@ export default function EditorPage() {
           >
             Excluir trecho
           </button>
+          <span className="tc" data-testid="tl-clock">
+            <b>{fmtT(srcToOut(segs, playhead))}</b> / {fmtT(outTotal)}
+          </span>
           <span className="sub">
-            {segs.length} trecho{segs.length > 1 ? "s" : ""} · saída {fmtT(outDur(draft))} ·
-            arraste as bordas para aparar (snap em palavras e pausas) · clique numa área
-            sombreada entre trechos para restaurá-la
+            {segs.length} trecho{segs.length > 1 ? "s" : ""} · arraste as bordas para
+            aparar (snap em palavra/pausa/segundo) · sombras entre trechos = removido
+            (clique para restaurar)
           </span>
           <span className="right sub">Zoom</span>
           <input
@@ -777,8 +605,9 @@ export default function EditorPage() {
         <div className="tl-scroll" ref={scrollRef}>
           <div className="tl-content" ref={contentRef} style={{ width: winW }}>
             <div className="tl-ruler" onPointerDown={scrubStart}>
-              {ticks.map((t) => (
-                <div key={t} className="tl-tick" style={{ left: x(t) }}>
+              {/* relógio RELATIVO: 0:00 no início do corte, recalculado a cada trim */}
+              {outTicks.map((t) => (
+                <div key={t} className="tl-tick" style={{ left: x(outToSrc(segs, t)) }}>
                   <span>{fmtT(t).replace(/\.\d$/, "")}</span>
                 </div>
               ))}
@@ -796,18 +625,27 @@ export default function EditorPage() {
                   onPointerDown={(e) => {
                     e.stopPropagation();
                     setSel(i);
+                    setTool("corte"); // seleção contextual: trecho → ferramenta Corte
                   }}
                 >
                   <i className="h l" onPointerDown={(e) => beginTrim(e, i, "l")}
-                     onPointerMove={onTrimMove} onPointerUp={endTrim} />
+                     onPointerMove={onTrimMove} onPointerUp={endTrim}
+                     title={i === 0 && antesDisp > 0.3
+                       ? `${antesDisp.toFixed(1)}s disponíveis antes` : undefined} />
                   <span className="tl-seglabel">{(s.src_end - s.src_start).toFixed(1)}s</span>
                   <i className="h r" onPointerDown={(e) => beginTrim(e, i, "r")}
-                     onPointerMove={onTrimMove} onPointerUp={endTrim} />
+                     onPointerMove={onTrimMove} onPointerUp={endTrim}
+                     title={i === segs.length - 1 && depoisDisp > 0.3
+                       ? `${depoisDisp.toFixed(1)}s disponíveis depois` : undefined} />
                 </div>
               ))}
             </div>
-            {/* sombras: contexto fora do corte + buracos removidos (clicáveis) */}
-            <div className="tl-shade" style={{ left: 0, width: x(env0) }} />
+            {/* sombras: margens disponíveis fora do corte + buracos removidos */}
+            <div className="tl-shade" style={{ left: 0, width: x(env0) }}>
+              {antesDisp > 0.3 ? (
+                <span className="tl-margem">{antesDisp.toFixed(1)}s antes</span>
+              ) : null}
+            </div>
             {segs.slice(0, -1).map((s, i) => (
               <div
                 key={`g${i}`}
@@ -819,7 +657,11 @@ export default function EditorPage() {
                 <span>+</span>
               </div>
             ))}
-            <div className="tl-shade" style={{ left: x(env1), width: Math.max(0, x(win.b) - x(env1)) }} />
+            <div className="tl-shade" style={{ left: x(env1), width: Math.max(0, x(win.b) - x(env1)) }}>
+              {depoisDisp > 0.3 ? (
+                <span className="tl-margem">{depoisDisp.toFixed(1)}s depois</span>
+              ) : null}
+            </div>
             <div className="tl-playhead" style={{ left: x(playhead) }} />
           </div>
         </div>

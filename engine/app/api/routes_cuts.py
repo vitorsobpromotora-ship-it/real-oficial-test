@@ -125,6 +125,73 @@ def cut_words(cut_id: str, pad_s: float = Query(default=15.0, ge=0.0, le=60.0)):
                            "word": w.word} for w in rows]}
 
 
+@router.get("/captions/presets")
+def caption_presets():
+    """Presets de legenda com rótulos PT-BR — fonte única de verdade para a UI."""
+    from ..pipeline.captions import PRESET_LABELS_PTBR, PRESETS  # noqa: PLC0415
+
+    return {"presets": [{"id": nome, "label": PRESET_LABELS_PTBR.get(nome, nome), **campos}
+                        for nome, campos in PRESETS.items()]}
+
+
+@router.get("/cuts/{cut_id}/caption-cards")
+def caption_cards(cut_id: str):
+    """Cartões de legenda RESOLVIDOS pelo MESMO código do render (WYSIWYG).
+
+    Devolve o estilo efetivo (preset ← kit ← corte, incluindo a área de legenda
+    do Estúdio) e os cartões em TEMPO DE SAÍDA da EDL — o canvas do Editor só
+    precisa desenhar o que vier aqui; o agrupamento nunca é recalculado na UI."""
+    from ..db.models import BrandKit, Transcript, TranscriptWord  # noqa: PLC0415
+    from ..pipeline import captions, compose  # noqa: PLC0415
+
+    with session() as s:
+        c = s.get(CutCandidate, cut_id)
+        if c is None:
+            raise HTTPException(404, "Corte não encontrado")
+        src = s.get(SourceVideo, c.source_video_id)
+        kit = None
+        if c.brand_kit_id:
+            k = s.get(BrandKit, c.brand_kit_id)
+            if k is not None:
+                kit = {"primary_color": k.primary_color, "secondary_color": k.secondary_color,
+                       "font_family": k.font_family, "caption_preset": k.caption_preset,
+                       "caption_style": k.caption_style, "layout": k.layout}
+        eff = _edl_efetiva(c, c.edl)
+        env_a, env_b = edl_mod.envelope(eff)
+        t = s.execute(select(Transcript).where(Transcript.source_video_id == c.source_video_id)
+                      .order_by(Transcript.created_at.desc())).scalars().first()
+        words: list[dict] = []
+        if t is not None:
+            rows = s.execute(select(TranscriptWord)
+                             .where(TranscriptWord.transcript_id == t.id,
+                                    TranscriptWord.end_s > env_a,
+                                    TranscriptWord.start_s < env_b)
+                             .order_by(TranscriptWord.idx)).scalars().all()
+            words = [{"idx": w.idx, "start_s": w.start_s, "end_s": w.end_s, "word": w.word}
+                     for w in rows]
+        edits, caption_style = c.edits, c.caption_style
+        fps = float(src.fps) if src and src.fps else 30.0
+
+    words_out = edl_mod.map_words(words, eff, edits)
+    style = captions.resolve_style(caption_style, kit)
+    lay = compose.layout_of(kit)
+    if lay is not None:
+        style = {**style, **compose.caption_overrides(lay)}
+    cards = captions.build_cards(words_out, style)
+    janelas = captions.card_windows(cards, fps=fps)
+    out = []
+    for card, (a, b) in zip(cards, janelas, strict=False):
+        textos = [w["word"] for w in card]
+        breaks = captions.split_lines(
+            [t2.upper() for t2 in textos] if style.get("uppercase") else textos,
+            int(style.get("max_chars") or 18), int(style.get("max_lines") or 2))
+        out.append({"start": a, "end": b, "breaks": breaks,
+                    "words": [{"idx": w.get("idx"), "start_s": w["start_s"],
+                               "end_s": w["end_s"], "word": w["word"]} for w in card]})
+    return {"style": style, "fps": fps, "out_duration": edl_mod.out_duration(eff),
+            "cards": out}
+
+
 @router.post("/cuts/{cut_id}/pauses-preview")
 def pauses_preview(cut_id: str, body: dict | None = None):
     """Calcula (SEM aplicar) a EDL com pausas removidas no nível pedido.

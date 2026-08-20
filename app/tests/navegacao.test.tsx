@@ -37,6 +37,10 @@ vi.mock("../src/api/client", () => ({
     if (path.startsWith("/api/v1/cuts/c1/waveform"))
       return { start_s: 360, end_s: 440, pps: 40, peaks: [0.2, 0.4], source_duration_s: 600 };
     if (path.startsWith("/api/v1/cuts/c1/words")) return { words: [] };
+    if (path.startsWith("/api/v1/cuts/c1/caption-cards"))
+      return { style: { anchor_top: 1280, font_size: 74 }, fps: 30, out_duration: 45, cards: [] };
+    if (path.startsWith("/api/v1/captions/presets"))
+      return { presets: [{ id: "bold_karaoke", label: "Karaokê Bold" }] };
     if (path.startsWith("/api/v1/cuts/c1")) return cutAtual;
     if (path.startsWith("/api/v1/sources/s1"))
       return { id: "s1", project_id: "p1", duration_s: 600, status: "ready",
@@ -120,6 +124,24 @@ describe("Ponto 41 — navegação Corte ↔ Editor", () => {
     renderApp("/projeto/p1/corte/c1/editor");
     await waitFor(() => expect(screen.getByTestId("btn-back")).toBeInTheDocument());
     expect(screen.getByTestId("loc").textContent).toBe("/projeto/p1/corte/c1/editor");
+  });
+
+  it("Editor: relógio relativo 0:00/0:45, controles no vídeo e inspector contextual", async () => {
+    renderApp("/projeto/p1/corte/c1/editor");
+    await waitFor(() => expect(screen.getByTestId("tl-clock")).toBeInTheDocument());
+    // Ponto 42: corte 380→425s da fonte aparece como 0:00.0 / 0:45.0
+    expect(screen.getByTestId("tl-clock").textContent).toContain("0:00.0");
+    expect(screen.getByTestId("tl-clock").textContent).toContain("0:45.0");
+    // Ponto 6: play/pause dentro do próprio vídeo
+    expect(screen.getByTestId("cv-play")).toBeInTheDocument();
+    // Ponto 26: inspector mostra SÓ a ferramenta selecionada
+    expect(screen.getByTestId("panel-corte")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("tool-audio"));
+    expect(screen.getByTestId("panel-audio")).toBeInTheDocument();
+    expect(screen.queryByTestId("panel-corte")).toBeNull();
+    fireEvent.click(screen.getByTestId("tool-estilo"));
+    expect(screen.getByTestId("panel-estilo")).toBeInTheDocument();
+    expect(screen.getByText("Karaokê Bold")).toBeInTheDocument();
   });
 
   it("rota legada /editor/:cutId redireciona para a rota canônica", async () => {
