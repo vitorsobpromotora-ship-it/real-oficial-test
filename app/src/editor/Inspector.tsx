@@ -43,8 +43,10 @@ interface Props {
   editWord: number | null;
   setEditWord(i: number | null): void;
   sel: number | null;
+  selFr: number | null; // bloco de enquadramento selecionado na track
   playhead: number;
   onPauses(nivel: "leve" | "normal" | "agressivo"): void;
+  onFrSplit(): void;
   onOpenStudio(kitId: string): void;
 }
 
@@ -169,8 +171,15 @@ export default function Inspector(p: Props) {
               Force o foco num intervalo — o resto continua automático. Os blocos
               também aparecem na track “Enquadramento” da timeline.
             </div>
+            {p.selFr != null ? (
+              <button style={{ marginBottom: 8 }} onClick={p.onFrSplit}>
+                ✂ Dividir o bloco selecionado no cursor
+              </button>
+            ) : null}
             {d.framing_segments.map((s, i) => (
-              <div key={i} className="row" style={{ marginBottom: 6 }}>
+              <div key={i} className={`row${p.selFr === i ? " insp-frsel" : ""}`}
+                   style={{ marginBottom: 6 }}
+                   data-testid={`fr-row-${i}`}>
                 <input type="number" min={0} step={0.5} style={{ width: 74 }}
                        value={Math.round(srcToOut(segs, s.start_s) * 10) / 10}
                        title={`Origem: ${fmtSrc(s.start_s)}`}

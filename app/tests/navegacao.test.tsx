@@ -151,6 +151,32 @@ describe("Ponto 41 — navegação Corte ↔ Editor", () => {
   });
 });
 
+describe("Ponto 10/43 — enquadramento como track da timeline", () => {
+  it("blocos aparecem na track, clique seleciona e abre o inspector de enquadramento", async () => {
+    cutAtual = makeCut({
+      edits: {
+        framing_segments: [
+          { start_s: 380, end_s: 390, mode: "left" },
+          { start_s: 390, end_s: 398, mode: "right" },
+          { start_s: 398, end_s: 405, mode: "center" },
+        ],
+        punch_in: "leve",
+      },
+    });
+    renderApp("/projeto/p1/corte/c1/editor");
+    await waitFor(() => expect(screen.getByTestId("fr-seg-0")).toBeInTheDocument());
+    expect(screen.getByTestId("fr-seg-1")).toBeInTheDocument();
+    expect(screen.getByTestId("fr-seg-2")).toBeInTheDocument();
+    expect(screen.getByText("zoom 105%")).toBeInTheDocument(); // punch-in no mesmo relógio
+
+    // clique no bloco → ferramenta Enquadramento com o bloco selecionado
+    fireEvent.pointerDown(screen.getByTestId("fr-seg-1"));
+    await waitFor(() => expect(screen.getByTestId("panel-enquadramento")).toBeInTheDocument());
+    expect(screen.getByTestId("fr-row-1").className).toContain("insp-frsel");
+    expect(screen.getByText("✂ Dividir o bloco selecionado no cursor")).toBeInTheDocument();
+  });
+});
+
 describe("Ponto 40 — tela de análise editorial", () => {
   it("aprovar mantém a tela aberta com ✓ Aprovado e botão Renderizar", async () => {
     renderApp("/projeto/p1/corte/c1");

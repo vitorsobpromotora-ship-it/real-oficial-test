@@ -59,6 +59,7 @@ export default function EditorPage() {
   const [future, setFuture] = useState<Draft[]>([]);
   const [win, setWin] = useState<{ a: number; b: number } | null>(null);
   const [sel, setSel] = useState<number | null>(null);
+  const [selFr, setSelFr] = useState<number | null>(null); // bloco de enquadramento
   const [tool, setTool] = useState<Tool>("corte");
   const [zoom, setZoom] = useState(18); // pixels por segundo
   const [playhead, setPlayhead] = useState(0); // tempo da FONTE (interno)
@@ -77,6 +78,8 @@ export default function EditorPage() {
   const contentRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const dragRef = useRef<{ idx: number; side: "l" | "r"; base: Draft } | null>(null);
+  const frDragRef = useRef<{ i: number; kind: "l" | "r" | "move"; base: Draft;
+    grabDt: number } | null>(null);
   const lastTRef = useRef(0);
 
   function flash(msg: string, ms = 2800) {
@@ -341,7 +344,7 @@ export default function EditorPage() {
   }
 
   function scrubStart(e: React.PointerEvent) {
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
     seekSrc(timeAt(e.clientX));
     const onMove = (ev: PointerEvent) => seekSrc(timeAt(ev.clientX));
     const onUp = () => {
@@ -355,7 +358,7 @@ export default function EditorPage() {
   function beginTrim(e: React.PointerEvent, idx: number, side: "l" | "r") {
     if (!draft) return;
     e.stopPropagation();
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     dragRef.current = { idx, side, base: draft };
     setSel(idx);
     setTool("corte");
@@ -384,6 +387,56 @@ export default function EditorPage() {
       setHistory((h) => [...h, d.base]);
       setFuture([]);
     }
+  }
+
+  // ---------- track de Enquadramento (Ponto 10): blocos na timeline ----------
+  function frBegin(e: React.PointerEvent, i: number, kind: "l" | "r" | "move") {
+    if (!draft) return;
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    frDragRef.current = { i, kind, base: draft,
+      grabDt: timeAt(e.clientX) - draft.framing_segments[i].start_s };
+    setSelFr(i);
+    setSel(null);
+    setTool("enquadramento"); // seleção contextual: bloco → ferramenta Enquadramento
+  }
+  function frMove(e: React.PointerEvent) {
+    const d = frDragRef.current;
+    if (!d || !draft || !win) return;
+    const list = draft.framing_segments.map((s) => ({ ...s }));
+    const s = list[d.i];
+    if (d.kind === "l") {
+      s.start_s = Math.min(snapTo(timeAt(e.clientX)), s.end_s - 0.2);
+    } else if (d.kind === "r") {
+      s.end_s = Math.max(snapTo(timeAt(e.clientX)), s.start_s + 0.2);
+    } else {
+      const w = s.end_s - s.start_s;
+      const ns = snapTo(timeAt(e.clientX) - d.grabDt);
+      s.start_s = Math.max(win.a, Math.min(ns, win.b - w));
+      s.end_s = s.start_s + w;
+    }
+    setDraft({ ...draft, framing_segments: list });
+  }
+  function frEnd() {
+    const d = frDragRef.current;
+    if (!d || !draft) return;
+    frDragRef.current = null;
+    if (JSON.stringify(d.base) !== JSON.stringify(draft)) {
+      setHistory((h) => [...h, d.base]);
+      setFuture([]);
+    }
+  }
+  function frSplit() {
+    if (selFr == null || !draft) return;
+    const s = draft.framing_segments[selFr];
+    const t = Math.round(playhead * 100) / 100;
+    if (!s || t <= s.start_s + 0.2 || t >= s.end_s - 0.2) {
+      flash("Posicione o cursor dentro do bloco selecionado para dividir.");
+      return;
+    }
+    const list = [...draft.framing_segments];
+    list.splice(selFr, 1, { ...s, end_s: t }, { ...s, start_s: t });
+    commit({ ...draft, framing_segments: list });
   }
 
   function togglePlay() {
@@ -566,8 +619,10 @@ export default function EditorPage() {
             editWord={editWord}
             setEditWord={setEditWord}
             sel={sel}
+            selFr={selFr}
             playhead={playhead}
             onPauses={aplicarPausas}
+            onFrSplit={frSplit}
             onOpenStudio={(kid) => nav(`/estudio/${kid}`)}
           />
         </div>
@@ -625,6 +680,7 @@ export default function EditorPage() {
                   onPointerDown={(e) => {
                     e.stopPropagation();
                     setSel(i);
+                    setSelFr(null);
                     setTool("corte"); // seleção contextual: trecho → ferramenta Corte
                   }}
                 >
@@ -662,6 +718,56 @@ export default function EditorPage() {
                 <span className="tl-margem">{depoisDisp.toFixed(1)}s depois</span>
               ) : null}
             </div>
+
+            {/* track ENQUADRAMENTO (Ponto 10): mesma régua, mesmo playhead */}
+            <div className="tl-track tl-track-fr">
+              <span className="tl-tracklabel">Enquadr.</span>
+              <div className="tl-frbase"
+                   style={{ left: x(env0), width: Math.max(0, (env1 - env0) * zoom) }}
+                   title="Modo do corte inteiro — os blocos azuis sobrescrevem por trecho"
+                   onClick={() => { setTool("enquadramento"); setSelFr(null); }}>
+                {({ auto: "Auto (falante ativo)", left: "Esquerda", right: "Direita",
+                    center: "Centro", blur: "Desfocado", fit: "Fit", two: "Duas pessoas",
+                    split: "Split" } as Record<string, string>)[draft.framing] ?? "Auto"}
+              </div>
+              {draft.framing_segments.map((s, i) => (
+                <div key={i} data-testid={`fr-seg-${i}`}
+                     className={`tl-frseg${selFr === i ? " on" : ""}`}
+                     style={{ left: x(s.start_s), width: Math.max(8, (s.end_s - s.start_s) * zoom) }}
+                     onPointerDown={(e) => frBegin(e, i, "move")}
+                     onPointerMove={frMove} onPointerUp={frEnd}>
+                  <i className="h l" onPointerDown={(e) => frBegin(e, i, "l")}
+                     onPointerMove={frMove} onPointerUp={frEnd} />
+                  {({ left: "Esquerda", center: "Centro", right: "Direita" } as
+                    Record<string, string>)[s.mode] ?? s.mode}
+                  <i className="h r" onPointerDown={(e) => frBegin(e, i, "r")}
+                     onPointerMove={frMove} onPointerUp={frEnd} />
+                </div>
+              ))}
+            </div>
+
+            {/* track PUNCH-IN (Ponto 30): onde o zoom acontece, no mesmo relógio */}
+            <div className="tl-track tl-track-pi" data-testid="pi-track"
+                 onClick={() => setTool("punchin")}
+                 title="Punch-in — clique para ajustar">
+              <span className="tl-tracklabel">Punch-in</span>
+              {draft.punch_in === "leve" ? (
+                <div className="tl-pi-span"
+                     style={{ left: x(env0), width: Math.max(0, (env1 - env0) * zoom) }}>
+                  zoom 105%
+                </div>
+              ) : null}
+              {draft.punch_in === "dinamico"
+                ? segs.filter((_, i) => i % 2 === 1).map((s, i) => (
+                    <div key={i} className="tl-pi-span"
+                         style={{ left: x(s.src_start),
+                                  width: Math.max(8, (s.src_end - s.src_start) * zoom) }}>
+                      110%
+                    </div>
+                  ))
+                : null}
+            </div>
+
             <div className="tl-playhead" style={{ left: x(playhead) }} />
           </div>
         </div>
