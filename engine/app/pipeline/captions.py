@@ -245,10 +245,15 @@ def _align_an(align: str) -> int:
 
 
 def _margens(style: dict, res: tuple[int, int]) -> tuple[int, int, int]:
-    pct = float(style.get("max_width_pct") or 88)
-    lateral = max(24, int(res[0] * (100 - pct) / 200))
     anchor_top = int(style.get("anchor_top")
                      or max(200, res[1] - int(style.get("margin_v", 420)) - 220))
+    # margens explícitas (área de legenda do Brand Studio) vencem a largura %
+    if style.get("margin_l") is not None or style.get("margin_r") is not None:
+        ml = max(0, int(style.get("margin_l") or 24))
+        mr = max(0, int(style.get("margin_r") or 24))
+        return ml, mr, anchor_top
+    pct = float(style.get("max_width_pct") or 88)
+    lateral = max(24, int(res[0] * (100 - pct) / 200))
     return lateral, lateral, anchor_top
 
 

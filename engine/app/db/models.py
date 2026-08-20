@@ -139,6 +139,7 @@ class BrandKit(Base):
     font_family: Mapped[str] = mapped_column(String(80), default="Inter")
     caption_preset: Mapped[str] = mapped_column(String(40), default="bold_karaoke")
     caption_style: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # overrides do preset
+    layout: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # canvas do Brand Studio
     headline_template: Mapped[str] = mapped_column(String(200), default="")
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[str] = mapped_column(String(32), default=utcnow)

@@ -30,9 +30,15 @@ def _m3_editor_edl(conn) -> None:
     _add_column(conn, "cut_candidates", "edl JSON")
 
 
+def _m4_brand_studio(conn) -> None:
+    """v2.0.0: layout do Brand Studio por kit (canvas 9:16 com camadas)."""
+    _add_column(conn, "brand_kits", "layout JSON")
+
+
 MIGRATIONS: list = [
     (2, _m2_analise_editorial),
     (3, _m3_editor_edl),
+    (4, _m4_brand_studio),
 ]
 
 

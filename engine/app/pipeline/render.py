@@ -29,7 +29,7 @@ from ..db.models import (
 )
 from ..jobs.registry import job_handler
 from ..services import ffmpeg
-from . import captions, censor
+from . import captions, censor, compose
 from . import edl as edl_mod
 from .reframe import apply_framing_override, plan_crop
 
@@ -62,26 +62,18 @@ def _fade_tags(item: dict, *, audio: bool) -> str:
     return out
 
 
-def build_filtergraph(*, crop_plan: dict, duration: float, out_w: int, out_h: int,
-                      subs_file: str | None, fonts_dir: str | None,
-                      censor_intervals: list[dict], censor_mode: str,
-                      logo: dict | None, beep_input_index: int | None,
-                      logo_input_index: int | None,
-                      video_trims: list[dict] | None = None,
-                      audio_chunks: list[dict] | None = None,
-                      audio_fx: dict | None = None,
-                      video_fades: dict | None = None) -> tuple[str, str, str]:
-    """Retorna (filter_complex, video_label, audio_label).
+def _video_base_chains(*, crop_plan: dict, video_trims: list[dict] | None,
+                       out_w: int, out_h: int, fit: str = "stretch") -> tuple[list[str], str]:
+    """Cadeias do vídeo-base (EDL + enquadramento) até [vbase] em out_w×out_h.
 
-    EDL: em modo crop os trims vêm embutidos nos segments do crop_plan (tempo
-    do INPUT + fades de junção); em blur_pad chegam via `video_trims`. O áudio
-    segue a MESMA EDL via `audio_chunks` (atrim/concat), depois `audio_fx`
-    (ganho/mute/fades) e `video_fades` (fades globais do clipe). Todos os
-    parâmetros novos são opcionais — ausentes, o grafo é o clássico de 1 trecho.
-    `duration` é a duração de SAÍDA (base dos fades globais)."""
+    fit="stretch" é o caminho clássico (o plano de crop já tem a proporção da
+    saída); fit="cover" preenche caixas de proporção arbitrária do Brand Studio."""
     chains: list[str] = []
-
-    # --- vídeo: crop por segmentos OU blur_pad ---
+    if fit == "cover":
+        final_scale = (f"scale={out_w}:{out_h}:force_original_aspect_ratio=increase:"
+                       f"flags=lanczos,crop={out_w}:{out_h}")
+    else:
+        final_scale = f"scale={out_w}:{out_h}:flags=lanczos"
     if crop_plan.get("mode") == "blur_pad":
         src_v = "0:v"
         if video_trims and len(video_trims) > 1:
@@ -104,7 +96,7 @@ def build_filtergraph(*, crop_plan: dict, duration: float, out_w: int, out_h: in
         if len(segs) == 1 and segs[0]["x0"] == segs[0]["x1"] and \
                 not segs[0].get("fade_in") and not segs[0].get("fade_out"):
             chains.append(f"[0:v]crop={crop_w}:{crop_h}:{segs[0]['x0']}:0,"
-                          f"scale={out_w}:{out_h}:flags=lanczos[vbase]")
+                          f"{final_scale}[vbase]")
         else:
             chains.append(f"[0:v]split={len(segs)}" + "".join(f"[s{i}]" for i in range(len(segs))))
             for i, seg in enumerate(segs):
@@ -118,35 +110,29 @@ def build_filtergraph(*, crop_plan: dict, duration: float, out_w: int, out_h: in
                               f"{_fade_tags(seg, audio=False)}[c{i}]")
             concat_in = "".join(f"[c{i}]" for i in range(len(segs)))
             chains.append(f"{concat_in}concat=n={len(segs)}:v=1:a=0,"
-                          f"scale={out_w}:{out_h}:flags=lanczos[vbase]")
+                          f"{final_scale}[vbase]")
+    return chains, "vbase"
 
-    v = "vbase"
-    if subs_file:
-        ass_arg = f"ass={subs_file}"
-        if fonts_dir:
-            ass_arg += f":fontsdir={fonts_dir}"
-        chains.append(f"[{v}]{ass_arg}[vsub]")
-        v = "vsub"
-    if logo is not None and logo_input_index is not None:
-        logo_w = int(out_w * 0.18)
-        opacity = float(logo.get("opacity", 1.0))
-        x, y = LOGO_POSITIONS.get(logo.get("position", "tr"), LOGO_POSITIONS["tr"])
-        chains.append(f"[{logo_input_index}:v]scale={logo_w}:-1,format=rgba,"
-                      f"colorchannelmixer=aa={opacity:.2f}[logo]")
-        chains.append(f"[{v}][logo]overlay={x}:{y}[vlogo]")
-        v = "vlogo"
+
+def _global_fade_chain(v: str, video_fades: dict | None, duration: float) -> tuple[str | None, str]:
+    """Fade global de entrada/saída sobre a composição pronta."""
     fades = video_fades or {}
     fi, fo = float(fades.get("fade_in_s") or 0.0), float(fades.get("fade_out_s") or 0.0)
-    if fi > 0 or fo > 0:  # fade global sobre a composição inteira (legendas e logo juntos)
-        parts = []
-        if fi > 0:
-            parts.append(f"fade=t=in:st=0:d={fi:.3f}")
-        if fo > 0:
-            parts.append(f"fade=t=out:st={max(0.0, duration - fo):.3f}:d={fo:.3f}")
-        chains.append(f"[{v}]{','.join(parts)}[vfade]")
-        v = "vfade"
+    if fi <= 0 and fo <= 0:
+        return None, v
+    parts = []
+    if fi > 0:
+        parts.append(f"fade=t=in:st=0:d={fi:.3f}")
+    if fo > 0:
+        parts.append(f"fade=t=out:st={max(0.0, duration - fo):.3f}:d={fo:.3f}")
+    return f"[{v}]{','.join(parts)}[vfade]", "vfade"
 
-    # --- áudio: seleção EDL → ganho/fades → censura → loudnorm ---
+
+def _audio_chains(*, censor_intervals: list[dict], censor_mode: str,
+                  beep_input_index: int | None, audio_chunks: list[dict] | None,
+                  audio_fx: dict | None, duration: float) -> tuple[list[str], str]:
+    """Áudio completo: seleção EDL → ganho/mute/fades → censura → loudnorm."""
+    chains: list[str] = []
     a = "0:a"
     if audio_chunks and len(audio_chunks) > 1:
         n = len(audio_chunks)
@@ -186,7 +172,52 @@ def build_filtergraph(*, crop_plan: dict, duration: float, out_w: int, out_h: in
             chains.append(f"[{a}][beepg]amix=inputs=2:duration=first:normalize=0[amix]")
             a = "amix"
     chains.append(f"[{a}]loudnorm=I=-14:TP=-1.5:LRA=11[aout]")
-    return ";".join(chains), f"[{v}]", "[aout]"
+    return chains, "[aout]"
+
+
+def build_filtergraph(*, crop_plan: dict, duration: float, out_w: int, out_h: int,
+                      subs_file: str | None, fonts_dir: str | None,
+                      censor_intervals: list[dict], censor_mode: str,
+                      logo: dict | None, beep_input_index: int | None,
+                      logo_input_index: int | None,
+                      video_trims: list[dict] | None = None,
+                      audio_chunks: list[dict] | None = None,
+                      audio_fx: dict | None = None,
+                      video_fades: dict | None = None) -> tuple[str, str, str]:
+    """Grafo clássico (tela cheia): retorna (filter_complex, video_label, audio_label).
+
+    EDL: em modo crop os trims vêm embutidos nos segments do crop_plan (tempo
+    do INPUT + fades de junção); em blur_pad chegam via `video_trims`. O áudio
+    segue a MESMA EDL via `audio_chunks` (atrim/concat), depois `audio_fx`
+    (ganho/mute/fades) e `video_fades` (fades globais do clipe). Todos os
+    parâmetros novos são opcionais — ausentes, o grafo é o clássico de 1 trecho.
+    `duration` é a duração de SAÍDA (base dos fades globais)."""
+    chains, v = _video_base_chains(crop_plan=crop_plan, video_trims=video_trims,
+                                   out_w=out_w, out_h=out_h)
+    if subs_file:
+        ass_arg = f"ass={subs_file}"
+        if fonts_dir:
+            ass_arg += f":fontsdir={fonts_dir}"
+        chains.append(f"[{v}]{ass_arg}[vsub]")
+        v = "vsub"
+    if logo is not None and logo_input_index is not None:
+        logo_w = int(out_w * 0.18)
+        opacity = float(logo.get("opacity", 1.0))
+        x, y = LOGO_POSITIONS.get(logo.get("position", "tr"), LOGO_POSITIONS["tr"])
+        chains.append(f"[{logo_input_index}:v]scale={logo_w}:-1,format=rgba,"
+                      f"colorchannelmixer=aa={opacity:.2f}[logo]")
+        chains.append(f"[{v}][logo]overlay={x}:{y}[vlogo]")
+        v = "vlogo"
+    fade_chain, v = _global_fade_chain(v, video_fades, duration)
+    if fade_chain:
+        chains.append(fade_chain)
+    a_chains, a_label = _audio_chains(censor_intervals=censor_intervals,
+                                      censor_mode=censor_mode,
+                                      beep_input_index=beep_input_index,
+                                      audio_chunks=audio_chunks, audio_fx=audio_fx,
+                                      duration=duration)
+    chains += a_chains
+    return ";".join(chains), f"[{v}]", a_label
 
 
 def _fades_de_juncao(items: list[dict], transition_s: float) -> None:
@@ -223,11 +254,11 @@ def _load_render_bundle(render_id: str) -> dict:
         if kit_id:
             k = s.get(BrandKit, kit_id)
             if k is not None:
-                kit = {"logo_path": k.logo_path, "logo_position": k.logo_position,
+                kit = {"id": k.id, "logo_path": k.logo_path, "logo_position": k.logo_position,
                        "logo_opacity": k.logo_opacity, "primary_color": k.primary_color,
                        "secondary_color": k.secondary_color, "font_family": k.font_family,
                        "caption_preset": k.caption_preset, "caption_style": k.caption_style,
-                       "headline_template": k.headline_template}
+                       "layout": k.layout, "headline_template": k.headline_template}
         t = s.execute(select(Transcript).where(Transcript.source_video_id == src.id)
                       .order_by(Transcript.created_at.desc())).scalars().first()
         eff = edl_mod.cut_edl({"edl": cut.edl, "start_s": cut.start_s, "end_s": cut.end_s})
@@ -340,6 +371,14 @@ def render_cut(ctx) -> dict:
     if headline is None and kit and kit.get("headline_template"):
         headline = kit["headline_template"].replace("{titulo}", cut["title"] or "")
 
+    # Brand Studio: kit com layout → composição de canvas em camadas.
+    # Kits sem layout seguem o pipeline clássico byte a byte.
+    lay = compose.layout_of(kit)
+    scale_c = out_w / compose.CANVAS_W
+    if lay is not None:
+        headline = None  # {titulo} é camada de texto do layout, não evento no subs.ass
+        caption_style = {**(caption_style or {}), **compose.caption_overrides(lay)}
+
     censor_enabled = overrides.get("censor_enabled")
     if censor_enabled is None:
         censor_enabled = bool(settings_store.get_setting("censor_enabled"))
@@ -353,7 +392,7 @@ def render_cut(ctx) -> dict:
             intervals = censor.find_intervals(words_rel, censor.load_wordlist(extra))
 
     logo = None
-    if kit and kit.get("logo_path") and Path(kit["logo_path"]).exists():
+    if lay is None and kit and kit.get("logo_path") and Path(kit["logo_path"]).exists():
         logo = {"path": kit["logo_path"], "position": kit.get("logo_position", "tr"),
                 "opacity": kit.get("logo_opacity", 1.0)}
 
@@ -366,8 +405,18 @@ def render_cut(ctx) -> dict:
                                           fps=float(src.get("fps") or 30.0))
             (workdir / "subs.ass").write_text(ass_text, encoding="utf-8")
             subs_file = "subs.ass"
+        comp = None
+        text_ass_file = None
+        if lay is not None:
+            comp = compose.plan_composition(lay, scale=scale_c, out_dur=duration,
+                                            workdir=workdir, titulo=cut["title"] or "")
+            for aviso in comp["warnings"]:
+                log.warning("layout do kit: %s", aviso)
+            if comp["text_ass"]:
+                (workdir / "layout.ass").write_text(comp["text_ass"], encoding="utf-8")
+                text_ass_file = "layout.ass"
         fonts_dir = None
-        if subs_file and bundled_fonts_dir():
+        if (subs_file or text_ass_file) and bundled_fonts_dir():
             shutil.copytree(bundled_fonts_dir(), workdir / "fonts", dirs_exist_ok=True)
             fonts_dir = "fonts"
 
@@ -382,14 +431,52 @@ def render_cut(ctx) -> dict:
             args += ["-f", "lavfi", "-t", f"{duration:.3f}", "-i", "sine=frequency=1000"]
             beep_idx = next_idx
             next_idx += 1
+        idx_map: dict[str, int] = {}
+        if comp is not None:
+            for extra in comp["files"]:
+                if extra["kind"] == "image":
+                    args += ["-loop", "1", "-t", f"{duration:.3f}", "-i", extra["path"]]
+                else:
+                    if extra.get("loop", True):
+                        args += ["-stream_loop", "-1"]
+                    args += ["-t", f"{duration:.3f}", "-i", extra["path"]]
+                idx_map[extra["key"]] = next_idx
+                next_idx += 1
 
-        graph, v_label, a_label = build_filtergraph(
-            crop_plan=plan_rel, duration=duration, out_w=out_w, out_h=out_h,
-            subs_file=subs_file, fonts_dir=fonts_dir, censor_intervals=intervals,
-            censor_mode=censor_mode, logo=logo, beep_input_index=beep_idx,
-            logo_input_index=logo_idx, video_trims=video_trims, audio_chunks=audio_sel,
-            audio_fx=edl["audio"],
-            video_fades={"fade_in_s": edl["fade_in_s"], "fade_out_s": edl["fade_out_s"]})
+        if lay is None:
+            graph, v_label, a_label = build_filtergraph(
+                crop_plan=plan_rel, duration=duration, out_w=out_w, out_h=out_h,
+                subs_file=subs_file, fonts_dir=fonts_dir, censor_intervals=intervals,
+                censor_mode=censor_mode, logo=logo, beep_input_index=beep_idx,
+                logo_input_index=logo_idx, video_trims=video_trims, audio_chunks=audio_sel,
+                audio_fx=edl["audio"],
+                video_fades={"fade_in_s": edl["fade_in_s"], "fade_out_s": edl["fade_out_s"]})
+        else:
+            src_l = compose.source_layer(lay)
+            box_w = compose.box_px(src_l.get("w", 1080), scale_c)
+            box_h = compose.box_px(src_l.get("h", 1920), scale_c)
+            chains, vb = _video_base_chains(crop_plan=plan_rel, video_trims=video_trims,
+                                            out_w=box_w, out_h=box_h, fit="cover")
+            bg_lbl = None
+            if (lay.get("background") or {}).get("type") == "blur":
+                chains.append(f"[{vb}]split=2[vmain][vbgsrc]")
+                vb, bg_lbl = "vmain", "vbgsrc"
+            comp_chains, v = compose.build_chains(
+                lay, comp, scale=scale_c, out_dur=duration, base_label=vb,
+                bg_src_label=bg_lbl, idx=idx_map, subs_file=subs_file,
+                text_ass_file=text_ass_file, fonts_dir=fonts_dir,
+                fps=float(src.get("fps") or 30.0))
+            chains += comp_chains
+            fade_chain, v = _global_fade_chain(
+                v, {"fade_in_s": edl["fade_in_s"], "fade_out_s": edl["fade_out_s"]}, duration)
+            if fade_chain:
+                chains.append(fade_chain)
+            a_chains, a_label = _audio_chains(
+                censor_intervals=intervals, censor_mode=censor_mode,
+                beep_input_index=beep_idx, audio_chunks=audio_sel,
+                audio_fx=edl["audio"], duration=duration)
+            graph = ";".join(chains + a_chains)
+            v_label = f"[{v}]"
 
         if kind == "preview":
             out_path = config.data_dir() / "media" / "previews" / f"{cut['id']}.mp4"
