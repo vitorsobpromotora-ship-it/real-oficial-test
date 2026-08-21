@@ -171,3 +171,33 @@ def test_migracao_v5_converte_draft_em_pending_review(client, auth):
         conn.commit()
     corte = client.get(f"/api/v1/cuts/{cut_id}", headers=auth).json()
     assert corte["status"] == "pending_review"
+
+
+def test_autosave_repetido_nao_infla_a_revisao(client, auth):
+    """O Editor salva o Draft inteiro a cada alteração e manda framing/punch_in
+    FORA de edits. Reenviar o mesmo conteúdo não pode contar como edição nova —
+    senão todo autosave marcaria o render como desatualizado."""
+    _, cut_id = _semeia()
+    corpo = {  # exatamente o que patchFromDraft (app) envia
+        "edl": {"segments": [{"src_start": 10.0, "src_end": 30.0}], "fade_in_s": 0.0,
+                "fade_out_s": 0.0, "transition_s": 0.0,
+                "audio": {"gain_db": 0.0, "mute": False,
+                          "fade_in_s": 0.0, "fade_out_s": 0.0}},
+        "title": "Corte", "framing": "left", "punch_in": "leve",
+        "caption_style": None, "brand_kit_id": None,
+        "edits": {"word_overrides": {"3": "olá"}},
+    }
+    revs = [client.patch(f"/api/v1/cuts/{cut_id}", json=corpo,
+                         headers=auth).json()["edit_revision"] for _ in range(3)]
+    assert revs[0] == revs[1] == revs[2], f"revisão inflou sem edição: {revs}"
+
+    guardado = client.get(f"/api/v1/cuts/{cut_id}", headers=auth).json()
+    assert guardado["edits"]["framing"] == "left"
+    assert guardado["edits"]["punch_in"] == "leve"
+    assert guardado["edits"]["word_overrides"] == {"3": "olá"}
+
+    # uma mudança de verdade continua contando
+    corpo2 = {**corpo, "edits": {"word_overrides": {"3": "oi"}}}
+    nova = client.patch(f"/api/v1/cuts/{cut_id}", json=corpo2,
+                        headers=auth).json()["edit_revision"]
+    assert nova == revs[0] + 1

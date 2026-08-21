@@ -286,7 +286,17 @@ def _apply_patch(s, c: CutCandidate, patch: CutPatch) -> None:
     # (ex.: brand_kit_id=null remove o kit; caption_style=null volta ao padrão).
     data = patch.model_dump(exclude_unset=True)
 
+    # chaves de edits geridas por campos dedicados do PATCH (framing/punch_in):
+    # o Editor as envia FORA de edits, então compará-las aqui daria "mudou"
+    # em todo salvamento e inflaria edit_revision sem nenhuma edição real.
+    _GERIDAS = ("framing", "punch_in")
+
+    def _sem_geridas(d: dict | None) -> dict:
+        return {k: v for k, v in (d or {}).items() if k not in _GERIDAS}
+
     def _mudou(field: str, value) -> bool:
+        if field == "edits":
+            return _sem_geridas(c.edits) != _sem_geridas(value)
         if field == "framing":
             return ((c.edits or {}).get("framing") or "auto") != (value or "auto")
         if field == "punch_in":
