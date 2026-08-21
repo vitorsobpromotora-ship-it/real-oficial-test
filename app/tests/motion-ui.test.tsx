@@ -114,7 +114,21 @@ vi.mock("../src/api/client", () => ({
     if (path.startsWith("/api/v1/renders")) return [];
     return {};
   }),
-  post: vi.fn(async () => ({})),
+  post: vi.fn(async (path: string) => {
+    if (path.includes("/motion/suggest")) {
+      return { suggestions: [
+        { start: 0.3, end: 0.95, target_words: [1], semantic_role: "punchline",
+          impact_score: 7.5, suggested_preset: "punch", kind: "text_emphasis",
+          intensity: "normal", word: "gosto",
+          reason: "“gosto”: fim de verso, rima com o verso anterior" },
+        { start: 5.0, end: 5.7, target_words: [5], semantic_role: "fatality",
+          impact_score: 9, suggested_preset: "fatality_composta",
+          kind: "composite", intensity: "normal", word: "mesmo",
+          reason: "“mesmo”: sequência de rimas armada" },
+      ] };
+    }
+    return {};
+  }),
   patch: vi.fn(async (path: string, body: Record<string, unknown>) => {
     patchCalls.push({ path, body });
     cutAtual = { ...cutAtual, ...(body as Partial<Cut>) } as Cut;
@@ -365,5 +379,38 @@ describe("v4 FASE H — B-roll pela interface", () => {
       expect(ultimoMotion()!.effects[0].params?.mode).toBe("fullscreen");
     }, { timeout: 4000 });
     expect(screen.getByTestId("br-track").textContent).toContain("tela cheia");
+  });
+});
+
+describe("v4 FASE J — Smart Motion pela interface", () => {
+  it("✨ Sugerir lista com reason; Aplicar cria efeitos 'auto' editáveis", async () => {
+    renderEditor();
+    fireEvent.click(await screen.findByTestId("tool-motion"));
+    fireEvent.click(await screen.findByTestId("mo-sugerir"));
+
+    // sugestões com o porquê em PT-BR
+    expect(await screen.findByTestId("mo-sug-lista")).toBeInTheDocument();
+    expect(screen.getByTestId("mo-sug-0").textContent).toContain("rima");
+
+    fireEvent.click(screen.getByTestId("mo-aplicar-sug"));
+    await waitFor(() => {
+      const m = ultimoMotion()!;
+      // 1 punch simples + fatality composta (5 partes) = 6 efeitos
+      expect(m.effects.length).toBe(6);
+      expect(m.effects.every((e) => e.origin === "auto")).toBe(true);
+      expect(m.effects.some((e) => e.reason && String(e.reason).includes("rima")))
+        .toBe(true);
+    }, { timeout: 4000 });
+
+    // efeito auto selecionado mostra o 💡 reason no editor (Entrega 73)
+    const bloco = document.querySelector(".tl-moblock") as HTMLElement;
+    fireEvent.click(bloco);
+    expect(await screen.findByTestId("mo-reason")).toBeInTheDocument();
+    // e é um efeito COMUM: dá para trocar a intensidade
+    fireEvent.click(screen.getByTestId("mo-int-forte"));
+    await waitFor(() => {
+      expect(ultimoMotion()!.effects.some((e) => e.intensity === "forte"))
+        .toBe(true);
+    }, { timeout: 4000 });
   });
 });

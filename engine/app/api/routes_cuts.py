@@ -151,6 +151,55 @@ def motion_presets():
             "easings": motion_mod.EASING_LABELS_PTBR}
 
 
+def _cut_words_out(s, c: CutCandidate) -> list[dict]:
+    """Palavras do corte em TEMPO DE SAÍDA, com a camada de edições aplicada
+    (o mesmo caminho dos cartões de legenda)."""
+    from ..db.models import Transcript, TranscriptWord  # noqa: PLC0415
+
+    eff = _edl_efetiva(c, c.edl)
+    env_a, env_b = edl_mod.envelope(eff)
+    t = s.execute(select(Transcript).where(Transcript.source_video_id == c.source_video_id)
+                  .order_by(Transcript.created_at.desc())).scalars().first()
+    words: list[dict] = []
+    if t is not None:
+        rows = s.execute(select(TranscriptWord)
+                         .where(TranscriptWord.transcript_id == t.id,
+                                TranscriptWord.end_s > env_a,
+                                TranscriptWord.start_s < env_b)
+                         .order_by(TranscriptWord.idx)).scalars().all()
+        words = [{"idx": w.idx, "start_s": w.start_s, "end_s": w.end_s, "word": w.word}
+                 for w in rows]
+    return edl_mod.map_words(words, eff, c.edits)
+
+
+@router.post("/cuts/{cut_id}/motion/suggest")
+def motion_suggest(cut_id: str, body: dict | None = None):
+    """Smart Motion (FASE J): sugere efeitos do catálogo controlado para o
+    corte — semântica de verso/rima/impacto, com cooldown por densidade.
+    NÃO grava nada: o Editor aplica (ou não) e o autosave persiste."""
+    from ..pipeline import motion_smart  # noqa: PLC0415
+
+    body = body or {}
+    style = str(body.get("style") or "batalha")
+    density = body.get("density")
+    seed = int(body.get("seed") or 1)
+    if style not in motion_smart.EDITORIAL_STYLES:
+        raise HTTPException(422, f"Estilo desconhecido: {style}")
+    if density is not None and density not in motion_smart.DENSITIES:
+        raise HTTPException(422, f"Densidade desconhecida: {density}")
+    with session() as s:
+        c = s.get(CutCandidate, cut_id)
+        if c is None:
+            raise HTTPException(404, "Corte não encontrado")
+        words = _cut_words_out(s, c)
+    sugestoes = motion_smart.suggest(words, style=style, density=density, seed=seed)
+    return {"suggestions": sugestoes,
+            "styles": [{"id": v["id"], "label": v["label"],
+                        "descricao": v["descricao"]}
+                       for v in motion_smart.EDITORIAL_STYLES.values()],
+            "densities": list(motion_smart.DENSITIES)}
+
+
 @router.get("/cuts/{cut_id}/caption-cards")
 def caption_cards(cut_id: str):
     """Cartões de legenda RESOLVIDOS pelo MESMO código do render (WYSIWYG).

@@ -302,7 +302,9 @@ export default function Inspector(p: Props) {
         {p.tool === "motion" ? (
           <MotionPanel draft={d} upd={p.upd} presets={p.motionPresets}
                        videoPresets={p.videoPresets}
-                       calloutPresets={p.calloutPresets} outNow={p.outNow}
+                       calloutPresets={p.calloutPresets}
+                       compositePresets={p.compositePresets}
+                       cutId={p.cut.id} outNow={p.outNow}
                        selFx={p.selFx} setSelFx={p.setSelFx}
                        captions={p.captions} onSeekOut={p.onSeekOut} />
         ) : null}

@@ -6,12 +6,37 @@
  * janela, ativo/inativo (A/B sem excluir), variação de seed e exclusão.
  * Tudo passa pelo Draft → undo/redo e autosave como qualquer edição visual.
  */
+import { useState } from "react";
+import { post } from "../api/client";
 import type { CaptionCards } from "../api/types";
 import { fmtT, type Draft } from "./model";
 import {
-  hash32, manifestVazio, novoId, seedDe,
-  type CalloutPreset, type EffectInstance, type TextPreset, type VideoPreset,
+  expandComposite, hash32, manifestVazio, novoId, seedDe,
+  type CalloutPreset, type CompositePreset, type EffectInstance,
+  type TextPreset, type VideoPreset,
 } from "./motion";
+
+export interface Suggestion {
+  start: number;
+  end: number;
+  target_words: number[];
+  semantic_role: string;
+  impact_score: number;
+  suggested_preset: string;
+  kind: "text_emphasis" | "video_fx" | "composite";
+  intensity: "suave" | "normal" | "forte";
+  reason: string;
+  word: string;
+}
+
+export const ESTILOS_EDITORIAIS: [string, string][] = [
+  ["limpa", "Limpa"], ["dinamica", "Dinâmica"],
+  ["batalha", "Batalha"], ["agressiva", "Agressiva"],
+];
+export const DENSIDADES: [string, string][] = [
+  ["desativado", "Desativado"], ["baixa", "Baixa"],
+  ["balanceada", "Balanceada"], ["alta", "Alta"],
+];
 
 export const INTENS: [string, string][] = [
   ["suave", "Suave"], ["normal", "Normal"], ["forte", "Forte"],
@@ -35,6 +60,8 @@ interface Props {
   presets: TextPreset[];
   videoPresets: VideoPreset[];
   calloutPresets: CalloutPreset[];
+  compositePresets: CompositePreset[];
+  cutId: string;
   outNow: number; // playhead em tempo de SAÍDA — onde nasce um FX novo
   selFx: string | null;
   setSelFx(id: string | null): void;
@@ -43,6 +70,10 @@ interface Props {
 }
 
 export default function MotionPanel(p: Props) {
+  const [estilo, setEstilo] = useState("batalha");
+  const [densidade, setDensidade] = useState("balanceada");
+  const [sugestoes, setSugestoes] = useState<Suggestion[] | null>(null);
+  const [sugerindo, setSugerindo] = useState(false);
   const effects = p.draft.motion?.effects ?? [];
   const sel = effects.find((e) => e.id === p.selFx) ?? null;
   const catalogoDe = (e: EffectInstance) =>
@@ -90,6 +121,54 @@ export default function MotionPanel(p: Props) {
     mudar(id, { params: { ...(e.params ?? {}), [chave]: valor } });
   }
 
+  async function sugerir() {
+    setSugerindo(true);
+    try {
+      const r = await post<{ suggestions: Suggestion[] }>(
+        `/api/v1/cuts/${p.cutId}/motion/suggest`,
+        { style: estilo, density: densidade, seed: seedDe(p.cutId) });
+      setSugestoes(r.suggestions);
+    } finally {
+      setSugerindo(false);
+    }
+  }
+
+  /** Expande UMA sugestão em EffectInstances comuns (origin "auto"). */
+  function efeitosDe(su: Suggestion): EffectInstance[] {
+    const marca = { origin: "auto", reason: su.reason };
+    if (su.kind === "composite") {
+      const preset = p.compositePresets.find((c) => c.id === su.suggested_preset);
+      if (!preset) return [];
+      return expandComposite(preset, {
+        tHit: su.start, durWord: Math.max(0.2, su.end - su.start - 0.25),
+        target: { kind: "words", idx: su.target_words },
+        intensity: su.intensity, seedBase: seedDe(novoId()),
+      }).map((e) => ({ ...e, ...marca }));
+    }
+    const id = novoId();
+    return [{
+      id, type: su.kind, preset: su.suggested_preset,
+      target: su.kind === "video_fx" ? { kind: "video" }
+        : { kind: "words", idx: su.target_words },
+      start: su.start, end: su.end, intensity: su.intensity,
+      enabled: true, seed: seedDe(id), ...marca,
+    }];
+  }
+
+  function aplicarSugestoes(lista: Suggestion[]) {
+    const man = p.draft.motion ?? manifestVazio();
+    const ocupados = new Set(man.effects
+      .filter((e) => e.type === "text_emphasis")
+      .flatMap((e) => e.target.idx ?? []));
+    const novos = lista
+      .filter((su) => su.kind === "video_fx"
+        || !su.target_words.some((i) => ocupados.has(i)))
+      .flatMap(efeitosDe);
+    if (!novos.length) return;
+    p.upd({ motion: { ...man, effects: [...man.effects, ...novos] } });
+    setSugestoes(null);
+  }
+
   function alvoLegivel(e: EffectInstance): string {
     if (e.type === "broll") return "mídia da biblioteca";
     if (e.target.kind === "video") return "cena inteira";
@@ -106,6 +185,59 @@ export default function MotionPanel(p: Props) {
     return nomes.length ? `“${nomes.join(" ")}”` : "palavra";
   }
 
+  const smart = (
+    <div className="mo-smart" data-testid="mo-smart">
+      <label>Smart Motion — sugestões automáticas</label>
+      <div className="row">
+        <select value={estilo} data-testid="mo-estilo"
+                onChange={(e) => setEstilo(e.target.value)}>
+          {ESTILOS_EDITORIAIS.map(([id, rotulo]) => (
+            <option key={id} value={id}>{rotulo}</option>
+          ))}
+        </select>
+        <select value={densidade} data-testid="mo-densidade"
+                onChange={(e) => setDensidade(e.target.value)}>
+          {DENSIDADES.map(([id, rotulo]) => (
+            <option key={id} value={id}>{rotulo}</option>
+          ))}
+        </select>
+        <button data-testid="mo-sugerir" disabled={sugerindo}
+                onClick={() => void sugerir()}>
+          {sugerindo ? "Analisando…" : "✨ Sugerir"}
+        </button>
+      </div>
+      {sugestoes !== null ? (
+        <div className="mo-sug-lista" data-testid="mo-sug-lista">
+          {!sugestoes.length ? (
+            <div className="sub">Nada a sugerir com este estilo/densidade.</div>
+          ) : (
+            <>
+              {sugestoes.map((su, i) => (
+                <div key={i} className="mo-sug" data-testid={`mo-sug-${i}`}>
+                  <b>{su.semantic_role === "fatality" ? "🔥" : "✨"}{" "}
+                    “{su.word}” · {su.suggested_preset}</b>
+                  <span className="sub">{su.reason}</span>
+                </div>
+              ))}
+              <div className="row" style={{ marginTop: 6 }}>
+                <button className="primary" data-testid="mo-aplicar-sug"
+                        onClick={() => aplicarSugestoes(sugestoes)}>
+                  Aplicar {sugestoes.length} sugestão(ões)
+                </button>
+                <button onClick={() => setSugestoes(null)}>Descartar</button>
+              </div>
+              <div className="sub">
+                Tudo entra como efeito comum: editável, desativável e com
+                Ctrl+Z. Nada é definitivo.
+              </div>
+            </>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+
+
   if (!effects.length) {
     return (
       <>
@@ -120,6 +252,7 @@ export default function MotionPanel(p: Props) {
           shake, flash… O bloco aparece na track FX e é exatamente o que o
           render final aplica.
         </div>
+        {smart}
         <div className="row" style={{ marginTop: 12 }}>
           <button data-testid="mo-add-fx" onClick={criarVideoFx}>
             ⚡ Efeito de vídeo no cursor
@@ -132,6 +265,7 @@ export default function MotionPanel(p: Props) {
   return (
     <>
       <h3>Motion</h3>
+      {smart}
       <div className="row" style={{ marginBottom: 10 }}>
         <button data-testid="mo-add-fx" onClick={criarVideoFx}>
           ⚡ Efeito de vídeo no cursor
@@ -147,6 +281,7 @@ export default function MotionPanel(p: Props) {
               {rotuloDoEfeito(e, catalogoDe(e))}</b>
             <span className="sub">
               {alvoLegivel(e)} · {fmtT(e.start)} → {fmtT(e.end)}
+              {e.origin === "auto" ? " · auto" : ""}
               {e.enabled === false ? " · desativado" : ""}
             </span>
           </button>
@@ -320,6 +455,13 @@ export default function MotionPanel(p: Props) {
               Excluir efeito
             </button>
           </div>
+          {sel.origin === "auto" && sel.reason ? (
+            <div className="insp-sel" style={{ marginTop: 10 }}
+                 data-testid="mo-reason">
+              💡 Por que este efeito: {String(sel.reason)}
+            </div>
+          ) : null}
+
           {sel.group ? (
             <div className="insp-sel" style={{ marginTop: 10 }} data-testid="mo-grupo">
               Parte da composição <b>{String(sel.group_label ?? "")}</b> — as
