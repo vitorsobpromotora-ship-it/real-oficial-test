@@ -103,8 +103,15 @@ def src_to_out(edl: dict, t_src: float) -> float | None:
 
 def map_words(words_src: list[dict], edl: dict, edits: dict | None = None) -> list[dict]:
     """Palavras (tempos da FONTE) → tempos de SAÍDA, descartando as que caem em
-    trechos removidos. `edits["word_overrides"]` corrige textos pontuais no corte
-    sem tocar a transcrição original."""
+    trechos removidos, e aplicando a CAMADA DE LEGENDA do corte (Ponto 14):
+    a transcrição original nunca muda; o corte guarda em `edits`:
+
+      word_overrides  {"<idx>": "texto"}  — substituir (mesma janela temporal)
+      word_deleted    [idx, ...]          — excluir da legenda (não da fala)
+      word_inserted   [{"id","anchor_idx","placement":"before|after","text"}]
+                       — inseridas ANCORADAS à palavra vizinha: aproveitam a
+                         pausa disponível ou dividem a janela da âncora, sem
+                         deslocar nenhuma outra palavra."""
     overrides = (edits or {}).get("word_overrides") or {}
     fonte = (edits or {}).get("caption_words") or words_src
     out: list[dict] = []
@@ -119,6 +126,61 @@ def map_words(words_src: list[dict], edl: dict, edits: dict | None = None) -> li
                         "end_s": round(acc + min(b, w["end_s"]) - a, 3),
                         "word": texto})
         acc += b - a
+    return _apply_word_edits(out, edits)
+
+
+def _apply_word_edits(words: list[dict], edits: dict | None) -> list[dict]:
+    if not edits:
+        return words
+    deleted = {int(i) for i in (edits.get("word_deleted") or [])}
+    if deleted:
+        words = [w for w in words if w.get("idx") not in deleted]
+    for ins in edits.get("word_inserted") or []:
+        words = _insert_word(words, ins)
+    return words
+
+
+def _insert_word(words: list[dict], ins: dict) -> list[dict]:
+    """Insere uma palavra antes/depois da âncora SEM deslocar as demais.
+
+    Pausa vizinha ≥0.18s → a inserida vive na pausa; senão a janela da âncora
+    é dividida visualmente (só a âncora encolhe — o resto fica intacto)."""
+    texto = (ins.get("text") or "").strip()
+    if not texto:
+        return words
+    pos = next((i for i, w in enumerate(words)
+                if w.get("idx") == ins.get("anchor_idx") and w.get("idx") is not None), None)
+    if pos is None:
+        return words
+    out = [dict(w) for w in words]
+    a = out[pos]
+    dur = a["end_s"] - a["start_s"]
+    if ins.get("placement") == "before":
+        prev_end = out[pos - 1]["end_s"] if pos > 0 else 0.0
+        gap = a["start_s"] - prev_end
+        if gap >= 0.18:
+            s = max(prev_end, a["start_s"] - min(gap * 0.8, 0.5))
+            e = a["start_s"] - 0.01
+        else:
+            s = a["start_s"]
+            e = a["start_s"] + max(0.08, dur * 0.45)
+            a["start_s"] = round(e, 3)
+        novo = {"idx": None, "ins_id": ins.get("id"), "start_s": round(max(0.0, s), 3),
+                "end_s": round(e, 3), "word": texto}
+        out.insert(pos, novo)
+    else:
+        nxt_start = out[pos + 1]["start_s"] if pos + 1 < len(out) else a["end_s"] + 0.6
+        gap = nxt_start - a["end_s"]
+        if gap >= 0.18:
+            s = a["end_s"] + 0.01
+            e = min(nxt_start, a["end_s"] + min(gap * 0.8, 0.5))
+        else:
+            e = a["end_s"]
+            s = a["end_s"] - max(0.08, dur * 0.45)
+            a["end_s"] = round(s, 3)
+        novo = {"idx": None, "ins_id": ins.get("id"), "start_s": round(s, 3),
+                "end_s": round(e, 3), "word": texto}
+        out.insert(pos + 1, novo)
     return out
 
 

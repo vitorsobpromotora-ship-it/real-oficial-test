@@ -4,8 +4,11 @@
  * seleciona trecho → Corte; clique na legenda → Legenda), no espírito do
  * CapCut: selecionou algo → edita aquilo.
  */
-import type { BrandKit, CaptionPreset, Cut, TranscriptWord } from "../api/types";
-import { fmtSrc, fmtT, srcToOut, type Draft } from "./model";
+import { useEffect, useRef, useState } from "react";
+import type {
+  BrandKit, CaptionCards, CaptionPreset, Cut, TranscriptWord,
+} from "../api/types";
+import { fmtSrc, fmtT, srcToOut, type Draft, type InsertedWord } from "./model";
 
 export type Tool =
   | "corte" | "pausas" | "audio" | "enquadramento" | "punchin"
@@ -39,9 +42,11 @@ interface Props {
   title: string;
   kits: BrandKit[];
   presets: CaptionPreset[];
-  words: TranscriptWord[];
-  editWord: number | null;
-  setEditWord(i: number | null): void;
+  words: TranscriptWord[]; // transcrição (fonte) — p/ restaurar excluídas
+  captions: CaptionCards | null; // cartões resolvidos pelo motor
+  outNow: number; // relógio de saída (sincronismo palavra ↔ playhead)
+  selCard: number | null;
+  onSeekOut(tOut: number): void;
   sel: number | null;
   selFr: number | null; // bloco de enquadramento selecionado na track
   playhead: number;
@@ -268,44 +273,8 @@ export default function Inspector(p: Props) {
         ) : null}
 
         {p.tool === "palavras" ? (
-          <>
-            <h3>Palavras da legenda</h3>
-            <div className="sub" style={{ marginBottom: 8 }}>
-              Clique numa palavra para corrigir o texto — só neste corte; a
-              transcrição original não muda.
-            </div>
-            <div className="ed-words">
-              {p.words.length === 0 ? (
-                <span className="sub">Sem palavras no trecho mantido.</span>
-              ) : (
-                p.words.map((w) =>
-                  p.editWord === w.idx ? (
-                    <input key={w.idx} className="ed-word-input" autoFocus
-                           defaultValue={d.word_overrides[String(w.idx)] ?? w.word}
-                           onBlur={(e) => {
-                             const novo = e.target.value.trim();
-                             const m = { ...d.word_overrides };
-                             if (!novo || novo === w.word) delete m[String(w.idx)];
-                             else m[String(w.idx)] = novo;
-                             p.upd({ word_overrides: m });
-                             p.setEditWord(null);
-                           }}
-                           onKeyDown={(e) => {
-                             if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                             if (e.key === "Escape") p.setEditWord(null);
-                           }} />
-                  ) : (
-                    <button key={w.idx}
-                            className={`ed-word${d.word_overrides[String(w.idx)] ? " fixed" : ""}`}
-                            title={d.word_overrides[String(w.idx)]
-                              ? `Original: “${w.word}”` : "Clique para corrigir"}
-                            onClick={() => p.setEditWord(w.idx)}>
-                      {d.word_overrides[String(w.idx)] ?? w.word}
-                    </button>
-                  ))
-              )}
-            </div>
-          </>
+          <WordsPanel draft={d} upd={p.upd} words={p.words} captions={p.captions}
+                      outNow={p.outNow} selCard={p.selCard} onSeekOut={p.onSeekOut} />
         ) : null}
 
         {p.tool === "estilo" ? (
@@ -353,6 +322,214 @@ export default function Inspector(p: Props) {
         ) : null}
       </div>
     </div>
+  );
+}
+
+// ---------- Palavras (Pontos 13, 27, 28): cartões do motor + 4 operações ----------
+interface Chip {
+  key: string;
+  label: string;
+  kind: "word" | "ins";
+  idx?: number;
+  insId?: string;
+  start?: number;
+  end?: number;
+}
+
+function WordsPanel({ draft, upd, words, captions, outNow, selCard, onSeekOut }: {
+  draft: Draft;
+  upd(patch: Partial<Draft>): void;
+  words: TranscriptWord[];
+  captions: CaptionCards | null;
+  outNow: number;
+  selCard: number | null;
+  onSeekOut(t: number): void;
+}) {
+  const [menu, setMenu] = useState<Chip | null>(null);
+  const [editKey, setEditKey] = useState<string | null>(null);
+  const [ins, setIns] = useState<{ anchorIdx: number; placement: "before" | "after" } | null>(null);
+  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  useEffect(() => {
+    if (selCard != null) {
+      cardRefs.current[selCard]?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+    }
+  }, [selCard]);
+
+  const cards = captions?.cards ?? [];
+  if (!cards.length) {
+    return (
+      <>
+        <h3>Palavras da legenda</h3>
+        <div className="sub">Sem legendas neste corte (fonte sem transcrição no trecho).</div>
+      </>
+    );
+  }
+
+  function chipsDe(card: CaptionCards["cards"][number]): Chip[] {
+    const noServidor = new Set(card.words.filter((w) => w.ins_id).map((w) => w.ins_id));
+    const out: Chip[] = [];
+    for (const w of card.words) {
+      if (w.idx != null && draft.word_deleted.includes(w.idx)) continue; // excluída agora
+      if (w.ins_id) {
+        const viva = draft.word_inserted.find((x) => x.id === w.ins_id);
+        if (!viva) continue; // inserção removida localmente
+        out.push({ key: `s${w.ins_id}`, label: viva.text, kind: "ins", insId: w.ins_id,
+                   start: w.start_s, end: w.end_s });
+        continue;
+      }
+      for (const iw of draft.word_inserted) {
+        if (iw.anchor_idx === w.idx && iw.placement === "before" && !noServidor.has(iw.id)) {
+          out.push({ key: `s${iw.id}`, label: iw.text, kind: "ins", insId: iw.id });
+        }
+      }
+      out.push({ key: `i${w.idx}`, label: draft.word_overrides[String(w.idx)] ?? w.word,
+                 kind: "word", idx: w.idx!, start: w.start_s, end: w.end_s });
+      for (const iw of draft.word_inserted) {
+        if (iw.anchor_idx === w.idx && iw.placement === "after" && !noServidor.has(iw.id)) {
+          out.push({ key: `s${iw.id}`, label: iw.text, kind: "ins", insId: iw.id });
+        }
+      }
+    }
+    return out;
+  }
+
+  function excluir(chip: Chip) {
+    if (chip.kind === "word" && chip.idx != null) {
+      upd({ word_deleted: [...draft.word_deleted, chip.idx] });
+    } else if (chip.insId) {
+      upd({ word_inserted: draft.word_inserted.filter((x) => x.id !== chip.insId) });
+    }
+    setMenu(null);
+  }
+
+  function gravarTexto(chip: Chip, texto: string) {
+    const novo = texto.trim();
+    if (chip.kind === "word" && chip.idx != null) {
+      const m = { ...draft.word_overrides };
+      const original = words.find((w) => w.idx === chip.idx)?.word;
+      if (!novo || novo === original) delete m[String(chip.idx)];
+      else m[String(chip.idx)] = novo;
+      upd({ word_overrides: m });
+    } else if (chip.insId) {
+      upd({ word_inserted: draft.word_inserted.map((x) =>
+        x.id === chip.insId ? { ...x, text: novo || x.text } : x) });
+    }
+    setEditKey(null);
+    setMenu(null);
+  }
+
+  function inserir(texto: string) {
+    if (!ins) return;
+    const novo = texto.trim();
+    if (novo) {
+      const nova: InsertedWord = {
+        id: `w${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+        anchor_idx: ins.anchorIdx, placement: ins.placement, text: novo,
+      };
+      upd({ word_inserted: [...draft.word_inserted, nova] });
+    }
+    setIns(null);
+    setMenu(null);
+  }
+
+  const excluidas = draft.word_deleted
+    .map((idx) => ({ idx, word: words.find((w) => w.idx === idx)?.word ?? `#${idx}` }));
+
+  return (
+    <>
+      <h3>Palavras da legenda</h3>
+      <div className="sub" style={{ marginBottom: 8 }}>
+        Clique numa palavra: substituir, excluir ou inserir antes/depois — só na
+        legenda deste corte; a transcrição original não muda. A reprodução destaca
+        a palavra atual.
+      </div>
+      {cards.map((card, ci) => {
+        const ativo = outNow >= card.start && outNow <= card.end;
+        return (
+          <div key={ci} ref={(el) => { cardRefs.current[ci] = el; }}
+               className={`wp-card${ativo ? " cur" : ""}${selCard === ci ? " sel" : ""}`}
+               data-testid={`wp-card-${ci}`}>
+            <button className="wp-cardhead" onClick={() => onSeekOut(card.start + 0.01)}
+                    title="Levar o cursor até este cartão">
+              cartão {ci + 1} · {fmtT(card.start)}
+            </button>
+            <div className="ed-words">
+              {chipsDe(card).map((chip) =>
+                editKey === chip.key ? (
+                  <input key={chip.key} className="ed-word-input" autoFocus
+                         defaultValue={chip.label}
+                         onBlur={(e) => gravarTexto(chip, e.target.value)}
+                         onKeyDown={(e) => {
+                           if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                           if (e.key === "Escape") setEditKey(null);
+                         }} />
+                ) : (
+                  <button key={chip.key}
+                          data-testid={`wp-${chip.key}`}
+                          className={"ed-word"
+                            + (chip.kind === "ins" ? " ins" : "")
+                            + (chip.kind === "word" && draft.word_overrides[String(chip.idx)]
+                              ? " fixed" : "")
+                            + (chip.start != null && outNow >= chip.start && outNow < (chip.end ?? 0)
+                              ? " cur" : "")}
+                          onClick={() => {
+                            setMenu(menu?.key === chip.key ? null : chip);
+                            setIns(null);
+                            if (chip.start != null) onSeekOut(chip.start + 0.01);
+                          }}>
+                    {chip.label}
+                  </button>
+                ))}
+            </div>
+            {menu && chipsDe(card).some((c) => c.key === menu.key) ? (
+              <div className="wp-menu" data-testid="wp-menu">
+                {ins ? (
+                  <input className="ed-word-input" autoFocus
+                         placeholder={`nova palavra ${ins.placement === "before" ? "antes" : "depois"}…`}
+                         onBlur={(e) => inserir(e.target.value)}
+                         onKeyDown={(e) => {
+                           if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                           if (e.key === "Escape") setIns(null);
+                         }} />
+                ) : (
+                  <>
+                    <button onClick={() => setEditKey(menu.key)}>✏ Substituir</button>
+                    {menu.kind === "word" ? (
+                      <>
+                        <button onClick={() => setIns({ anchorIdx: menu.idx!, placement: "before" })}>
+                          + antes
+                        </button>
+                        <button onClick={() => setIns({ anchorIdx: menu.idx!, placement: "after" })}>
+                          + depois
+                        </button>
+                      </>
+                    ) : null}
+                    <button className="danger" onClick={() => excluir(menu)}>
+                      {menu.kind === "ins" ? "Remover inserção" : "Excluir"}
+                    </button>
+                  </>
+                )}
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+      {excluidas.length ? (
+        <div style={{ marginTop: 10 }}>
+          <label>Palavras excluídas (clique para restaurar)</label>
+          <div className="ed-words">
+            {excluidas.map((w) => (
+              <button key={w.idx} className="ed-word del" data-testid={`wp-del-${w.idx}`}
+                      onClick={() => upd({ word_deleted:
+                        draft.word_deleted.filter((i) => i !== w.idx) })}>
+                {w.word}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
 

@@ -317,7 +317,7 @@ iframe.report { width: 100%; height: 75vh; border: 1px solid var(--line);
 .ed-tl-card { padding: 14px 16px; }
 .tl-scroll { overflow-x: auto; overflow-y: hidden; border: 1px solid var(--line);
   border-radius: var(--r-sm); background: var(--bg2); }
-.tl-content { position: relative; height: 236px; min-width: 100%; }
+.tl-content { position: relative; height: 272px; min-width: 100%; }
 .tl-ruler { position: absolute; top: 0; left: 0; right: 0; height: 24px;
   border-bottom: 1px solid var(--line); cursor: ew-resize; user-select: none; }
 .tl-tick { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--line-strong); }
@@ -558,7 +558,7 @@ iframe.report { width: 100%; height: 75vh; border: 1px solid var(--line);
 /* ---------- Etapa E: tracks de Enquadramento e Punch-in (mesmo relógio) ---------- */
 .tl-track { position: absolute; left: 0; right: 0; }
 .tl-track-fr { top: 178px; height: 30px; border-top: 1px solid var(--line); }
-.tl-track-pi { top: 208px; height: 28px; border-top: 1px solid var(--line); cursor: pointer; }
+.tl-track-pi { top: 244px; height: 28px; border-top: 1px solid var(--line); cursor: pointer; }
 .tl-tracklabel { position: absolute; left: 4px; top: 50%; transform: translateY(-50%);
   font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint);
   pointer-events: none; z-index: 1; }
@@ -581,3 +581,29 @@ iframe.report { width: 100%; height: 75vh; border: 1px solid var(--line);
   font-size: 9px; font-weight: 700; display: flex; align-items: center;
   justify-content: center; overflow: hidden; white-space: nowrap; }
 .insp-frsel { outline: 2px solid var(--blue); border-radius: 8px; padding: 2px; }
+
+
+/* track de Legendas (Pontos 27–28) + painel de Palavras (Ponto 13) */
+.tl-track-cap { top: 208px; height: 36px; border-top: 1px solid var(--line); }
+.tl-capcard { position: absolute; top: 7px; height: 22px; border-radius: 6px;
+  background: #a78bfa22; border: 1px solid #a78bfa88; color: var(--fg);
+  font-size: 10px; display: flex; align-items: center; padding: 0 6px;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: pointer;
+  z-index: 3; }
+.tl-capcard:hover { border-color: #a78bfa; }
+.tl-capcard.on { box-shadow: 0 0 0 2px #a78bfa; }
+.tl-capcard.cur { background: #a78bfa44; border-color: #c4b5fd; }
+.wp-card { border: 1px solid var(--line); border-radius: var(--r-sm); padding: 8px;
+  margin-bottom: 8px; background: var(--panel2); }
+.wp-card.cur { border-color: #a78bfa88; }
+.wp-card.sel { box-shadow: 0 0 0 2px #a78bfa66; }
+.wp-cardhead { font-size: 10px; color: var(--faint); background: none; border: none;
+  padding: 0 0 4px; letter-spacing: .04em; text-transform: uppercase; }
+.wp-cardhead:hover { color: var(--fg); }
+.wp-menu { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
+  padding-top: 8px; border-top: 1px dashed var(--line); }
+.wp-menu button { padding: 4px 9px; font-size: 12px; }
+.ed-word.ins { border-style: dashed; border-color: var(--ok); color: var(--ok); }
+.ed-word.cur { background: var(--accent-soft); border-color: var(--accent);
+  color: var(--fg); }
+.ed-word.del { text-decoration: line-through; opacity: .65; }

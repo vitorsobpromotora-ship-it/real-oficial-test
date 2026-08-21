@@ -65,7 +65,7 @@ export default function EditorPage() {
   const [playhead, setPlayhead] = useState(0); // tempo da FONTE (interno)
   const [playing, setPlaying] = useState(false);
   const [title, setTitle] = useState("");
-  const [editWord, setEditWord] = useState<number | null>(null);
+  const [selCard, setSelCard] = useState<number | null>(null); // cartão de legenda
   const [toast, setToast] = useState("");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoErro, setVideoErro] = useState(false);
@@ -207,6 +207,17 @@ export default function EditorPage() {
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [draft]);
+
+  // sincronismo texto ↔ tempo (Ponto 28): durante a reprodução, o cartão atual
+  // acompanha o playhead — o editor de palavras sempre mostra o que se ouve
+  useEffect(() => {
+    if (!playing || !draft) return;
+    const lista = capsQ.data?.cards ?? [];
+    if (!lista.length) return;
+    const t = srcToOut(draft.segments, playhead);
+    const i = lista.findIndex((c) => t >= c.start && t <= c.end);
+    if (i >= 0) setSelCard((atual) => (atual === i ? atual : i));
+  }, [playhead, playing, capsQ.data, draft]);
 
   // mute/ganho refletidos no player (ganho >0 não amplifica no navegador —
   // a prévia real renderiza com o valor exato)
@@ -550,6 +561,8 @@ export default function EditorPage() {
   const segs = draft.segments;
   const [env0, env1] = envelope(segs);
   const outTotal = outDur(segs);
+  const outNow = srcToOut(segs, playhead); // relógio de saída (sincronismo texto ↔ tempo)
+  const cards = capsQ.data?.cards ?? [];
   const kit = (kitsQ.data ?? []).find((k) => k.id === draft.brand_kit_id) ?? null;
   // régua RELATIVA (Ponto 11): ticks em tempo de SAÍDA, posicionados na fonte
   const tickStep = zoom >= 40 ? 1 : zoom >= 16 ? 5 : 10;
@@ -616,8 +629,10 @@ export default function EditorPage() {
             kits={kitsQ.data ?? []}
             presets={presetsQ.data?.presets ?? []}
             words={wordsVisiveis}
-            editWord={editWord}
-            setEditWord={setEditWord}
+            captions={capsQ.data ?? null}
+            outNow={outNow}
+            selCard={selCard}
+            onSeekOut={(tOut) => seekSrc(outToSrc(segs, tOut))}
             sel={sel}
             selFr={selFr}
             playhead={playhead}
@@ -744,6 +759,31 @@ export default function EditorPage() {
                      onPointerMove={frMove} onPointerUp={frEnd} />
                 </div>
               ))}
+            </div>
+
+            {/* track LEGENDAS (Pontos 27–28): cartões como objetos temporais reais.
+                Clicar leva o playhead ao cartão e abre o editor de palavras nele. */}
+            <div className="tl-track tl-track-cap">
+              <span className="tl-tracklabel">Legendas</span>
+              {cards.map((c, i) => {
+                const a = outToSrc(segs, c.start);
+                const b = outToSrc(segs, Math.max(c.start + 0.05, c.end));
+                const ativo = outNow >= c.start && outNow <= c.end;
+                return (
+                  <div key={i} data-testid={`cap-card-${i}`}
+                       className={`tl-capcard${selCard === i ? " on" : ""}${ativo ? " cur" : ""}`}
+                       style={{ left: x(a), width: Math.max(6, (b - a) * zoom) }}
+                       title={c.words.map((w) => w.word).join(" ")}
+                       onClick={(e) => {
+                         e.stopPropagation();
+                         setSelCard(i);
+                         setTool("palavras"); // seleção contextual: cartão → Palavras
+                         seekSrc(outToSrc(segs, c.start + 0.01));
+                       }}>
+                    {c.words.map((w) => w.word).join(" ")}
+                  </div>
+                );
+              })}
             </div>
 
             {/* track PUNCH-IN (Ponto 30): onde o zoom acontece, no mesmo relógio */}

@@ -16,6 +16,13 @@ export interface FramingSegment {
   mode: string; // left | center | right
 }
 
+export interface InsertedWord {
+  id: string;
+  anchor_idx: number; // palavra da transcrição à qual está ancorada
+  placement: "before" | "after";
+  text: string;
+}
+
 export interface Draft {
   segments: EdlSegment[];
   fade_in_s: number;
@@ -25,7 +32,9 @@ export interface Draft {
   framing: string; // modo global: auto|left|right|center|blur|fit|two|split
   punch_in: string; // off|leve|dinamico
   framing_segments: FramingSegment[];
-  word_overrides: Record<string, string>;
+  word_overrides: Record<string, string>; // substituir (mesma janela temporal)
+  word_deleted: number[]; // excluir da legenda (a transcrição não muda)
+  word_inserted: InsertedWord[]; // inserir antes/depois, ancorado (Ponto 14)
   caption_style: Record<string, unknown> | null; // overrides do corte (preset, cores, posição)
   brand_kit_id: string | null;
 }
@@ -52,6 +61,8 @@ export function draftFromCut(cut: Cut): Draft {
     framing_segments: ((cut.edits?.framing_segments as FramingSegment[]) ?? [])
       .map((s) => ({ ...s })),
     word_overrides: { ...((cut.edits?.word_overrides as Record<string, string>) ?? {}) },
+    word_deleted: [...((cut.edits?.word_deleted as number[]) ?? [])],
+    word_inserted: ((cut.edits?.word_inserted as InsertedWord[]) ?? []).map((w) => ({ ...w })),
     caption_style: cut.caption_style ? { ...cut.caption_style } : null,
     brand_kit_id: cut.brand_kit_id,
   };
@@ -62,6 +73,11 @@ export function patchFromDraft(d: Draft, title: string, baseEdits: Record<string
   const edits = { ...(baseEdits ?? {}) } as Record<string, unknown>;
   if (Object.keys(d.word_overrides).length) edits.word_overrides = d.word_overrides;
   else delete edits.word_overrides;
+  if (d.word_deleted.length) edits.word_deleted = d.word_deleted;
+  else delete edits.word_deleted;
+  const insOk = d.word_inserted.filter((w) => w.text.trim());
+  if (insOk.length) edits.word_inserted = insOk;
+  else delete edits.word_inserted;
   const frOk = d.framing_segments.filter((s) => s.end_s > s.start_s);
   if (frOk.length) edits.framing_segments = frOk;
   else delete edits.framing_segments;

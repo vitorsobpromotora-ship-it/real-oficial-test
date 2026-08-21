@@ -186,8 +186,9 @@ def caption_cards(cut_id: str):
             [t2.upper() for t2 in textos] if style.get("uppercase") else textos,
             int(style.get("max_chars") or 18), int(style.get("max_lines") or 2))
         out.append({"start": a, "end": b, "breaks": breaks,
-                    "words": [{"idx": w.get("idx"), "start_s": w["start_s"],
-                               "end_s": w["end_s"], "word": w["word"]} for w in card]})
+                    "words": [{"idx": w.get("idx"), "ins_id": w.get("ins_id"),
+                               "start_s": w["start_s"], "end_s": w["end_s"],
+                               "word": w["word"]} for w in card]})
     return {"style": style, "fps": fps, "out_duration": edl_mod.out_duration(eff),
             "cards": out}
 

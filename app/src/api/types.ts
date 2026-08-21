@@ -124,7 +124,8 @@ export interface Cut {
 }
 
 export interface CaptionWord {
-  idx: number | null;
+  idx: number | null; // índice na transcrição (null = palavra inserida)
+  ins_id?: string | null; // id da inserção manual, quando for uma
   start_s: number; // tempo de SAÍDA
   end_s: number;
   word: string;
