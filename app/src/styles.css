@@ -756,3 +756,6 @@ iframe.report { width: 100%; height: 75vh; border: 1px solid var(--line);
 .cv-callout:active { cursor: grabbing; }
 .cv-callout.sel { outline: 1.5px dashed #c4b5fd; outline-offset: 6px; }
 .wp-callout { font-size: 10px; padding: 2px 7px; white-space: nowrap; }
+
+/* ---------- v4 FASE G: composições (grupo destacado junto) ---------- */
+.tl-moblock.grp, .tl-fxblock.grp { box-shadow: 0 0 0 1.5px #fbbf2466; }

@@ -409,3 +409,64 @@ export function videoFxAt(
   }
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// Composições (FASE G) — expansão espelhada de motion_composite.expand_composite
+// ---------------------------------------------------------------------------
+
+export interface CompositePart {
+  type: EffectType;
+  preset: string;
+  offset_ms: number;
+  dur_ms?: number;
+  dur?: "word";
+  params?: Record<string, number>;
+  min_intensity?: "suave" | "normal" | "forte";
+}
+
+export interface CompositePreset {
+  id: string;
+  label: string;
+  categoria: string;
+  descricao?: string;
+  parts: CompositePart[];
+}
+
+const NIVEL: Record<string, number> = { suave: 0, normal: 1, forte: 2 };
+
+/** Expande um composite em EffectInstances reais (mesmo `group`) — MESMA
+ *  lógica do motor: offsets relativos ao hit, partes filtradas por nível,
+ *  seeds derivadas por hash32 (determinístico). */
+export function expandComposite(
+  preset: CompositePreset,
+  opts: { tHit: number; durWord: number; target: EffectTarget;
+    intensity?: "suave" | "normal" | "forte"; seedBase?: number },
+): EffectInstance[] {
+  const intensity = opts.intensity ?? "normal";
+  const nivel = NIVEL[intensity] ?? 1;
+  const seedBase = opts.seedBase ?? 1;
+  const gid = novoId();
+  const out: EffectInstance[] = [];
+  preset.parts.forEach((part, i) => {
+    if ((NIVEL[part.min_intensity ?? "suave"] ?? 0) > nivel) return;
+    const start = Math.max(0, opts.tHit + part.offset_ms / 1000);
+    const end = part.dur === "word"
+      ? opts.tHit + Math.max(0.35, opts.durWord + 0.25)
+      : start + (part.dur_ms ?? 400) / 1000;
+    out.push({
+      id: `${gid}${String(i).padStart(2, "0")}`,
+      type: part.type,
+      preset: part.preset,
+      target: part.type === "text_emphasis" ? opts.target : { kind: "video" },
+      start: Math.round(start * 10000) / 10000,
+      end: Math.round(end * 10000) / 10000,
+      intensity,
+      params: { ...(part.params ?? {}) },
+      enabled: true,
+      seed: hash32((seedBase + i * 0x9e37) >>> 0),
+      group: gid,
+      group_label: preset.label,
+    });
+  });
+  return out;
+}

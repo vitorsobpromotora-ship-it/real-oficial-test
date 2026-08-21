@@ -65,6 +65,27 @@ vi.mock("../src/api/client", () => ({
           params: { amount: 0.12 } },
         { id: "flash", label: "Flash", categoria: "Cena",
           params: { amount: 0.42, decay_s: 0.15 } },
+      ], composite_presets: [
+        { id: "fatality_composta", label: "Fatality", categoria: "Composições",
+          parts: [
+            { type: "video_fx", preset: "punch_zoom", offset_ms: -300,
+              dur_ms: 850, params: { amount: 0.10 } },
+            { type: "video_fx", preset: "darken", offset_ms: -150,
+              dur_ms: 1000, params: { amount: 0.16 } },
+            { type: "text_emphasis", preset: "fatality", offset_ms: 0, dur: "word" },
+            { type: "video_fx", preset: "impact_shake", offset_ms: 40,
+              dur_ms: 380, params: { amp: 16 } },
+            { type: "video_fx", preset: "rgb_split", offset_ms: 100,
+              dur_ms: 220, params: { px: 8 }, min_intensity: "normal" },
+            { type: "video_fx", preset: "flash", offset_ms: 0,
+              dur_ms: 200, params: { amount: 0.3 }, min_intensity: "forte" },
+          ] },
+        { id: "punchline_composta", label: "Punchline", categoria: "Composições",
+          parts: [
+            { type: "video_fx", preset: "punch_zoom", offset_ms: -120,
+              dur_ms: 600, params: { amount: 0.08 } },
+            { type: "text_emphasis", preset: "punch", offset_ms: 0, dur: "word" },
+          ] },
       ], callout_presets: [
         { id: "center_impact", label: "Impacto Central", categoria: "Callouts",
           layout: "line", bg: "darken", font_scale: 1.45, stagger_ms: 0,
@@ -79,6 +100,11 @@ vi.mock("../src/api/client", () => ({
           phases: { enter: { dur_ms: 210, tracks: { scale: [
             { t: 0, v: 100 }, { t: 0.28, v: 138, ease: "rapido" },
             { t: 1, v: 108, ease: "impacto" }] } } } },
+        { id: "fatality", label: "Fatality", categoria: "Batalha",
+          color: "#FF2D2D",
+          phases: { enter: { dur_ms: 240, tracks: { scale: [
+            { t: 0, v: 100 }, { t: 0.3, v: 152, ease: "rapido" },
+            { t: 1, v: 118, ease: "impacto" }] } } } },
       ] };
     if (path.startsWith("/api/v1/brand-kits")) return [];
     if (path.startsWith("/api/v1/renders")) return [];
@@ -270,5 +296,36 @@ describe("v4 FASE E — Text Callout pela interface", () => {
     await waitFor(() => {
       expect(ultimoMotion()!.effects[0].params?.bg).toBe("black");
     }, { timeout: 4000 });
+  });
+});
+
+describe("v4 FASE G — composições pela interface", () => {
+  it("🔥 Fatality na palavra expande em texto+vídeo+cena no mesmo grupo", async () => {
+    renderEditor();
+    fireEvent.click(await screen.findByTestId("tool-palavras"));
+    fireEvent.click(await screen.findByTestId("wp-i1"));
+    fireEvent.click(await screen.findByTestId("wp-fatality"));
+
+    await waitFor(() => {
+      const m = ultimoMotion()!;
+      expect(m.effects).toHaveLength(5); // normal: zoom+darken+texto+shake+rgb
+      const grupos = new Set(m.effects.map((e) => e.group));
+      expect(grupos.size).toBe(1);
+      const tipos = m.effects.map((e) => `${e.type}:${e.preset}`).sort();
+      expect(tipos).toEqual([
+        "text_emphasis:fatality", "video_fx:darken", "video_fx:impact_shake",
+        "video_fx:punch_zoom", "video_fx:rgb_split",
+      ]);
+      // o zoom arma ANTES do golpe (palavra começa em 0.3 → clamp 0)
+      const zoom = m.effects.find((e) => e.preset === "punch_zoom")!;
+      expect(zoom.start).toBeCloseTo(0, 2);
+    }, { timeout: 4000 });
+
+    // blocos nas DUAS tracks; painel mostra o grupo e exclui tudo de uma vez
+    expect(screen.getByTestId("mo-track").textContent).toContain("Fatality");
+    expect(screen.getByTestId("fx-track").textContent).toContain("Punch Zoom");
+    expect(await screen.findByTestId("mo-grupo")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("mo-excluir-grupo"));
+    await waitFor(() => expect(ultimoMotion()).toBeNull(), { timeout: 4000 });
   });
 });

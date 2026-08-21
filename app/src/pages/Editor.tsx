@@ -20,7 +20,8 @@ import {
   srcToOut, type Draft,
 } from "../editor/model";
 import { rotuloDoEfeito } from "../editor/MotionPanel";
-import type { CalloutPreset, TextPreset, VideoPreset } from "../editor/motion";
+import type { CalloutPreset, CompositePreset, TextPreset,
+  VideoPreset } from "../editor/motion";
 import Splitter from "../editor/Splitter";
 import { WORKSPACE_PRESETS, useWorkspace } from "../editor/workspace";
 
@@ -59,11 +60,15 @@ export default function EditorPage() {
   const motionQ = useQuery({
     queryKey: ["motion-presets"],
     queryFn: () => get<{ presets: TextPreset[]; video_presets: VideoPreset[];
-      callout_presets: CalloutPreset[] }>("/api/v1/motion/presets"),
+      callout_presets: CalloutPreset[];
+      composite_presets: CompositePreset[] }>("/api/v1/motion/presets"),
     staleTime: Infinity,
   });
   const videoPresets = motionQ.data?.video_presets ?? [];
   const calloutPresets = motionQ.data?.callout_presets ?? [];
+  const compositePresets = motionQ.data?.composite_presets ?? [];
+  const grupoSel = (draftx: Draft | null, id: string | null) =>
+    draftx?.motion?.effects.find((e) => e.id === id)?.group ?? null;
   // catálogo combinado só para ROTULAR blocos (texto + vídeo + callout)
   const todosPresets = [...(motionQ.data?.presets ?? []), ...calloutPresets,
     ...videoPresets.map((v) => ({ ...v, phases: {} }))] as TextPreset[];
@@ -716,6 +721,7 @@ export default function EditorPage() {
             motionPresets={motionQ.data?.presets ?? []}
             videoPresets={videoPresets}
             calloutPresets={calloutPresets}
+            compositePresets={compositePresets}
             selFx={selFx}
             setSelFx={setSelFx}
             playhead={playhead}
@@ -925,7 +931,7 @@ export default function EditorPage() {
                 const b = outToSrc(segs, Math.max(e.start + 0.05, e.end));
                 return (
                   <div key={e.id} data-testid={`mo-block-${e.id}`}
-                       className={`tl-moblock${selFx === e.id ? " on" : ""}${e.enabled === false ? " off" : ""}`}
+                       className={`tl-moblock${selFx === e.id ? " on" : ""}${e.enabled === false ? " off" : ""}${e.group && e.group === grupoSel(draft, selFx) && selFx !== e.id ? " grp" : ""}`}
                        style={{ left: x(a), width: Math.max(10, (b - a) * zoom) }}
                        title={`${rotuloDoEfeito(e, todosPresets)} · clique para editar`}
                        onClick={(ev) => {
@@ -952,7 +958,7 @@ export default function EditorPage() {
                 const b = outToSrc(segs, Math.max(e.start + 0.05, e.end));
                 return (
                   <div key={e.id} data-testid={`fx-block-${e.id}`}
-                       className={`tl-fxblock${selFx === e.id ? " on" : ""}${e.enabled === false ? " off" : ""}`}
+                       className={`tl-fxblock${selFx === e.id ? " on" : ""}${e.enabled === false ? " off" : ""}${e.group && e.group === grupoSel(draft, selFx) && selFx !== e.id ? " grp" : ""}`}
                        style={{ left: x(a), width: Math.max(10, (b - a) * zoom) }}
                        title={`${rotuloDoEfeito(e, todosPresets)} · clique para editar`}
                        onClick={(ev) => {

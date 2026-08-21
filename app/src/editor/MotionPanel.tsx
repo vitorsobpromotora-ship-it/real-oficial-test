@@ -70,6 +70,11 @@ export default function MotionPanel(p: Props) {
     p.upd({ motion: { ...m, effects: m.effects.filter((e) => e.id !== id) } });
     if (p.selFx === id) p.setSelFx(null);
   }
+  function excluirGrupo(gid: string) {
+    const m = p.draft.motion ?? manifestVazio();
+    p.upd({ motion: { ...m, effects: m.effects.filter((e) => e.group !== gid) } });
+    p.setSelFx(null);
+  }
 
   const FUNDOS: [string, string][] = [
     ["none", "Vídeo normal"], ["darken", "Escurecido"],
@@ -254,6 +259,18 @@ export default function MotionPanel(p: Props) {
               Excluir efeito
             </button>
           </div>
+          {sel.group ? (
+            <div className="insp-sel" style={{ marginTop: 10 }} data-testid="mo-grupo">
+              Parte da composição <b>{String(sel.group_label ?? "")}</b> — as
+              outras partes (zoom, cena, câmera) estão nas tracks Motion e FX.
+              <div className="row" style={{ marginTop: 6 }}>
+                <button className="danger" data-testid="mo-excluir-grupo"
+                        onClick={() => excluirGrupo(String(sel.group))}>
+                  Excluir a composição inteira
+                </button>
+              </div>
+            </div>
+          ) : null}
           <div className="sub" style={{ marginTop: 8 }}>
             Desativar mantém o efeito na timeline sem aplicá-lo — bom para
             comparar com/sem (A/B) antes de decidir.

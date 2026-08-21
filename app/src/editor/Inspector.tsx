@@ -9,9 +9,9 @@ import type {
   BrandKit, CaptionCards, CaptionPreset, Cut, TranscriptWord,
 } from "../api/types";
 import MotionPanel from "./MotionPanel";
-import { manifestVazio, novoId, seedDe,
-  type CalloutPreset, type EffectInstance, type TextPreset,
-  type VideoPreset } from "./motion";
+import { expandComposite, manifestVazio, novoId, seedDe,
+  type CalloutPreset, type CompositePreset, type EffectInstance,
+  type TextPreset, type VideoPreset } from "./motion";
 import StylePicker from "./StylePicker";
 import {
   fmtSrc, fmtT, srcToOut, type Draft, type InsertedWord, type WordEmphasis,
@@ -83,6 +83,7 @@ interface Props {
   motionPresets: TextPreset[];
   videoPresets: VideoPreset[];
   calloutPresets: CalloutPreset[];
+  compositePresets: CompositePreset[];
   selFx: string | null;
   setSelFx(id: string | null): void;
 }
@@ -285,6 +286,7 @@ export default function Inspector(p: Props) {
         {p.tool === "palavras" ? (
           <WordsPanel draft={d} upd={p.upd} words={p.words} captions={p.captions}
                       outNow={p.outNow} selCard={p.selCard} onSeekOut={p.onSeekOut}
+                      compositePresets={p.compositePresets}
                       onMotion={(fxId) => { p.setSelFx(fxId); p.setTool("motion"); }} />
         ) : null}
 
@@ -464,7 +466,8 @@ interface Chip {
   end?: number;
 }
 
-function WordsPanel({ draft, upd, words, captions, outNow, selCard, onSeekOut, onMotion }: {
+function WordsPanel({ draft, upd, words, captions, outNow, selCard, onSeekOut,
+  compositePresets, onMotion }: {
   draft: Draft;
   upd(patch: Partial<Draft>): void;
   words: TranscriptWord[];
@@ -472,6 +475,7 @@ function WordsPanel({ draft, upd, words, captions, outNow, selCard, onSeekOut, o
   outNow: number;
   selCard: number | null;
   onSeekOut(t: number): void;
+  compositePresets: CompositePreset[];
   onMotion(fxId: string): void;
 }) {
   const [menu, setMenu] = useState<Chip | null>(null);
@@ -548,6 +552,29 @@ function WordsPanel({ draft, upd, words, captions, outNow, selCard, onSeekOut, o
     const m = draft.motion ?? manifestVazio();
     upd({ motion: { ...m, effects: [...m.effects, eff] } });
     onMotion(id);
+  }
+
+  /** Composição na palavra: Fatality/Punchline comandam texto + vídeo + cena. */
+  function criarComposicao(chip: Chip, compositeId: string) {
+    const preset = compositePresets.find((c) => c.id === compositeId);
+    const todas = (captions?.cards ?? []).flatMap((c) => c.words);
+    const w = chip.idx != null
+      ? todas.find((x) => x.idx === chip.idx)
+      : todas.find((x) => x.ins_id === chip.insId);
+    if (!preset || !w) return;
+    const novos = expandComposite(preset, {
+      tHit: Math.max(0, Math.round(w.start_s * 100) / 100),
+      durWord: Math.max(0.2, w.end_s - w.start_s),
+      target: chip.idx != null
+        ? { kind: "words", idx: [chip.idx] }
+        : { kind: "words", ins_ids: [chip.insId!] },
+      intensity: "normal",
+      seedBase: seedDe(novoId()),
+    });
+    if (!novos.length) return;
+    const m = draft.motion ?? manifestVazio();
+    upd({ motion: { ...m, effects: [...m.effects, ...novos] } });
+    onMotion(novos.find((e) => e.type === "text_emphasis")?.id ?? novos[0].id);
   }
 
   /** Transforma o CARTÃO num destaque de tela (Typography Takeover). */
@@ -742,6 +769,15 @@ function WordsPanel({ draft, upd, words, captions, outNow, selCard, onSeekOut, o
                     ) : null}
                     <button data-testid="wp-motion" onClick={() => criarMotion(menu)}>
                       ✦ Motion
+                    </button>
+                    <button data-testid="wp-fatality"
+                            title="Composição completa: zoom arma, cena escurece, texto estoura, câmera sente"
+                            onClick={() => criarComposicao(menu, "fatality_composta")}>
+                      🔥 Fatality
+                    </button>
+                    <button data-testid="wp-punchline"
+                            onClick={() => criarComposicao(menu, "punchline_composta")}>
+                      💥 Punchline
                     </button>
                     <button data-testid="wp-enfase"
                             onClick={() => setEnfaseAberta(!enfaseAberta)}>
