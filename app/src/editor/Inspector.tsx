@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import type {
   BrandKit, CaptionCards, CaptionPreset, Cut, TranscriptWord,
 } from "../api/types";
+import StylePicker from "./StylePicker";
 import { fmtSrc, fmtT, srcToOut, type Draft, type InsertedWord } from "./model";
 
 export type Tool =
@@ -280,22 +281,20 @@ export default function Inspector(p: Props) {
         {p.tool === "estilo" ? (
           <>
             <h3>Estilo da legenda</h3>
-            <label>Preset</label>
-            <select value={String(d.caption_style?.preset ?? "")}
-                    onChange={(e) => {
-                      const preset = e.target.value;
-                      p.upd({ caption_style: preset
-                        ? { ...(d.caption_style ?? {}), preset }
-                        : null });
-                    }}>
-              <option value="">(padrão do kit / Karaokê Bold)</option>
-              {p.presets.map((ps) => (
-                <option key={ps.id} value={ps.id}>{ps.label}</option>
-              ))}
-            </select>
-            <div className="sub" style={{ marginTop: 8 }}>
-              O preview ao lado mostra o estilo aplicado no vídeo em tempo real.
+            <div className="sub" style={{ marginBottom: 8 }}>
+              Clique num card para aplicar — o preview ao lado mostra o estilo
+              no vídeo em tempo real.
             </div>
+            <StylePicker
+              presets={p.presets}
+              valor={String(d.caption_style?.preset ?? "")}
+              onChange={(preset) => {
+                const cs = { ...(d.caption_style ?? {}) };
+                if (preset) cs.preset = preset;
+                else delete cs.preset;
+                p.upd({ caption_style: Object.keys(cs).length ? cs : null });
+              }}
+            />
           </>
         ) : null}
 

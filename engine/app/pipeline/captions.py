@@ -43,6 +43,7 @@ NO_BREAK_AFTER = {
 # ---------------------------------------------------------------------------
 PRESETS: dict[str, dict] = {
     "bold_karaoke": {  # Karaokê Bold — o clássico de cortes
+        "family": "Clássicos",
         "font_family": "Montserrat", "font_size": 74, "bold": True, "uppercase": True,
         "text_color": "#FFFFFF", "highlight_color": "#FFD400", "outline_color": "#000000",
         "back_color": "#000000", "outline": 4, "shadow": 1, "border_style": 1,
@@ -52,6 +53,7 @@ PRESETS: dict[str, dict] = {
         "anim_in": "fade", "anim_word": "color", "anim_ms": 60,
     },
     "clean": {  # Clean — branco discreto, sem karaokê
+        "family": "Clássicos",
         "font_family": "Inter", "font_size": 62, "bold": True, "uppercase": False,
         "text_color": "#FFFFFF", "highlight_color": "#FFFFFF", "outline_color": "#000000",
         "back_color": "#000000", "outline": 3, "shadow": 0, "border_style": 1,
@@ -61,6 +63,7 @@ PRESETS: dict[str, dict] = {
         "anim_in": "fade", "anim_word": "none", "anim_ms": 90,
     },
     "podcast": {  # Podcast — sereno, destaque verde
+        "family": "Clássicos",
         "font_family": "Inter", "font_size": 56, "bold": False, "uppercase": False,
         "text_color": "#F5F5F5", "highlight_color": "#7CFC00", "outline_color": "#101010",
         "back_color": "#000000", "outline": 2, "shadow": 0, "border_style": 1,
@@ -70,6 +73,7 @@ PRESETS: dict[str, dict] = {
         "anim_in": "none", "anim_word": "color", "anim_ms": 0,
     },
     "minimal": {  # Minimal — 1 linha, nada de efeito
+        "family": "Clássicos",
         "font_family": "Inter", "font_size": 50, "bold": False, "uppercase": False,
         "text_color": "#FFFFFF", "highlight_color": "#FFFFFF", "outline_color": "#000000",
         "back_color": "#000000", "outline": 1, "shadow": 0, "border_style": 1,
@@ -78,7 +82,8 @@ PRESETS: dict[str, dict] = {
         "letter_spacing": 0, "karaoke": False,
         "anim_in": "none", "anim_word": "none", "anim_ms": 0,
     },
-    "palavra_pop": {  # Palavra Pop — UMA palavra grande de cada vez, com pop
+    "palavra_pop": {  # Palavra Pop Classic — INTOCADO: comportamento já aprovado
+        "family": "Palavra Pop",
         "font_family": "Montserrat", "font_size": 96, "bold": True, "uppercase": True,
         "text_color": "#FFFFFF", "highlight_color": "#FFFFFF", "outline_color": "#000000",
         "back_color": "#000000", "outline": 5, "shadow": 2, "border_style": 1,
@@ -87,7 +92,81 @@ PRESETS: dict[str, dict] = {
         "letter_spacing": 1, "karaoke": False,
         "anim_in": "pop", "anim_word": "pop", "anim_ms": 80,
     },
+
+    # --- Família Palavra Pop (Ponto 19): mesma linguagem (uma palavra por vez),
+    # variações com diferença VISUAL perceptível — nunca oito nomes iguais.
+    "pp_clean": {  # sofisticado: menor, sem caixa alta, contorno fino, pouca expansão
+        "family": "Palavra Pop",
+        "font_family": "Inter", "font_size": 76, "bold": True, "uppercase": False,
+        "text_color": "#FFFFFF", "highlight_color": "#FFFFFF", "outline_color": "#0A0A0A",
+        "back_color": "#000000", "outline": 2, "shadow": 0, "border_style": 1,
+        "anchor_top": 1240, "align": "center", "max_width_pct": 88,
+        "max_chars": 18, "max_lines": 1, "max_words": 1, "word_mode": True,
+        "letter_spacing": 0, "karaoke": False,
+        "anim_in": "fade", "anim_word": "soft", "anim_ms": 150,
+    },
+    "pp_bold": {  # pesado: fonte enorme, contorno grosso, entrada marcada
+        "family": "Palavra Pop",
+        "font_family": "Montserrat", "font_size": 112, "bold": True, "uppercase": True,
+        "text_color": "#FFFFFF", "highlight_color": "#FFD400", "outline_color": "#000000",
+        "back_color": "#000000", "outline": 7, "shadow": 3, "border_style": 1,
+        "anchor_top": 1140, "align": "center", "max_width_pct": 94,
+        "max_chars": 13, "max_lines": 1, "max_words": 1, "word_mode": True,
+        "letter_spacing": 2, "karaoke": False,
+        "anim_in": "pop", "anim_word": "pop", "anim_ms": 70,
+    },
+    "pp_impact": {  # batalhas/esportes: entra GRANDE e assenta, amarelo de impacto
+        "family": "Palavra Pop",
+        "font_family": "Montserrat", "font_size": 100, "bold": True, "uppercase": True,
+        "text_color": "#FFE24A", "highlight_color": "#FFE24A", "outline_color": "#101010",
+        "back_color": "#000000", "outline": 6, "shadow": 2, "border_style": 1,
+        "anchor_top": 1160, "align": "center", "max_width_pct": 94,
+        "max_chars": 14, "max_lines": 1, "max_words": 1, "word_mode": True,
+        "letter_spacing": 1, "karaoke": False,
+        "anim_in": "punch", "anim_word": "punch", "anim_ms": 110,
+    },
+    "pp_box": {  # educacional: a palavra vem dentro de uma caixa sólida
+        "family": "Palavra Pop",
+        "font_family": "Montserrat", "font_size": 84, "bold": True, "uppercase": True,
+        "text_color": "#101010", "highlight_color": "#101010", "outline_color": "#FFFFFF",
+        "back_color": "#FFFFFF", "outline": 6, "shadow": 0, "border_style": 3,
+        "anchor_top": 1260, "align": "center", "max_width_pct": 86,
+        "max_chars": 15, "max_lines": 1, "max_words": 1, "word_mode": True,
+        "letter_spacing": 0, "karaoke": False,
+        "anim_in": "pop", "anim_word": "none", "anim_ms": 90,
+    },
+    "pp_neon": {  # música/gaming: ciano vibrante com brilho e contorno escuro
+        "family": "Palavra Pop",
+        "font_family": "Montserrat", "font_size": 92, "bold": True, "uppercase": True,
+        "text_color": "#5FF6FF", "highlight_color": "#FF3DDC", "outline_color": "#0B0322",
+        "back_color": "#000000", "outline": 5, "shadow": 0, "border_style": 1,
+        "anchor_top": 1200, "align": "center", "max_width_pct": 92,
+        "max_chars": 15, "max_lines": 1, "max_words": 1, "word_mode": True,
+        "letter_spacing": 2, "karaoke": False,
+        "anim_in": "glow", "anim_word": "glow", "anim_ms": 130,
+    },
+    "pp_soft": {  # storytelling: sobe suave, sem sobressalto
+        "family": "Palavra Pop",
+        "font_family": "Inter", "font_size": 82, "bold": True, "uppercase": False,
+        "text_color": "#F7F7F7", "highlight_color": "#F7F7F7", "outline_color": "#141414",
+        "back_color": "#000000", "outline": 3, "shadow": 1, "border_style": 1,
+        "anchor_top": 1300, "align": "center", "max_width_pct": 86,
+        "max_chars": 18, "max_lines": 1, "max_words": 1, "word_mode": True,
+        "letter_spacing": 0, "karaoke": False,
+        "anim_in": "fade", "anim_word": "soft", "anim_ms": 200,
+    },
+    "pp_minimal": {  # destaca a palavra falada quase sem movimento
+        "family": "Palavra Pop",
+        "font_family": "Inter", "font_size": 70, "bold": False, "uppercase": True,
+        "text_color": "#FFFFFF", "highlight_color": "#FFFFFF", "outline_color": "#000000",
+        "back_color": "#000000", "outline": 2, "shadow": 0, "border_style": 1,
+        "anchor_top": 1340, "align": "center", "max_width_pct": 80,
+        "max_chars": 18, "max_lines": 1, "max_words": 1, "word_mode": True,
+        "letter_spacing": 3, "karaoke": False,
+        "anim_in": "none", "anim_word": "none", "anim_ms": 0,
+    },
     "highlight_box": {  # Highlight Box — caixa de fundo atrás do texto
+        "family": "Clássicos",
         "font_family": "Montserrat", "font_size": 64, "bold": True, "uppercase": True,
         "text_color": "#111111", "highlight_color": "#111111", "outline_color": "#FFD400",
         "back_color": "#FFD400", "outline": 3, "shadow": 0, "border_style": 3,
@@ -97,6 +176,7 @@ PRESETS: dict[str, dict] = {
         "anim_in": "fade", "anim_word": "none", "anim_ms": 50,
     },
     "bounce": {  # Bounce — palavra a palavra com overshoot elástico
+        "family": "Clássicos",
         "font_family": "Montserrat", "font_size": 88, "bold": True, "uppercase": True,
         "text_color": "#FFFFFF", "highlight_color": "#FFD400", "outline_color": "#000000",
         "back_color": "#000000", "outline": 4, "shadow": 1, "border_style": 1,
@@ -106,6 +186,7 @@ PRESETS: dict[str, dict] = {
         "anim_in": "none", "anim_word": "bounce", "anim_ms": 70,
     },
     "subtitle_bar": {  # Subtitle Bar — barra escura no rodapé, estilo entrevista
+        "family": "Clássicos",
         "font_family": "Inter", "font_size": 46, "bold": False, "uppercase": False,
         "text_color": "#FFFFFF", "highlight_color": "#FFFFFF", "outline_color": "#000000",
         "back_color": "#101010", "outline": 4, "shadow": 0, "border_style": 3,
@@ -118,9 +199,16 @@ PRESETS: dict[str, dict] = {
 
 PRESET_LABELS_PTBR = {
     "bold_karaoke": "Karaokê Bold", "clean": "Clean", "podcast": "Podcast",
-    "minimal": "Minimal", "palavra_pop": "Palavra Pop", "highlight_box": "Highlight Box",
-    "bounce": "Bounce", "subtitle_bar": "Subtitle Bar",
+    "minimal": "Minimal", "palavra_pop": "Palavra Pop Classic",
+    "pp_clean": "Palavra Pop Clean", "pp_bold": "Palavra Pop Bold",
+    "pp_impact": "Palavra Pop Impact", "pp_box": "Palavra Pop Box",
+    "pp_neon": "Palavra Pop Neon", "pp_soft": "Palavra Pop Soft",
+    "pp_minimal": "Palavra Pop Minimal",
+    "highlight_box": "Highlight Box", "bounce": "Bounce", "subtitle_bar": "Subtitle Bar",
 }
+
+# frase de amostra dos cards de preview do seletor visual (Ponto 20)
+PRESET_SAMPLE = "ESSA É UMA LEGENDA"
 
 MAX_CARD_SECONDS = 3.5
 CARD_GAP_BREAK = 0.6
@@ -265,6 +353,11 @@ def _anim_in_tags(style: dict) -> str:
     if anim == "pop" and ms:
         return (f"{{\\fscx82\\fscy82\\t(0,{ms},\\fscx100\\fscy100)"
                 f"\\fad({max(30, ms // 2)},{max(30, ms // 2)})}}")
+    if anim == "punch" and ms:  # entra GRANDE e assenta (família Palavra Pop Impact)
+        return (f"{{\\fscx132\\fscy132\\t(0,{ms},\\fscx100\\fscy100)"
+                f"\\fad({max(20, ms // 3)},{max(30, ms // 2)})}}")
+    if anim == "glow" and ms:  # brilho que assenta (Palavra Pop Neon)
+        return f"{{\\blur6\\t(0,{ms},\\blur1.2)\\fad({max(30, ms // 2)},{max(30, ms // 2)})}}"
     if anim == "slide_up" and ms:
         return f"{{\\fad({ms},{max(30, ms // 2)})}}"  # deslize real exigiria \move por cartão
     return ""
@@ -278,6 +371,12 @@ def _anim_word_tags(style: dict) -> str:
     if anim == "bounce" and ms:
         return (f"{{\\fscx70\\fscy70\\t(0,{ms},\\fscx114\\fscy114)"
                 f"\\t({ms},{ms * 2},\\fscx100\\fscy100)}}")
+    if anim == "punch" and ms:
+        return f"{{\\fscx130\\fscy130\\t(0,{ms},\\fscx100\\fscy100)}}"
+    if anim == "soft" and ms:  # movimento contido, sem sobressalto
+        return f"{{\\fscx94\\fscy94\\t(0,{ms},\\fscx100\\fscy100)}}"
+    if anim == "glow" and ms:
+        return f"{{\\blur5\\t(0,{ms},\\blur1)}}"
     return ""
 
 
