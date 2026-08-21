@@ -186,6 +186,7 @@ def test_autosave_repetido_nao_infla_a_revisao(client, auth):
         "title": "Corte", "framing": "left", "punch_in": "leve",
         "caption_style": None, "brand_kit_id": None,
         "edits": {"word_overrides": {"3": "olá"}},
+        "motion": None,  # v4: o Draft sempre envia o manifest (None = sem efeitos)
     }
     revs = [client.patch(f"/api/v1/cuts/{cut_id}", json=corpo,
                          headers=auth).json()["edit_revision"] for _ in range(3)]

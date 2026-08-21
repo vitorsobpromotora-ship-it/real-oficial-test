@@ -48,11 +48,19 @@ def _m5_estado_editorial(conn) -> None:
     conn.execute(text("UPDATE cut_candidates SET status = 'pending_review' WHERE status = 'draft'"))
 
 
+def _m6_motion(conn) -> None:
+    """v4: Motion Manifest por corte — fonte única da verdade dos efeitos de
+    movimento (texto, vídeo, b-roll, transições, SFX). Cortes antigos abrem
+    sem manifest (NULL = manifest vazio); nada é reinterpretado."""
+    _add_column(conn, "cut_candidates", "motion JSON")
+
+
 MIGRATIONS: list = [
     (2, _m2_analise_editorial),
     (3, _m3_editor_edl),
     (4, _m4_brand_studio),
     (5, _m5_estado_editorial),
+    (6, _m6_motion),
 ]
 
 

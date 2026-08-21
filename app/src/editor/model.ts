@@ -9,6 +9,7 @@
  * src_end) e aparecem só como informação de origem.
  */
 import type { Cut, Edl, EdlSegment } from "../api/types";
+import type { MotionManifest } from "./motion";
 
 export interface FramingSegment {
   start_s: number; // tempos da FONTE (contrato do motor: edits.framing_segments)
@@ -47,6 +48,7 @@ export interface Draft {
   word_emphasis: WordEmphasis[]; // ênfase por palavra/expressão (Pontos 15–18)
   caption_style: Record<string, unknown> | null; // overrides do corte (preset, cores, posição)
   brand_kit_id: string | null;
+  motion: MotionManifest | null; // Motion Manifest v4 — efeitos de movimento do corte
 }
 
 export const PAD_S = 15; // margem de contexto disponível antes/depois na timeline
@@ -76,6 +78,9 @@ export function draftFromCut(cut: Cut): Draft {
     word_emphasis: ((cut.edits?.word_emphasis as WordEmphasis[]) ?? []).map((w) => ({ ...w })),
     caption_style: cut.caption_style ? { ...cut.caption_style } : null,
     brand_kit_id: cut.brand_kit_id,
+    // cópia profunda: efeitos são objetos aninhados e o Draft não pode
+    // compartilhar referências com o cache de queries
+    motion: cut.motion ? (JSON.parse(JSON.stringify(cut.motion)) as MotionManifest) : null,
   };
 }
 
@@ -111,6 +116,7 @@ export function patchFromDraft(d: Draft, title: string, baseEdits: Record<string
     caption_style: d.caption_style,
     brand_kit_id: d.brand_kit_id,
     edits: Object.keys(edits).length ? edits : null,
+    motion: d.motion && d.motion.effects.length ? d.motion : null,
   };
 }
 

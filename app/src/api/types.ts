@@ -1,4 +1,5 @@
 // Tipos espelhando os schemas do motor (engine/app/schemas).
+import type { MotionManifest } from "../editor/motion";
 
 export interface Project {
   id: string;
@@ -109,6 +110,7 @@ export interface Cut {
   brand_kit_id: string | null;
   edits: Record<string, unknown> | null;
   edl: Edl | null;
+  motion?: MotionManifest | null; // Motion Manifest v4 (efeitos de movimento)
   description: string;
   platform_metadata: Record<string, unknown> | null;
   edit_revision: number;

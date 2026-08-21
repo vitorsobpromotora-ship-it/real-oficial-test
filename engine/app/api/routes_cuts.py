@@ -8,6 +8,7 @@ from sqlalchemy import select
 from ..db.base import session
 from ..db.models import CutCandidate, SourceVideo, utcnow
 from ..pipeline import edl as edl_mod
+from ..pipeline import motion as motion_mod
 from ..schemas.api import BulkCutsIn, CutOut, CutPatch, OkOut
 from .deps import require_token
 
@@ -43,7 +44,7 @@ def to_out(c: CutCandidate, render=None) -> CutOut:
         hashtags=c.hashtags, reason=c.reason, verdict=c.verdict or "revisar",
         analysis=c.analysis, status=c.status, rank=c.rank, origin=c.origin,
         crop_plan=c.crop_plan, censor_plan=c.censor_plan, caption_style=c.caption_style,
-        brand_kit_id=c.brand_kit_id, edits=c.edits, edl=c.edl,
+        brand_kit_id=c.brand_kit_id, edits=c.edits, edl=c.edl, motion=c.motion,
         description=c.description or "", platform_metadata=c.platform_metadata,
         edit_revision=c.edit_revision or 1, render_state=state, render_outdated=outdated,
         latest_render_id=render.id if render is not None else None,
@@ -274,7 +275,7 @@ def cut_waveform(cut_id: str, pps: int = Query(default=40, ge=10, le=100),
 
 
 VISUAL_FIELDS = {"start_s", "end_s", "framing", "punch_in", "title", "caption_style",
-                 "brand_kit_id", "edits", "edl"}
+                 "brand_kit_id", "edits", "edl", "motion"}
 
 
 def _edl_efetiva(c: CutCandidate, edl_in: dict | None) -> dict:
@@ -307,6 +308,11 @@ def _apply_patch(s, c: CutCandidate, patch: CutPatch) -> None:
             if value is None:
                 return c.edl is not None
             return _edl_efetiva(c, c.edl) != _edl_efetiva(c, value)
+        if field == "motion":  # compara manifests NORMALIZADOS (reenvio igual ≠ edição)
+            try:
+                return c.motion != motion_mod.validate_manifest(value)
+            except ValueError:
+                return True  # inválido nunca chega a gravar; o 422 vem adiante
         return getattr(c, field) != value
 
     # só invalida prévias quando o valor visual de fato muda (aprovar reenviando
@@ -355,6 +361,11 @@ def _apply_patch(s, c: CutCandidate, patch: CutPatch) -> None:
                 c.start_s, c.end_s = env_a, env_b
             # edição equivalente ao corte simples não precisa de EDL persistida
             c.edl = None if eff == _edl_efetiva(c, None) else eff
+    if "motion" in data:
+        try:
+            c.motion = motion_mod.validate_manifest(data.pop("motion"))
+        except ValueError as exc:
+            raise HTTPException(422, f"Motion Manifest inválido: {exc}") from None
     for field in ("title", "description", "platform_metadata", "caption_style",
                   "brand_kit_id", "edits", "human_rank"):
         if field in data:

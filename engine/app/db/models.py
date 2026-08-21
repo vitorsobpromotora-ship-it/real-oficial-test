@@ -121,6 +121,7 @@ class CutCandidate(Base):
     )
     edits: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # trims, textos de legenda
     edl: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # edição não destrutiva (Editor)
+    motion: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # Motion Manifest (v4)
     description: Mapped[str] = mapped_column(Text, default="")  # descrição p/ publicação
     platform_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # por plataforma (futuro)
     # incrementada a cada alteração VISUAL salva; comparada à revisão do render

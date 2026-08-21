@@ -149,6 +149,7 @@ class CutOut(BaseModel):
     brand_kit_id: str | None
     edits: dict | None
     edl: dict | None  # edição não destrutiva do Editor (None = corte simples start→end)
+    motion: dict | None = None  # Motion Manifest v4 (None = sem efeitos de movimento)
     description: str = ""  # descrição do vídeo (publishing metadata futura)
     platform_metadata: dict | None = None  # dados por plataforma (vazio nesta versão)
     edit_revision: int = 1
@@ -179,6 +180,7 @@ class CutPatch(BaseModel):
     brand_kit_id: str | None = None
     edits: dict | None = None
     edl: dict | None = None  # null explícito = descartar a edição (volta ao corte simples)
+    motion: dict | None = None  # Motion Manifest inteiro (null explícito = sem efeitos)
     human_rank: int | None = Field(default=None, ge=1)
     review_started: bool | None = None  # marca o início da revisão (métrica de relatório)
 
