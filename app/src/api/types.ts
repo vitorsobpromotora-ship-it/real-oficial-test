@@ -125,6 +125,17 @@ export interface Cut {
   updated_at: string;
 }
 
+export interface ProjectMedia {
+  id: string;
+  project_id: string;
+  filename: string;
+  kind: "video" | "image";
+  duration_s: number | null;
+  width: number | null;
+  height: number | null;
+  created_at: string;
+}
+
 export interface CaptionWord {
   idx: number | null; // índice na transcrição (null = palavra inserida)
   ins_id?: string | null; // id da inserção manual, quando for uma

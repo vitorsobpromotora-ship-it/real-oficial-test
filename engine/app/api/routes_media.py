@@ -50,6 +50,21 @@ def brand_asset(filename: str):
     raise HTTPException(404, "Asset não encontrado")
 
 
+@router.get("/media/broll/{media_id}")
+def broll_file(media_id: str):
+    """Arquivo da biblioteca de mídia do projeto (B-roll)."""
+    from ..db.models import ProjectMedia  # noqa: PLC0415
+
+    with session() as s:
+        m = s.get(ProjectMedia, media_id)
+        if m is None or not Path(m.path).exists():
+            raise HTTPException(404, "Mídia não encontrada")
+        tipos = {".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp",
+                 ".mp4": "video/mp4", ".mov": "video/quicktime", ".webm": "video/webm"}
+        return FileResponse(m.path, media_type=tipos.get(Path(m.path).suffix,
+                                                         "application/octet-stream"))
+
+
 @router.get("/media/sources/{source_id}/file")
 def source_file(source_id: str):
     """Vídeo-fonte original para o player do Editor (FileResponse atende Range/seek)."""

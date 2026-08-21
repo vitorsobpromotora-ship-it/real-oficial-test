@@ -10,8 +10,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { get, mediaUrl, patch, post } from "../api/client";
 import type {
-  BrandKit, CaptionCards, CaptionPreset, Cut, Edl, Render, Source,
-  TranscriptWord, Waveform,
+  BrandKit, CaptionCards, CaptionPreset, Cut, Edl, ProjectMedia, Render,
+  Source, TranscriptWord, Waveform,
 } from "../api/types";
 import Canvas from "../editor/Canvas";
 import Inspector, { type Tool } from "../editor/Inspector";
@@ -65,6 +65,25 @@ export default function EditorPage() {
     staleTime: Infinity,
   });
   const videoPresets = motionQ.data?.video_presets ?? [];
+  const pid = projectId || cut?.project_id || "";
+  const mediaQ = useQuery({
+    enabled: !!pid,
+    queryKey: ["project-media", pid],
+    queryFn: () => get<{ media: ProjectMedia[] }>(`/api/v1/projects/${pid}/media`),
+  });
+  const [brollUrls, setBrollUrls] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let vivo = true;
+    for (const m of mediaQ.data?.media ?? []) {
+      if (brollUrls[m.id]) continue;
+      mediaUrl(`/api/v1/media/broll/${m.id}`).then((u) => {
+        if (vivo) setBrollUrls((x) => ({ ...x, [m.id]: u }));
+      });
+    }
+    return () => { vivo = false; };
+  }, [mediaQ.data]); // eslint-disable-line react-hooks/exhaustive-deps
+  const brollMedia = Object.fromEntries((mediaQ.data?.media ?? []).map((m) =>
+    [m.id, { url: brollUrls[m.id] ?? "", kind: m.kind }]));
   const calloutPresets = motionQ.data?.callout_presets ?? [];
   const compositePresets = motionQ.data?.composite_presets ?? [];
   const grupoSel = (draftx: Draft | null, id: string | null) =>
@@ -683,6 +702,7 @@ export default function EditorPage() {
           motionPresets={motionQ.data?.presets ?? []}
           videoPresets={videoPresets}
           calloutPresets={calloutPresets}
+          brollMedia={brollMedia}
           selFx={selFx}
           onCalloutMove={(id, pos) => {
             const m = draft.motion;
@@ -722,6 +742,7 @@ export default function EditorPage() {
             videoPresets={videoPresets}
             calloutPresets={calloutPresets}
             compositePresets={compositePresets}
+            projectId={projectId || cut.project_id}
             selFx={selFx}
             setSelFx={setSelFx}
             playhead={playhead}
@@ -944,6 +965,30 @@ export default function EditorPage() {
                          seekSrc(outToSrc(segs, e.start + 0.01));
                        }}>
                     {e.type === "text_callout" ? "🗯" : "✦"} {rotuloDoEfeito(e, todosPresets)}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* track B-ROLL (FASE H): mídia sobre o corte, sob as legendas */}
+            <div className="tl-track tl-track-br" data-testid="br-track">
+              <span className="tl-tracklabel">B-roll</span>
+              {(draft.motion?.effects ?? [])
+                .filter((e) => e.type === "broll").map((e) => {
+                const a = outToSrc(segs, e.start);
+                const b = outToSrc(segs, Math.max(e.start + 0.05, e.end));
+                return (
+                  <div key={e.id} data-testid={`br-block-${e.id}`}
+                       className={`tl-brblock${selFx === e.id ? " on" : ""}${e.enabled === false ? " off" : ""}`}
+                       style={{ left: x(a), width: Math.max(10, (b - a) * zoom) }}
+                       title={`${rotuloDoEfeito(e, todosPresets)} · clique para editar`}
+                       onClick={(ev) => {
+                         ev.stopPropagation();
+                         setSelFx(e.id);
+                         setTool("motion");
+                         seekSrc(outToSrc(segs, e.start + 0.01));
+                       }}>
+                    🎞 {rotuloDoEfeito(e, todosPresets)}
                   </div>
                 );
               })}

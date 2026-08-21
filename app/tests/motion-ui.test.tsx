@@ -106,6 +106,10 @@ vi.mock("../src/api/client", () => ({
             { t: 0, v: 100 }, { t: 0.3, v: 152, ease: "rapido" },
             { t: 1, v: 118, ease: "impacto" }] } } } },
       ] };
+    if (path.startsWith("/api/v1/projects/p1/media"))
+      return { media: [{ id: "md1", project_id: "p1", filename: "reacao.png",
+        kind: "image", duration_s: null, width: 200, height: 200,
+        created_at: "" }] };
     if (path.startsWith("/api/v1/brand-kits")) return [];
     if (path.startsWith("/api/v1/renders")) return [];
     return {};
@@ -117,6 +121,7 @@ vi.mock("../src/api/client", () => ({
     return cutAtual;
   }),
   del: vi.fn(async () => ({})),
+  api: vi.fn(async () => ({})),
   mediaUrl: async (p: string) => `http://test${p}?token=t`,
   engine: vi.fn(async () => ({ baseUrl: "http://test", token: "t" })),
   ApiError: class extends Error {},
@@ -327,5 +332,38 @@ describe("v4 FASE G — composições pela interface", () => {
     expect(await screen.findByTestId("mo-grupo")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("mo-excluir-grupo"));
     await waitFor(() => expect(ultimoMotion()).toBeNull(), { timeout: 4000 });
+  });
+});
+
+describe("v4 FASE H — B-roll pela interface", () => {
+  it("biblioteca lista, ＋ insere no cursor e o painel edita o modo", async () => {
+    renderEditor();
+    fireEvent.click(await screen.findByTestId("tool-broll"));
+    expect(await screen.findByTestId("br-lista")).toBeInTheDocument();
+    fireEvent.click(await screen.findByTestId("br-add-md1"));
+
+    // painel Motion abre com o efeito broll e a seção própria
+    expect(await screen.findByTestId("mo-editor")).toBeInTheDocument();
+    expect(screen.getByTestId("mo-broll-extra")).toBeInTheDocument();
+
+    // TIMELINE: bloco na track B-roll; canvas mostra o overlay
+    expect(screen.getByTestId("br-track").textContent).toContain("B-roll");
+    expect(document.querySelector('[data-testid^="cv-broll-"]')).toBeTruthy();
+
+    // persistência: manifest broll com a mídia e defaults
+    await waitFor(() => {
+      const e = ultimoMotion()!.effects[0];
+      expect(e.type).toBe("broll");
+      expect(e.target).toEqual({ kind: "media", media_id: "md1" });
+      expect(e.params?.mode).toBe("overlay");
+    }, { timeout: 4000 });
+
+    // tela cheia persiste e o rótulo muda
+    fireEvent.change(screen.getByTestId("mo-br-mode"),
+      { target: { value: "fullscreen" } });
+    await waitFor(() => {
+      expect(ultimoMotion()!.effects[0].params?.mode).toBe("fullscreen");
+    }, { timeout: 4000 });
+    expect(screen.getByTestId("br-track").textContent).toContain("tela cheia");
   });
 });

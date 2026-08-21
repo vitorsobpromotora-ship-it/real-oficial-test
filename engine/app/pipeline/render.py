@@ -29,7 +29,7 @@ from ..db.models import (
 )
 from ..jobs.registry import job_handler
 from ..services import ffmpeg
-from . import captions, censor, compose, motion_callout, motion_video
+from . import captions, censor, compose, motion_broll, motion_callout, motion_video
 from . import edl as edl_mod
 from .reframe import apply_framing_override, apply_punch_in, apply_segment_overrides, plan_crop
 
@@ -219,7 +219,8 @@ def build_filtergraph(*, crop_plan: dict, duration: float, out_w: int, out_h: in
                       audio_chunks: list[dict] | None = None,
                       audio_fx: dict | None = None,
                       video_fades: dict | None = None,
-                      fx_chains: list[str] | None = None) -> tuple[str, str, str]:
+                      fx_chains: list[str] | None = None,
+                      broll_parts: list[tuple[str, str]] | None = None) -> tuple[str, str, str]:
     """Grafo clássico (tela cheia): retorna (filter_complex, video_label, audio_label).
 
     EDL: em modo crop os trims vêm embutidos nos segments do crop_plan (tempo
@@ -235,6 +236,11 @@ def build_filtergraph(*, crop_plan: dict, duration: float, out_w: int, out_h: in
     for i, fx in enumerate(fx_chains or []):
         chains.append(f"[{v}]{fx}[vfx{i}]")
         v = f"vfx{i}"
+    # B-roll SOB as legendas: a mídia cobre a cena, o texto continua por cima
+    for k, (prep, ov) in enumerate(broll_parts or []):
+        chains.append(prep)
+        chains.append(f"[{v}][br{k}]{ov}[vbr{k}]")
+        v = f"vbr{k}"
     if subs_file:
         ass_arg = f"ass={subs_file}"
         if fonts_dir:
@@ -313,6 +319,16 @@ def _load_render_bundle(render_id: str) -> dict:
                              .order_by(TranscriptWord.idx)).scalars().all()
             words = [{"idx": w.idx, "start_s": w.start_s, "end_s": w.end_s, "word": w.word}
                      for w in rows]
+        media_index = {}
+        try:
+            from ..db.models import ProjectMedia  # noqa: PLC0415
+            for m in s.execute(select(ProjectMedia)
+                               .where(ProjectMedia.project_id
+                                      == cut.project_id)).scalars():
+                media_index[m.id] = {"path": m.path, "kind": m.kind,
+                                     "filename": m.filename}
+        except Exception:  # noqa: BLE001 — banco antigo sem a tabela: sem b-roll
+            media_index = {}
         return {
             "render": {"id": r.id, "kind": r.kind, "overrides": r.preset_snapshot or {}},
             "cut": {"id": cut.id, "start_s": cut.start_s, "end_s": cut.end_s,
@@ -323,7 +339,7 @@ def _load_render_bundle(render_id: str) -> dict:
             "source": {"id": src.id, "file_path": src.file_path,
                        "width": src.width or 1920, "height": src.height or 1080,
                        "fps": src.fps or 30.0},
-            "kit": kit, "words": words,
+            "kit": kit, "words": words, "media": media_index,
         }
 
 
@@ -481,6 +497,19 @@ def render_cut(ctx) -> dict:
             args += ["-f", "lavfi", "-t", f"{duration:.3f}", "-i", "sine=frequency=1000"]
             beep_idx = next_idx
             next_idx += 1
+        # B-roll (FASE H): inputs extras + partes de overlay; mídia ausente
+        # é pulada com aviso e o render segue (Entrega 82)
+        broll_parts: list[tuple[str, str]] = []
+        fps_out = float(src.get("fps") or 30.0)
+        for bk, bef in enumerate(motion_broll.collect(cut.get("motion"))):
+            bmedia = motion_broll.resolve_media(bef, bundle.get("media") or {})
+            if not bmedia:
+                continue
+            dur_janela = max(0.1, float(bef["end"]) - float(bef["start"]))
+            args += motion_broll.input_args(bef, bmedia, dur_janela)
+            prep, ov = motion_broll.chain(bef, next_idx, bk, out_w, out_h, fps_out)
+            broll_parts.append((prep, ov))
+            next_idx += 1
         idx_map: dict[str, int] = {}
         if comp is not None:
             for extra in comp["files"]:
@@ -503,7 +532,8 @@ def render_cut(ctx) -> dict:
                 video_fades={"fade_in_s": edl["fade_in_s"], "fade_out_s": edl["fade_out_s"]},
                 fx_chains=motion_video.compile_video_fx(cut.get("motion"), out_w, out_h)
                 + [c for e, pr in motion_callout.collect(cut.get("motion"))
-                   if (c := motion_callout.background_chain(e, pr, out_w, out_h))])
+                   if (c := motion_callout.background_chain(e, pr, out_w, out_h))],
+                broll_parts=broll_parts)
         else:
             src_l = compose.source_layer(lay)
             box_w = compose.box_px(src_l.get("w", 1080), scale_c)
@@ -516,6 +546,10 @@ def render_cut(ctx) -> dict:
                        if (c := motion_callout.background_chain(e, pr, box_w, box_h))]):
                 chains.append(f"[{vb}]{fx}[vmfx{fx_i}]")
                 vb = f"vmfx{fx_i}"
+            for bk2, (prep, ov) in enumerate(broll_parts):
+                chains.append(prep)
+                chains.append(f"[{vb}][br{bk2}]{ov}[vmbr{bk2}]")
+                vb = f"vmbr{bk2}"
             bg_lbl = None
             if (lay.get("background") or {}).get("type") == "blur":
                 chains.append(f"[{vb}]split=2[vmain][vbgsrc]")

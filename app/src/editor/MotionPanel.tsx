@@ -20,7 +20,10 @@ export const INTENS: [string, string][] = [
 export function rotuloDoEfeito(
   e: EffectInstance, presets: { id: string; label: string }[],
 ): string {
-  const nome = presets.find((p) => p.id === e.preset)?.label ?? e.preset;
+  const nome = e.type === "broll"
+    ? (String(e.params?.mode ?? "overlay") === "fullscreen"
+      ? "B-roll (tela cheia)" : "B-roll")
+    : presets.find((p) => p.id === e.preset)?.label ?? e.preset;
   const inten = typeof e.intensity === "string" && e.intensity !== "normal"
     ? ` — ${INTENS.find(([i]) => i === e.intensity)?.[1] ?? e.intensity}` : "";
   return `${nome}${inten}`;
@@ -88,6 +91,7 @@ export default function MotionPanel(p: Props) {
   }
 
   function alvoLegivel(e: EffectInstance): string {
+    if (e.type === "broll") return "mídia da biblioteca";
     if (e.target.kind === "video") return "cena inteira";
     const palavras = (p.captions?.cards ?? []).flatMap((c) => c.words);
     const nomes: string[] = [];
@@ -204,6 +208,63 @@ export default function MotionPanel(p: Props) {
                      }} />
             </div>
           </div>
+
+          {sel.type === "broll" ? (
+            <div data-testid="mo-broll-extra">
+              <label style={{ marginTop: 10 }}>Modo</label>
+              <select data-testid="mo-br-mode"
+                      value={String(sel.params?.mode ?? "overlay")}
+                      onChange={(ev) => mudarParam(sel.id, "mode", ev.target.value)}>
+                <option value="overlay">Sobrepor (caixa)</option>
+                <option value="fullscreen">Tela cheia (áudio principal continua)</option>
+              </select>
+              {String(sel.params?.mode ?? "overlay") === "overlay" ? (
+                <div className="row" style={{ marginTop: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <label>X</label>
+                    <input type="range" min={0.1} max={0.9} step={0.01}
+                           data-testid="mo-br-x" style={{ width: "100%" }}
+                           value={Number(sel.params?.x ?? 0.5)}
+                           onChange={(ev) => mudarParam(sel.id, "x",
+                             Number(ev.target.value))} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label>Y</label>
+                    <input type="range" min={0.05} max={0.9} step={0.01}
+                           data-testid="mo-br-y" style={{ width: "100%" }}
+                           value={Number(sel.params?.y ?? 0.28)}
+                           onChange={(ev) => mudarParam(sel.id, "y",
+                             Number(ev.target.value))} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label>Largura</label>
+                    <input type="range" min={0.2} max={1} step={0.01}
+                           data-testid="mo-br-w" style={{ width: "100%" }}
+                           value={Number(sel.params?.w ?? 0.62)}
+                           onChange={(ev) => mudarParam(sel.id, "w",
+                             Number(ev.target.value))} />
+                  </div>
+                </div>
+              ) : null}
+              <div className="row" style={{ marginTop: 8 }}>
+                <label>Transição</label>
+                <select data-testid="mo-br-tr"
+                        value={String(sel.params?.transition ?? "fade")}
+                        onChange={(ev) => mudarParam(sel.id, "transition",
+                          ev.target.value)}>
+                  <option value="cut">Corte seco</option>
+                  <option value="fade">Fade</option>
+                </select>
+                <label className="row" style={{ gap: 6 }}>
+                  <input type="checkbox" data-testid="mo-br-loop"
+                         checked={Boolean(sel.params?.loop)}
+                         onChange={(ev) => mudarParam(sel.id, "loop",
+                           ev.target.checked)} />
+                  Loop
+                </label>
+              </div>
+            </div>
+          ) : null}
 
           {sel.type === "text_callout" ? (
             <div data-testid="mo-callout-extra">

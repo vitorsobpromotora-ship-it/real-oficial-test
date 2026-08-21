@@ -133,6 +133,23 @@ class CutCandidate(Base):
     updated_at: Mapped[str] = mapped_column(String(32), default=utcnow, onupdate=utcnow)
 
 
+class ProjectMedia(Base):
+    """Biblioteca de mídia do projeto (B-roll): o arquivo é COPIADO para o
+    data_dir e referenciado por id — apagar a origem não quebra o corte."""
+
+    __tablename__ = "project_media"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    project_id: Mapped[str] = mapped_column(String(32), index=True)
+    filename: Mapped[str] = mapped_column(String(255), default="")
+    path: Mapped[str] = mapped_column(String(500))
+    kind: Mapped[str] = mapped_column(String(10), default="video")  # video | image
+    duration_s: Mapped[float | None] = mapped_column(Float, nullable=True)
+    width: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    height: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[str] = mapped_column(String(32), default=utcnow)
+
+
 class BrandKit(Base):
     __tablename__ = "brand_kits"
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)

@@ -47,6 +47,7 @@ interface Props {
   motionPresets: TextPreset[]; // catálogo do motor — preview avalia AS MESMAS trilhas
   videoPresets: VideoPreset[]; // FX de vídeo — mesmas fórmulas do filtergraph
   calloutPresets: CalloutPreset[];
+  brollMedia: Record<string, { url: string; kind: "video" | "image" }>;
   selFx: string | null;
   onCalloutMove(id: string, pos: { pos_x: number; pos_y: number }): void;
 }
@@ -371,6 +372,46 @@ export default function Canvas(p: Props) {
           </div>
         ) : null}
 
+        {/* B-roll ativos (FASE H): mídia sobre a cena, SOB as legendas */}
+        {(p.draft.motion?.effects ?? [])
+          .filter((e) => e.type === "broll" && e.enabled !== false
+            && e.start <= outNow && outNow < e.end)
+          .map((e) => {
+            const mid = String(e.target.media_id ?? "");
+            const m = p.brollMedia[mid];
+            const modo = String(e.params?.mode ?? "overlay");
+            const wN = modo === "fullscreen" ? 1
+              : Math.min(1, Math.max(0.15, Number(e.params?.w ?? 0.62)));
+            const wPx = cw * wN;
+            const xPx = modo === "fullscreen" ? 0
+              : cw * Number(e.params?.x ?? 0.5) - wPx / 2;
+            const yPx = modo === "fullscreen" ? 0 : ch * Number(e.params?.y ?? 0.28);
+            const estilo: React.CSSProperties = {
+              position: "absolute", left: xPx, top: yPx, width: wPx,
+              height: modo === "fullscreen" ? ch : undefined,
+              objectFit: modo === "fullscreen" ? "cover" : "contain",
+              zIndex: 4, pointerEvents: "none",
+            };
+            if (!m?.url) {
+              return (
+                <div key={e.id} data-testid={`cv-broll-${e.id}`} style={{
+                  ...estilo, height: wPx * 0.56, display: "flex",
+                  alignItems: "center", justifyContent: "center",
+                  border: "2px dashed #10b981", borderRadius: 8,
+                  color: "#10b981", fontSize: 12, background: "rgba(0,0,0,.4)",
+                }}>🎞 mídia ausente</div>
+              );
+            }
+            return m.kind === "image" ? (
+              <img key={e.id} data-testid={`cv-broll-${e.id}`} src={m.url}
+                   alt="" style={estilo} />
+            ) : (
+              <BrollVideo key={e.id} eid={e.id} url={m.url} estilo={estilo}
+                          tRel={outNow - e.start
+                            + Number(e.params?.trim_start ?? 0)} />
+            );
+          })}
+
         {calloutBg === "black" ? (
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.94)",
                         zIndex: 4, pointerEvents: "none" }} />
@@ -656,4 +697,20 @@ function CalloutView({ callout, preset, captions, draft, outNow, cw, ch, sel, on
       })}
     </div>
   );
+}
+
+/** Vídeo de b-roll no preview: mudo, com o frame sincronizado por seek —
+ *  a reprodução contínua exata é a da prévia real/render. */
+function BrollVideo({ eid, url, estilo, tRel }: {
+  eid: string; url: string; estilo: React.CSSProperties; tRel: number;
+}) {
+  const ref = useRef<HTMLVideoElement | null>(null);
+  useEffect(() => {
+    const v = ref.current;
+    if (!v || !Number.isFinite(tRel)) return;
+    const alvo = Math.max(0, tRel);
+    if (Math.abs((v.currentTime || 0) - alvo) > 0.12) v.currentTime = alvo;
+  }, [tRel]);
+  return <video ref={ref} data-testid={`cv-broll-${eid}`} src={url} muted
+                preload="auto" style={estilo} />;
 }

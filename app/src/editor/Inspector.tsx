@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import type {
   BrandKit, CaptionCards, CaptionPreset, Cut, TranscriptWord,
 } from "../api/types";
+import BrollPanel from "./BrollPanel";
 import MotionPanel from "./MotionPanel";
 import { expandComposite, manifestVazio, novoId, seedDe,
   type CalloutPreset, type CompositePreset, type EffectInstance,
@@ -35,7 +36,7 @@ export const ENFASES: { id: string; label: string; dica: string }[] = [
 
 export type Tool =
   | "corte" | "pausas" | "audio" | "enquadramento" | "punchin"
-  | "legenda" | "palavras" | "motion" | "estilo" | "kit";
+  | "legenda" | "palavras" | "motion" | "broll" | "estilo" | "kit";
 
 export const TOOLS: { id: Tool; label: string; icon: string }[] = [
   { id: "corte", label: "Corte", icon: "✂" },
@@ -46,6 +47,7 @@ export const TOOLS: { id: Tool; label: string; icon: string }[] = [
   { id: "legenda", label: "Legenda", icon: "💬" },
   { id: "palavras", label: "Palavras", icon: "🔤" },
   { id: "motion", label: "Motion", icon: "✦" },
+  { id: "broll", label: "B-roll", icon: "🎞" },
   { id: "estilo", label: "Estilo", icon: "🎨" },
   { id: "kit", label: "Kit", icon: "🏷" },
 ];
@@ -84,6 +86,7 @@ interface Props {
   videoPresets: VideoPreset[];
   calloutPresets: CalloutPreset[];
   compositePresets: CompositePreset[];
+  projectId: string;
   selFx: string | null;
   setSelFx(id: string | null): void;
 }
@@ -287,6 +290,12 @@ export default function Inspector(p: Props) {
           <WordsPanel draft={d} upd={p.upd} words={p.words} captions={p.captions}
                       outNow={p.outNow} selCard={p.selCard} onSeekOut={p.onSeekOut}
                       compositePresets={p.compositePresets}
+                      onMotion={(fxId) => { p.setSelFx(fxId); p.setTool("motion"); }} />
+        ) : null}
+
+        {p.tool === "broll" ? (
+          <BrollPanel projectId={p.projectId} draft={d} upd={p.upd}
+                      outNow={p.outNow}
                       onMotion={(fxId) => { p.setSelFx(fxId); p.setTool("motion"); }} />
         ) : null}
 

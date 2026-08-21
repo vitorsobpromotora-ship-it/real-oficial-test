@@ -55,12 +55,30 @@ def _m6_motion(conn) -> None:
     _add_column(conn, "cut_candidates", "motion JSON")
 
 
+def _m7_project_media(conn) -> None:
+    """v4: biblioteca de mídia do projeto (B-roll) — arquivos COPIADOS para o
+    data_dir e referenciados por id (Entrega 82: referência robusta)."""
+    conn.execute(text(
+        """CREATE TABLE IF NOT EXISTS project_media (
+            id VARCHAR(32) PRIMARY KEY,
+            project_id VARCHAR(32) NOT NULL,
+            filename VARCHAR(255) NOT NULL DEFAULT '',
+            path VARCHAR(500) NOT NULL,
+            kind VARCHAR(10) NOT NULL DEFAULT 'video',
+            duration_s FLOAT,
+            width INTEGER,
+            height INTEGER,
+            created_at VARCHAR(32)
+        )"""))
+
+
 MIGRATIONS: list = [
     (2, _m2_analise_editorial),
     (3, _m3_editor_edl),
     (4, _m4_brand_studio),
     (5, _m5_estado_editorial),
     (6, _m6_motion),
+    (7, _m7_project_media),
 ]
 
 
