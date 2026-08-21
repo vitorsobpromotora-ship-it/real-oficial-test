@@ -34,6 +34,7 @@ from .captions import hex_to_ass
 # ---------------------------------------------------------------------------
 
 TEXT_PRESETS: dict[str, dict] = {
+    # ------------------------------ Básicos ------------------------------
     "pop_clean": {
         "id": "pop_clean", "label": "Pop Clean", "categoria": "Básicos",
         "descricao": "Crescimento rápido e assentamento suave — ênfase limpa.",
@@ -51,6 +52,61 @@ TEXT_PRESETS: dict[str, dict] = {
             }},
         },
     },
+    "pop_elastic": {
+        "id": "pop_elastic", "label": "Pop Elástico", "categoria": "Básicos",
+        "descricao": "Pop com quique elástico no assentamento.",
+        "phases": {
+            "enter": {"dur_ms": 320, "tracks": {
+                "scale": [{"t": 0.0, "v": 100.0},
+                          {"t": 0.22, "v": 126.0, "ease": "rapido"},
+                          {"t": 1.0, "v": 108.0, "ease": "elastico"}],
+            }},
+            "hold": {"tracks": {
+                "scale": [{"t": 0.0, "v": 108.0}, {"t": 1.0, "v": 108.0}],
+            }},
+            "exit": {"dur_ms": 150, "tracks": {
+                "scale": [{"t": 0.0, "v": 108.0}, {"t": 1.0, "v": 100.0, "ease": "suave"}],
+            }},
+        },
+    },
+    "color_pop": {
+        "id": "color_pop", "label": "Color Pop", "categoria": "Básicos",
+        "descricao": "A palavra acende numa cor de destaque com um pop leve.",
+        "color": "#FFD400",
+        "phases": {
+            "enter": {"dur_ms": 130, "tracks": {
+                "scale": [{"t": 0.0, "v": 100.0},
+                          {"t": 0.6, "v": 112.0, "ease": "rapido"},
+                          {"t": 1.0, "v": 106.0, "ease": "suave"}],
+            }},
+            "hold": {"tracks": {
+                "scale": [{"t": 0.0, "v": 106.0}, {"t": 1.0, "v": 106.0}],
+            }},
+            "exit": {"dur_ms": 160, "tracks": {
+                "scale": [{"t": 0.0, "v": 106.0}, {"t": 1.0, "v": 100.0, "ease": "suave"}],
+            }},
+        },
+    },
+    "flash_word": {
+        "id": "flash_word", "label": "Flash Word", "categoria": "Básicos",
+        "descricao": "Clarão branco instantâneo que assenta na cor normal.",
+        "color": "#FFFFFF",
+        "phases": {
+            "enter": {"dur_ms": 200, "tracks": {
+                "scale": [{"t": 0.0, "v": 108.0}, {"t": 1.0, "v": 105.0, "ease": "rapido"}],
+                "blur": [{"t": 0.0, "v": 6.0}, {"t": 0.35, "v": 0.0, "ease": "rapido"},
+                         {"t": 1.0, "v": 0.0}],
+                "bord": [{"t": 0.0, "v": 4.0}, {"t": 1.0, "v": 0.5, "ease": "rapido"}],
+            }},
+            "hold": {"tracks": {
+                "scale": [{"t": 0.0, "v": 105.0}, {"t": 1.0, "v": 105.0}],
+            }},
+            "exit": {"dur_ms": 130, "tracks": {
+                "scale": [{"t": 0.0, "v": 105.0}, {"t": 1.0, "v": 100.0, "ease": "suave"}],
+            }},
+        },
+    },
+    # ------------------------------ Impacto ------------------------------
     "punch": {
         "id": "punch", "label": "Punch", "categoria": "Impacto",
         "descricao": "Soco seco: estoura no ataque e volta com overshoot.",
@@ -76,10 +132,229 @@ TEXT_PRESETS: dict[str, dict] = {
             }},
         },
     },
+    "slam": {
+        "id": "slam", "label": "Slam", "categoria": "Impacto",
+        "descricao": "Cai GRANDE de cima e crava no lugar, com poeira de blur.",
+        "phases": {
+            "enter": {"dur_ms": 190, "tracks": {
+                "scale": [{"t": 0.0, "v": 168.0},
+                          {"t": 0.45, "v": 96.0, "ease": "rapido"},
+                          {"t": 1.0, "v": 108.0, "ease": "impacto"}],
+                "blur": [{"t": 0.0, "v": 7.0},
+                         {"t": 0.5, "v": 0.0, "ease": "rapido"}, {"t": 1.0, "v": 0.0}],
+                "rot": [{"t": 0.0, "v": -2.5},
+                        {"t": 1.0, "v": 0.0, "ease": "impacto"}],
+            }},
+            "hold": {"tracks": {
+                "scale": [{"t": 0.0, "v": 108.0}, {"t": 1.0, "v": 108.0}],
+            }},
+            "exit": {"dur_ms": 140, "tracks": {
+                "scale": [{"t": 0.0, "v": 108.0}, {"t": 1.0, "v": 100.0, "ease": "suave"}],
+            }},
+        },
+    },
+    "outline_burst": {
+        "id": "outline_burst", "label": "Outline Burst", "categoria": "Impacto",
+        "descricao": "A borda explode grossa e recolhe — impacto sem crescer muito.",
+        "phases": {
+            "enter": {"dur_ms": 220, "tracks": {
+                "scale": [{"t": 0.0, "v": 100.0},
+                          {"t": 0.4, "v": 110.0, "ease": "rapido"},
+                          {"t": 1.0, "v": 106.0, "ease": "suave"}],
+                "bord": [{"t": 0.0, "v": 0.0},
+                         {"t": 0.35, "v": 8.0, "ease": "rapido"},
+                         {"t": 1.0, "v": 1.5, "ease": "suave"}],
+            }},
+            "hold": {"tracks": {
+                "scale": [{"t": 0.0, "v": 106.0}, {"t": 1.0, "v": 106.0}],
+                "bord": [{"t": 0.0, "v": 1.5}, {"t": 1.0, "v": 1.5}],
+            }},
+            "exit": {"dur_ms": 150, "tracks": {
+                "scale": [{"t": 0.0, "v": 106.0}, {"t": 1.0, "v": 100.0, "ease": "suave"}],
+                "bord": [{"t": 0.0, "v": 1.5}, {"t": 1.0, "v": 0.0, "ease": "suave"}],
+            }},
+        },
+    },
+    "word_stretch": {
+        "id": "word_stretch", "label": "Word Stretch", "categoria": "Impacto",
+        "descricao": "Estica horizontal no ataque e volta ao normal — groove de batida.",
+        "phases": {
+            "enter": {"dur_ms": 240, "tracks": {
+                "scale_x": [{"t": 0.0, "v": 100.0},
+                            {"t": 0.25, "v": 148.0, "ease": "rapido"},
+                            {"t": 0.75, "v": 106.0, "ease": "suave"},
+                            {"t": 1.0, "v": 112.0, "ease": "elastico"}],
+                "scale_y": [{"t": 0.0, "v": 100.0},
+                            {"t": 0.25, "v": 92.0, "ease": "rapido"},
+                            {"t": 0.75, "v": 102.0, "ease": "suave"},
+                            {"t": 1.0, "v": 104.0, "ease": "elastico"}],
+            }},
+            "hold": {"tracks": {
+                "scale_x": [{"t": 0.0, "v": 112.0}, {"t": 1.0, "v": 112.0}],
+                "scale_y": [{"t": 0.0, "v": 104.0}, {"t": 1.0, "v": 104.0}],
+            }},
+            "exit": {"dur_ms": 150, "tracks": {
+                "scale_x": [{"t": 0.0, "v": 112.0}, {"t": 1.0, "v": 100.0, "ease": "suave"}],
+                "scale_y": [{"t": 0.0, "v": 104.0}, {"t": 1.0, "v": 100.0, "ease": "suave"}],
+            }},
+        },
+    },
+    # ------------------------------ Batalha ------------------------------
+    "fatality": {
+        "id": "fatality", "label": "Fatality", "categoria": "Batalha",
+        "descricao": "O golpe final: estoura vermelho, treme contido e assenta pesado.",
+        "color": "#FF2D2D",
+        "phases": {
+            "enter": {"dur_ms": 240, "tracks": {
+                "scale": [{"t": 0.0, "v": 100.0},
+                          {"t": 0.3, "v": 152.0, "ease": "rapido"},
+                          {"t": 1.0, "v": 118.0, "ease": "impacto"}],
+                "bord": [{"t": 0.0, "v": 0.0},
+                         {"t": 0.3, "v": 5.0, "ease": "rapido"},
+                         {"t": 1.0, "v": 2.0, "ease": "suave"}],
+                "blur": [{"t": 0.0, "v": 5.0},
+                         {"t": 0.35, "v": 0.0, "ease": "rapido"}, {"t": 1.0, "v": 0.0}],
+            }},
+            "hold": {"jitter": {"rot": 1.6, "freq": 10.0}, "tracks": {
+                "scale": [{"t": 0.0, "v": 118.0}, {"t": 1.0, "v": 118.0}],
+                "bord": [{"t": 0.0, "v": 2.0}, {"t": 1.0, "v": 2.0}],
+            }},
+            "exit": {"dur_ms": 180, "tracks": {
+                "scale": [{"t": 0.0, "v": 118.0}, {"t": 1.0, "v": 100.0, "ease": "suave"}],
+                "bord": [{"t": 0.0, "v": 2.0}, {"t": 1.0, "v": 0.0, "ease": "suave"}],
+            }},
+        },
+    },
+    "diss": {
+        "id": "diss", "label": "Diss", "categoria": "Batalha",
+        "descricao": "Provocação: inclina com deboche e segura o olhar.",
+        "color": "#FF9F1C",
+        "phases": {
+            "enter": {"dur_ms": 200, "tracks": {
+                "scale": [{"t": 0.0, "v": 100.0},
+                          {"t": 0.45, "v": 122.0, "ease": "rapido"},
+                          {"t": 1.0, "v": 112.0, "ease": "suave"}],
+                "rot": [{"t": 0.0, "v": 0.0},
+                        {"t": 0.5, "v": -3.4, "ease": "rapido"},
+                        {"t": 1.0, "v": -2.6, "ease": "suave"}],
+            }},
+            "hold": {"tracks": {
+                "scale": [{"t": 0.0, "v": 112.0}, {"t": 1.0, "v": 112.0}],
+                "rot": [{"t": 0.0, "v": -2.6}, {"t": 1.0, "v": -2.6}],
+            }},
+            "exit": {"dur_ms": 160, "tracks": {
+                "scale": [{"t": 0.0, "v": 112.0}, {"t": 1.0, "v": 100.0, "ease": "suave"}],
+                "rot": [{"t": 0.0, "v": -2.6}, {"t": 1.0, "v": 0.0, "ease": "suave"}],
+            }},
+        },
+    },
+    "bass_hit": {
+        "id": "bass_hit", "label": "Bass Hit", "categoria": "Batalha",
+        "descricao": "Bomba do grave: infla na vertical e pulsa dois batimentos.",
+        "phases": {
+            "enter": {"dur_ms": 120, "tracks": {
+                "scale_x": [{"t": 0.0, "v": 100.0},
+                            {"t": 1.0, "v": 104.0, "ease": "rapido"}],
+                "scale_y": [{"t": 0.0, "v": 100.0},
+                            {"t": 1.0, "v": 122.0, "ease": "rapido"}],
+            }},
+            "hold": {"tracks": {
+                "scale_x": [{"t": 0.0, "v": 104.0}, {"t": 1.0, "v": 104.0}],
+                "scale_y": [{"t": 0.0, "v": 122.0},
+                            {"t": 0.25, "v": 130.0, "ease": "rapido"},
+                            {"t": 0.5, "v": 118.0, "ease": "suave"},
+                            {"t": 0.75, "v": 127.0, "ease": "rapido"},
+                            {"t": 1.0, "v": 122.0, "ease": "suave"}],
+                "blur": [{"t": 0.0, "v": 0.0}, {"t": 0.25, "v": 1.6, "ease": "rapido"},
+                         {"t": 0.5, "v": 0.0, "ease": "suave"},
+                         {"t": 0.75, "v": 1.4, "ease": "rapido"},
+                         {"t": 1.0, "v": 0.0, "ease": "suave"}],
+            }},
+            "exit": {"dur_ms": 140, "tracks": {
+                "scale_x": [{"t": 0.0, "v": 104.0},
+                            {"t": 1.0, "v": 100.0, "ease": "suave"}],
+                "scale_y": [{"t": 0.0, "v": 122.0},
+                            {"t": 1.0, "v": 100.0, "ease": "suave"}],
+            }},
+        },
+    },
+    "knockout": {
+        "id": "knockout", "label": "Knockout", "categoria": "Batalha",
+        "descricao": "Nocaute: entra gigante torto e crava sem dó.",
+        "outline_color": "#000000",
+        "phases": {
+            "enter": {"dur_ms": 230, "tracks": {
+                "scale": [{"t": 0.0, "v": 178.0},
+                          {"t": 0.4, "v": 104.0, "ease": "rapido"},
+                          {"t": 1.0, "v": 116.0, "ease": "impacto"}],
+                "rot": [{"t": 0.0, "v": -4.2},
+                        {"t": 0.6, "v": 1.4, "ease": "rapido"},
+                        {"t": 1.0, "v": -1.0, "ease": "suave"}],
+                "bord": [{"t": 0.0, "v": 5.0}, {"t": 1.0, "v": 2.0, "ease": "rapido"}],
+                "blur": [{"t": 0.0, "v": 8.0},
+                         {"t": 0.45, "v": 0.0, "ease": "rapido"}, {"t": 1.0, "v": 0.0}],
+            }},
+            "hold": {"tracks": {
+                "scale": [{"t": 0.0, "v": 116.0}, {"t": 1.0, "v": 116.0}],
+                "rot": [{"t": 0.0, "v": -1.0}, {"t": 1.0, "v": -1.0}],
+                "bord": [{"t": 0.0, "v": 2.0}, {"t": 1.0, "v": 2.0}],
+            }},
+            "exit": {"dur_ms": 170, "tracks": {
+                "scale": [{"t": 0.0, "v": 116.0}, {"t": 1.0, "v": 100.0, "ease": "suave"}],
+                "rot": [{"t": 0.0, "v": -1.0}, {"t": 1.0, "v": 0.0, "ease": "suave"}],
+                "bord": [{"t": 0.0, "v": 2.0}, {"t": 1.0, "v": 0.0, "ease": "suave"}],
+            }},
+        },
+    },
+    # ------------------------------ Glitch ------------------------------
+    "glitch_snap": {
+        "id": "glitch_snap", "label": "Glitch Snap", "categoria": "Glitch",
+        "descricao": "Pisca e range como sinal ruim antes de estabilizar.",
+        "outline_color": "#00E5FF",
+        "phases": {
+            "enter": {"dur_ms": 260, "tracks": {
+                "alpha": [{"t": 0.0, "v": 0.0}, {"t": 0.12, "v": 0.7},
+                          {"t": 0.2, "v": 0.0}, {"t": 0.34, "v": 0.55},
+                          {"t": 0.44, "v": 0.0}, {"t": 1.0, "v": 0.0}],
+                "scale": [{"t": 0.0, "v": 104.0},
+                          {"t": 0.5, "v": 112.0, "ease": "rapido"},
+                          {"t": 1.0, "v": 108.0, "ease": "suave"}],
+                "bord": [{"t": 0.0, "v": 2.5}, {"t": 1.0, "v": 1.0, "ease": "rapido"}],
+            }},
+            "hold": {"jitter": {"rot": 0.9, "freq": 16.0}, "tracks": {
+                "scale": [{"t": 0.0, "v": 108.0}, {"t": 1.0, "v": 108.0}],
+                "bord": [{"t": 0.0, "v": 1.0}, {"t": 1.0, "v": 1.0}],
+            }},
+            "exit": {"dur_ms": 140, "tracks": {
+                "scale": [{"t": 0.0, "v": 108.0}, {"t": 1.0, "v": 100.0, "ease": "suave"}],
+                "bord": [{"t": 0.0, "v": 1.0}, {"t": 1.0, "v": 0.0, "ease": "suave"}],
+            }},
+        },
+    },
+    # ----------------------------- Elegantes -----------------------------
+    "soft_impact": {
+        "id": "soft_impact", "label": "Soft Impact", "categoria": "Elegantes",
+        "descricao": "Presença sem grito: cresce pouco, entra de leve, sai de leve.",
+        "phases": {
+            "enter": {"dur_ms": 260, "tracks": {
+                "scale": [{"t": 0.0, "v": 100.0},
+                          {"t": 1.0, "v": 107.0, "ease": "suave"}],
+                "blur": [{"t": 0.0, "v": 2.0}, {"t": 0.7, "v": 0.0, "ease": "suave"},
+                         {"t": 1.0, "v": 0.0}],
+            }},
+            "hold": {"tracks": {
+                "scale": [{"t": 0.0, "v": 107.0}, {"t": 1.0, "v": 107.0}],
+            }},
+            "exit": {"dur_ms": 220, "tracks": {
+                "scale": [{"t": 0.0, "v": 107.0}, {"t": 1.0, "v": 100.0, "ease": "suave"}],
+            }},
+        },
+    },
 }
 
 # propriedades cujo DESVIO do neutro escala com a intensidade
-NEUTRAL = {"scale": 100.0, "blur": 0.0, "rot": 0.0, "bord": 0.0, "alpha": 0.0}
+NEUTRAL = {"scale": 100.0, "scale_x": 100.0, "scale_y": 100.0,
+           "blur": 0.0, "rot": 0.0, "bord": 0.0, "alpha": 0.0}
 ROT_MAX = 5.0  # \frz gira em torno da âncora da LINHA — ângulo grande desloca a palavra
 
 
@@ -137,7 +412,8 @@ def text_props_at(effect: dict, preset: dict, t_out: float) -> dict:
                                         float(jitter.get("freq", 9.0)))
         props["rot"] += rot
     props["rot"] = max(-ROT_MAX, min(ROT_MAX, props["rot"]))
-    props["scale"] = max(10.0, min(220.0, props["scale"]))
+    for k_ in ("scale", "scale_x", "scale_y"):
+        props[k_] = max(10.0, min(220.0, props[k_]))
     props["blur"] = max(0.0, min(24.0, props["blur"]))
     props["alpha"] = max(0.0, min(1.0, props["alpha"]))
     return props
@@ -156,7 +432,10 @@ def text_props_at(effect: dict, preset: dict, t_out: float) -> dict:
 
 def _tags_de(props: dict, style: dict) -> str:
     bord_base = float(style.get("outline") or 3)
-    tags = (f"\\fscx{props['scale']:.0f}\\fscy{props['scale']:.0f}"
+    # eixos separados (Word Stretch) têm precedência sobre a escala uniforme
+    sx = props["scale_x"] if props["scale_x"] != 100.0 else props["scale"]
+    sy = props["scale_y"] if props["scale_y"] != 100.0 else props["scale"]
+    tags = (f"\\fscx{sx:.0f}\\fscy{sy:.0f}"
             f"\\bord{bord_base + props['bord']:.2g}")
     tags += f"\\blur{props['blur']:.2g}" if props["blur"] else "\\blur0"
     tags += f"\\frz{props['rot']:.2f}" if props["rot"] else "\\frz0"
@@ -207,14 +486,18 @@ def overlay_line(effect: dict, preset: dict, style: dict, texts: list[str],
     end = min(float(effect["end"]), ev_end)
     if end - start < 0.03 or not effect.get("enabled", True):
         return None
-    cor = hex_to_ass(effect["params"]["color"]) if (effect.get("params") or {}).get("color") \
-        else None
+    cor_hex = (effect.get("params") or {}).get("color") or preset.get("color")
+    cor = hex_to_ass(cor_hex) if cor_hex else None
+    borda_hex = (effect.get("params") or {}).get("outline_color") \
+        or preset.get("outline_color")
+    borda = hex_to_ass(borda_hex) if borda_hex else None
     anim = _anim_sampled(effect, preset, style, start, end, fps)
     partes: list[str] = []
     for i, text in enumerate(texts):
         sep = "\\N" if i in breaks else (" " if i > 0 else "")
         if i in alvo:
-            liga = "{\\alpha&H00&" + (f"\\c{cor}" if cor else "") + anim + "}"
+            liga = ("{\\alpha&H00&" + (f"\\c{cor}" if cor else "")
+                    + (f"\\3c{borda}" if borda else "") + anim + "}")
             partes.append(f"{sep}{liga}{text}{{\\alpha&HFF&}}")
         else:
             partes.append(f"{sep}{text}")

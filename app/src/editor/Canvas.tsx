@@ -369,21 +369,27 @@ export default function Canvas(p: Props) {
                 ? p.motionPresets.find((pr) => pr.id === fxMo.preset) : undefined;
               const mo = fxMo && presetMo
                 ? textPropsAt(fxMo, presetMo, outNow) : null;
-              const moAtivo = !!mo && (mo.scale !== 100 || mo.blur > 0
+              const moAtivo = !!mo && (mo.scale !== 100 || mo.scale_x !== 100
+                || mo.scale_y !== 100 || mo.blur > 0
                 || mo.rot !== 0 || mo.alpha > 0 || mo.bord !== 0);
+              const moSx = mo ? (mo.scale_x !== 100 ? mo.scale_x : mo.scale) / 100 : 1;
+              const moSy = mo ? (mo.scale_y !== 100 ? mo.scale_y : mo.scale) / 100 : 1;
               return (
                 <span key={i}>
                   <span
                     className={`cv-word${enf ? " enf" : ""}`}
                     style={{
-                      color: (fxMo?.params?.color as string | undefined) ?? corEnf ?? cor,
+                      color: moAtivo
+                        ? ((fxMo?.params?.color as string | undefined)
+                          ?? presetMo?.color ?? corEnf ?? cor)
+                        : corEnf ?? cor,
                       textShadow: boxBg ? "none" : outline,
                       background: caixaEnf ? String(st.highlight_color ?? "#FFD400")
                         : boxBg ?? "transparent",
                       padding: boxBg || caixaEnf ? `${2 * SC}px ${10 * SC}px` : 0,
                       borderRadius: boxBg || caixaEnf ? 6 * SC : 0,
                       transform: moAtivo
-                        ? `scale(${(mo!.scale / 100).toFixed(3)})`
+                        ? `scale(${moSx.toFixed(3)}, ${moSy.toFixed(3)})`
                           + (mo!.rot ? ` rotate(${mo!.rot.toFixed(2)}deg)` : "")
                         : esc !== 1 ? `scale(${esc.toFixed(3)})` : undefined,
                       filter: moAtivo && mo!.blur > 0

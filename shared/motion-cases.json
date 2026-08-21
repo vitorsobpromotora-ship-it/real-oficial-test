@@ -512,6 +512,850 @@
  "text_props": {
   "_comment": "avaliação das 3 fases ENTER/HOLD/EXIT com intensidade forte — o TS deve chegar aos mesmos valores com o preset do catálogo",
   "presets": {
+   "bass_hit": {
+    "id": "bass_hit",
+    "label": "Bass Hit",
+    "categoria": "Batalha",
+    "descricao": "Bomba do grave: infla na vertical e pulsa dois batimentos.",
+    "phases": {
+     "enter": {
+      "dur_ms": 120,
+      "tracks": {
+       "scale_x": [
+        {
+         "t": 0.0,
+         "v": 100.0
+        },
+        {
+         "t": 1.0,
+         "v": 104.0,
+         "ease": "rapido"
+        }
+       ],
+       "scale_y": [
+        {
+         "t": 0.0,
+         "v": 100.0
+        },
+        {
+         "t": 1.0,
+         "v": 122.0,
+         "ease": "rapido"
+        }
+       ]
+      }
+     },
+     "hold": {
+      "tracks": {
+       "scale_x": [
+        {
+         "t": 0.0,
+         "v": 104.0
+        },
+        {
+         "t": 1.0,
+         "v": 104.0
+        }
+       ],
+       "scale_y": [
+        {
+         "t": 0.0,
+         "v": 122.0
+        },
+        {
+         "t": 0.25,
+         "v": 130.0,
+         "ease": "rapido"
+        },
+        {
+         "t": 0.5,
+         "v": 118.0,
+         "ease": "suave"
+        },
+        {
+         "t": 0.75,
+         "v": 127.0,
+         "ease": "rapido"
+        },
+        {
+         "t": 1.0,
+         "v": 122.0,
+         "ease": "suave"
+        }
+       ],
+       "blur": [
+        {
+         "t": 0.0,
+         "v": 0.0
+        },
+        {
+         "t": 0.25,
+         "v": 1.6,
+         "ease": "rapido"
+        },
+        {
+         "t": 0.5,
+         "v": 0.0,
+         "ease": "suave"
+        },
+        {
+         "t": 0.75,
+         "v": 1.4,
+         "ease": "rapido"
+        },
+        {
+         "t": 1.0,
+         "v": 0.0,
+         "ease": "suave"
+        }
+       ]
+      }
+     },
+     "exit": {
+      "dur_ms": 140,
+      "tracks": {
+       "scale_x": [
+        {
+         "t": 0.0,
+         "v": 104.0
+        },
+        {
+         "t": 1.0,
+         "v": 100.0,
+         "ease": "suave"
+        }
+       ],
+       "scale_y": [
+        {
+         "t": 0.0,
+         "v": 122.0
+        },
+        {
+         "t": 1.0,
+         "v": 100.0,
+         "ease": "suave"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "color_pop": {
+    "id": "color_pop",
+    "label": "Color Pop",
+    "categoria": "Básicos",
+    "descricao": "A palavra acende numa cor de destaque com um pop leve.",
+    "color": "#FFD400",
+    "phases": {
+     "enter": {
+      "dur_ms": 130,
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 100.0
+        },
+        {
+         "t": 0.6,
+         "v": 112.0,
+         "ease": "rapido"
+        },
+        {
+         "t": 1.0,
+         "v": 106.0,
+         "ease": "suave"
+        }
+       ]
+      }
+     },
+     "hold": {
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 106.0
+        },
+        {
+         "t": 1.0,
+         "v": 106.0
+        }
+       ]
+      }
+     },
+     "exit": {
+      "dur_ms": 160,
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 106.0
+        },
+        {
+         "t": 1.0,
+         "v": 100.0,
+         "ease": "suave"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "diss": {
+    "id": "diss",
+    "label": "Diss",
+    "categoria": "Batalha",
+    "descricao": "Provocação: inclina com deboche e segura o olhar.",
+    "color": "#FF9F1C",
+    "phases": {
+     "enter": {
+      "dur_ms": 200,
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 100.0
+        },
+        {
+         "t": 0.45,
+         "v": 122.0,
+         "ease": "rapido"
+        },
+        {
+         "t": 1.0,
+         "v": 112.0,
+         "ease": "suave"
+        }
+       ],
+       "rot": [
+        {
+         "t": 0.0,
+         "v": 0.0
+        },
+        {
+         "t": 0.5,
+         "v": -3.4,
+         "ease": "rapido"
+        },
+        {
+         "t": 1.0,
+         "v": -2.6,
+         "ease": "suave"
+        }
+       ]
+      }
+     },
+     "hold": {
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 112.0
+        },
+        {
+         "t": 1.0,
+         "v": 112.0
+        }
+       ],
+       "rot": [
+        {
+         "t": 0.0,
+         "v": -2.6
+        },
+        {
+         "t": 1.0,
+         "v": -2.6
+        }
+       ]
+      }
+     },
+     "exit": {
+      "dur_ms": 160,
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 112.0
+        },
+        {
+         "t": 1.0,
+         "v": 100.0,
+         "ease": "suave"
+        }
+       ],
+       "rot": [
+        {
+         "t": 0.0,
+         "v": -2.6
+        },
+        {
+         "t": 1.0,
+         "v": 0.0,
+         "ease": "suave"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "fatality": {
+    "id": "fatality",
+    "label": "Fatality",
+    "categoria": "Batalha",
+    "descricao": "O golpe final: estoura vermelho, treme contido e assenta pesado.",
+    "color": "#FF2D2D",
+    "phases": {
+     "enter": {
+      "dur_ms": 240,
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 100.0
+        },
+        {
+         "t": 0.3,
+         "v": 152.0,
+         "ease": "rapido"
+        },
+        {
+         "t": 1.0,
+         "v": 118.0,
+         "ease": "impacto"
+        }
+       ],
+       "bord": [
+        {
+         "t": 0.0,
+         "v": 0.0
+        },
+        {
+         "t": 0.3,
+         "v": 5.0,
+         "ease": "rapido"
+        },
+        {
+         "t": 1.0,
+         "v": 2.0,
+         "ease": "suave"
+        }
+       ],
+       "blur": [
+        {
+         "t": 0.0,
+         "v": 5.0
+        },
+        {
+         "t": 0.35,
+         "v": 0.0,
+         "ease": "rapido"
+        },
+        {
+         "t": 1.0,
+         "v": 0.0
+        }
+       ]
+      }
+     },
+     "hold": {
+      "jitter": {
+       "rot": 1.6,
+       "freq": 10.0
+      },
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 118.0
+        },
+        {
+         "t": 1.0,
+         "v": 118.0
+        }
+       ],
+       "bord": [
+        {
+         "t": 0.0,
+         "v": 2.0
+        },
+        {
+         "t": 1.0,
+         "v": 2.0
+        }
+       ]
+      }
+     },
+     "exit": {
+      "dur_ms": 180,
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 118.0
+        },
+        {
+         "t": 1.0,
+         "v": 100.0,
+         "ease": "suave"
+        }
+       ],
+       "bord": [
+        {
+         "t": 0.0,
+         "v": 2.0
+        },
+        {
+         "t": 1.0,
+         "v": 0.0,
+         "ease": "suave"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "flash_word": {
+    "id": "flash_word",
+    "label": "Flash Word",
+    "categoria": "Básicos",
+    "descricao": "Clarão branco instantâneo que assenta na cor normal.",
+    "color": "#FFFFFF",
+    "phases": {
+     "enter": {
+      "dur_ms": 200,
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 108.0
+        },
+        {
+         "t": 1.0,
+         "v": 105.0,
+         "ease": "rapido"
+        }
+       ],
+       "blur": [
+        {
+         "t": 0.0,
+         "v": 6.0
+        },
+        {
+         "t": 0.35,
+         "v": 0.0,
+         "ease": "rapido"
+        },
+        {
+         "t": 1.0,
+         "v": 0.0
+        }
+       ],
+       "bord": [
+        {
+         "t": 0.0,
+         "v": 4.0
+        },
+        {
+         "t": 1.0,
+         "v": 0.5,
+         "ease": "rapido"
+        }
+       ]
+      }
+     },
+     "hold": {
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 105.0
+        },
+        {
+         "t": 1.0,
+         "v": 105.0
+        }
+       ]
+      }
+     },
+     "exit": {
+      "dur_ms": 130,
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 105.0
+        },
+        {
+         "t": 1.0,
+         "v": 100.0,
+         "ease": "suave"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "glitch_snap": {
+    "id": "glitch_snap",
+    "label": "Glitch Snap",
+    "categoria": "Glitch",
+    "descricao": "Pisca e range como sinal ruim antes de estabilizar.",
+    "outline_color": "#00E5FF",
+    "phases": {
+     "enter": {
+      "dur_ms": 260,
+      "tracks": {
+       "alpha": [
+        {
+         "t": 0.0,
+         "v": 0.0
+        },
+        {
+         "t": 0.12,
+         "v": 0.7
+        },
+        {
+         "t": 0.2,
+         "v": 0.0
+        },
+        {
+         "t": 0.34,
+         "v": 0.55
+        },
+        {
+         "t": 0.44,
+         "v": 0.0
+        },
+        {
+         "t": 1.0,
+         "v": 0.0
+        }
+       ],
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 104.0
+        },
+        {
+         "t": 0.5,
+         "v": 112.0,
+         "ease": "rapido"
+        },
+        {
+         "t": 1.0,
+         "v": 108.0,
+         "ease": "suave"
+        }
+       ],
+       "bord": [
+        {
+         "t": 0.0,
+         "v": 2.5
+        },
+        {
+         "t": 1.0,
+         "v": 1.0,
+         "ease": "rapido"
+        }
+       ]
+      }
+     },
+     "hold": {
+      "jitter": {
+       "rot": 0.9,
+       "freq": 16.0
+      },
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 108.0
+        },
+        {
+         "t": 1.0,
+         "v": 108.0
+        }
+       ],
+       "bord": [
+        {
+         "t": 0.0,
+         "v": 1.0
+        },
+        {
+         "t": 1.0,
+         "v": 1.0
+        }
+       ]
+      }
+     },
+     "exit": {
+      "dur_ms": 140,
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 108.0
+        },
+        {
+         "t": 1.0,
+         "v": 100.0,
+         "ease": "suave"
+        }
+       ],
+       "bord": [
+        {
+         "t": 0.0,
+         "v": 1.0
+        },
+        {
+         "t": 1.0,
+         "v": 0.0,
+         "ease": "suave"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "knockout": {
+    "id": "knockout",
+    "label": "Knockout",
+    "categoria": "Batalha",
+    "descricao": "Nocaute: entra gigante torto e crava sem dó.",
+    "outline_color": "#000000",
+    "phases": {
+     "enter": {
+      "dur_ms": 230,
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 178.0
+        },
+        {
+         "t": 0.4,
+         "v": 104.0,
+         "ease": "rapido"
+        },
+        {
+         "t": 1.0,
+         "v": 116.0,
+         "ease": "impacto"
+        }
+       ],
+       "rot": [
+        {
+         "t": 0.0,
+         "v": -4.2
+        },
+        {
+         "t": 0.6,
+         "v": 1.4,
+         "ease": "rapido"
+        },
+        {
+         "t": 1.0,
+         "v": -1.0,
+         "ease": "suave"
+        }
+       ],
+       "bord": [
+        {
+         "t": 0.0,
+         "v": 5.0
+        },
+        {
+         "t": 1.0,
+         "v": 2.0,
+         "ease": "rapido"
+        }
+       ],
+       "blur": [
+        {
+         "t": 0.0,
+         "v": 8.0
+        },
+        {
+         "t": 0.45,
+         "v": 0.0,
+         "ease": "rapido"
+        },
+        {
+         "t": 1.0,
+         "v": 0.0
+        }
+       ]
+      }
+     },
+     "hold": {
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 116.0
+        },
+        {
+         "t": 1.0,
+         "v": 116.0
+        }
+       ],
+       "rot": [
+        {
+         "t": 0.0,
+         "v": -1.0
+        },
+        {
+         "t": 1.0,
+         "v": -1.0
+        }
+       ],
+       "bord": [
+        {
+         "t": 0.0,
+         "v": 2.0
+        },
+        {
+         "t": 1.0,
+         "v": 2.0
+        }
+       ]
+      }
+     },
+     "exit": {
+      "dur_ms": 170,
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 116.0
+        },
+        {
+         "t": 1.0,
+         "v": 100.0,
+         "ease": "suave"
+        }
+       ],
+       "rot": [
+        {
+         "t": 0.0,
+         "v": -1.0
+        },
+        {
+         "t": 1.0,
+         "v": 0.0,
+         "ease": "suave"
+        }
+       ],
+       "bord": [
+        {
+         "t": 0.0,
+         "v": 2.0
+        },
+        {
+         "t": 1.0,
+         "v": 0.0,
+         "ease": "suave"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "outline_burst": {
+    "id": "outline_burst",
+    "label": "Outline Burst",
+    "categoria": "Impacto",
+    "descricao": "A borda explode grossa e recolhe — impacto sem crescer muito.",
+    "phases": {
+     "enter": {
+      "dur_ms": 220,
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 100.0
+        },
+        {
+         "t": 0.4,
+         "v": 110.0,
+         "ease": "rapido"
+        },
+        {
+         "t": 1.0,
+         "v": 106.0,
+         "ease": "suave"
+        }
+       ],
+       "bord": [
+        {
+         "t": 0.0,
+         "v": 0.0
+        },
+        {
+         "t": 0.35,
+         "v": 8.0,
+         "ease": "rapido"
+        },
+        {
+         "t": 1.0,
+         "v": 1.5,
+         "ease": "suave"
+        }
+       ]
+      }
+     },
+     "hold": {
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 106.0
+        },
+        {
+         "t": 1.0,
+         "v": 106.0
+        }
+       ],
+       "bord": [
+        {
+         "t": 0.0,
+         "v": 1.5
+        },
+        {
+         "t": 1.0,
+         "v": 1.5
+        }
+       ]
+      }
+     },
+     "exit": {
+      "dur_ms": 150,
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 106.0
+        },
+        {
+         "t": 1.0,
+         "v": 100.0,
+         "ease": "suave"
+        }
+       ],
+       "bord": [
+        {
+         "t": 0.0,
+         "v": 1.5
+        },
+        {
+         "t": 1.0,
+         "v": 0.0,
+         "ease": "suave"
+        }
+       ]
+      }
+     }
+    }
+   },
    "pop_clean": {
     "id": "pop_clean",
     "label": "Pop Clean",
@@ -560,6 +1404,65 @@
         {
          "t": 0.0,
          "v": 106.0
+        },
+        {
+         "t": 1.0,
+         "v": 100.0,
+         "ease": "suave"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "pop_elastic": {
+    "id": "pop_elastic",
+    "label": "Pop Elástico",
+    "categoria": "Básicos",
+    "descricao": "Pop com quique elástico no assentamento.",
+    "phases": {
+     "enter": {
+      "dur_ms": 320,
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 100.0
+        },
+        {
+         "t": 0.22,
+         "v": 126.0,
+         "ease": "rapido"
+        },
+        {
+         "t": 1.0,
+         "v": 108.0,
+         "ease": "elastico"
+        }
+       ]
+      }
+     },
+     "hold": {
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 108.0
+        },
+        {
+         "t": 1.0,
+         "v": 108.0
+        }
+       ]
+      }
+     },
+     "exit": {
+      "dur_ms": 150,
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 108.0
         },
         {
          "t": 1.0,
@@ -682,9 +1585,2909 @@
       }
      }
     }
+   },
+   "slam": {
+    "id": "slam",
+    "label": "Slam",
+    "categoria": "Impacto",
+    "descricao": "Cai GRANDE de cima e crava no lugar, com poeira de blur.",
+    "phases": {
+     "enter": {
+      "dur_ms": 190,
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 168.0
+        },
+        {
+         "t": 0.45,
+         "v": 96.0,
+         "ease": "rapido"
+        },
+        {
+         "t": 1.0,
+         "v": 108.0,
+         "ease": "impacto"
+        }
+       ],
+       "blur": [
+        {
+         "t": 0.0,
+         "v": 7.0
+        },
+        {
+         "t": 0.5,
+         "v": 0.0,
+         "ease": "rapido"
+        },
+        {
+         "t": 1.0,
+         "v": 0.0
+        }
+       ],
+       "rot": [
+        {
+         "t": 0.0,
+         "v": -2.5
+        },
+        {
+         "t": 1.0,
+         "v": 0.0,
+         "ease": "impacto"
+        }
+       ]
+      }
+     },
+     "hold": {
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 108.0
+        },
+        {
+         "t": 1.0,
+         "v": 108.0
+        }
+       ]
+      }
+     },
+     "exit": {
+      "dur_ms": 140,
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 108.0
+        },
+        {
+         "t": 1.0,
+         "v": 100.0,
+         "ease": "suave"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "soft_impact": {
+    "id": "soft_impact",
+    "label": "Soft Impact",
+    "categoria": "Elegantes",
+    "descricao": "Presença sem grito: cresce pouco, entra de leve, sai de leve.",
+    "phases": {
+     "enter": {
+      "dur_ms": 260,
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 100.0
+        },
+        {
+         "t": 1.0,
+         "v": 107.0,
+         "ease": "suave"
+        }
+       ],
+       "blur": [
+        {
+         "t": 0.0,
+         "v": 2.0
+        },
+        {
+         "t": 0.7,
+         "v": 0.0,
+         "ease": "suave"
+        },
+        {
+         "t": 1.0,
+         "v": 0.0
+        }
+       ]
+      }
+     },
+     "hold": {
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 107.0
+        },
+        {
+         "t": 1.0,
+         "v": 107.0
+        }
+       ]
+      }
+     },
+     "exit": {
+      "dur_ms": 220,
+      "tracks": {
+       "scale": [
+        {
+         "t": 0.0,
+         "v": 107.0
+        },
+        {
+         "t": 1.0,
+         "v": 100.0,
+         "ease": "suave"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "word_stretch": {
+    "id": "word_stretch",
+    "label": "Word Stretch",
+    "categoria": "Impacto",
+    "descricao": "Estica horizontal no ataque e volta ao normal — groove de batida.",
+    "phases": {
+     "enter": {
+      "dur_ms": 240,
+      "tracks": {
+       "scale_x": [
+        {
+         "t": 0.0,
+         "v": 100.0
+        },
+        {
+         "t": 0.25,
+         "v": 148.0,
+         "ease": "rapido"
+        },
+        {
+         "t": 0.75,
+         "v": 106.0,
+         "ease": "suave"
+        },
+        {
+         "t": 1.0,
+         "v": 112.0,
+         "ease": "elastico"
+        }
+       ],
+       "scale_y": [
+        {
+         "t": 0.0,
+         "v": 100.0
+        },
+        {
+         "t": 0.25,
+         "v": 92.0,
+         "ease": "rapido"
+        },
+        {
+         "t": 0.75,
+         "v": 102.0,
+         "ease": "suave"
+        },
+        {
+         "t": 1.0,
+         "v": 104.0,
+         "ease": "elastico"
+        }
+       ]
+      }
+     },
+     "hold": {
+      "tracks": {
+       "scale_x": [
+        {
+         "t": 0.0,
+         "v": 112.0
+        },
+        {
+         "t": 1.0,
+         "v": 112.0
+        }
+       ],
+       "scale_y": [
+        {
+         "t": 0.0,
+         "v": 104.0
+        },
+        {
+         "t": 1.0,
+         "v": 104.0
+        }
+       ]
+      }
+     },
+     "exit": {
+      "dur_ms": 150,
+      "tracks": {
+       "scale_x": [
+        {
+         "t": 0.0,
+         "v": 112.0
+        },
+        {
+         "t": 1.0,
+         "v": 100.0,
+         "ease": "suave"
+        }
+       ],
+       "scale_y": [
+        {
+         "t": 0.0,
+         "v": 104.0
+        },
+        {
+         "t": 1.0,
+         "v": 100.0,
+         "ease": "suave"
+        }
+       ]
+      }
+     }
+    }
    }
   },
   "cases": [
+   {
+    "preset": "bass_hit",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "bass_hit",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 1.9,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "bass_hit",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "bass_hit",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.0,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "bass_hit",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "bass_hit",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.03,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 103.46874999999997,
+     "scale_y": 119.07812499999991,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "bass_hit",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "bass_hit",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.08,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 105.77777777777777,
+     "scale_y": 131.77777777777777,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "bass_hit",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "bass_hit",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.15,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 106.0,
+     "scale_y": 141.74903317728473,
+     "blur": 1.7498066354569477,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "bass_hit",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "bass_hit",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.25,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 106.0,
+     "scale_y": 134.50335843680034,
+     "blur": 1.0004477915733803,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "bass_hit",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "bass_hit",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.45,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 106.0,
+     "scale_y": 133.04884998982294,
+     "blur": 0.013677997150416843,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "bass_hit",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "bass_hit",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.55,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 101.09329446064143,
+     "scale_y": 106.01311953352783,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "bass_hit",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "bass_hit",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.595,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.00109329446065,
+     "scale_y": 100.00601311953352,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "bass_hit",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "bass_hit",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.6,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "bass_hit",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "bass_hit",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.7,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "color_pop",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "color_pop",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 1.9,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "color_pop",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "color_pop",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.0,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "color_pop",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "color_pop",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.03,
+    "props": {
+     "scale": 113.80518889394625,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "color_pop",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "color_pop",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.08,
+    "props": {
+     "scale": 117.99795175238964,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "color_pop",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "color_pop",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.15,
+    "props": {
+     "scale": 109.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "color_pop",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "color_pop",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.25,
+    "props": {
+     "scale": 109.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "color_pop",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "color_pop",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.45,
+    "props": {
+     "scale": 108.9912109375,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "color_pop",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "color_pop",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.55,
+    "props": {
+     "scale": 101.09863281250003,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "color_pop",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "color_pop",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.595,
+    "props": {
+     "scale": 100.0010986328125,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "color_pop",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "color_pop",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.6,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "color_pop",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "color_pop",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.7,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "diss",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "diss",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 1.9,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "diss",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "diss",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.0,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "diss",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "diss",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.03,
+    "props": {
+     "scale": 123.22222222222214,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": -3.3506999999999856,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "diss",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "diss",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.08,
+    "props": {
+     "scale": 132.95473251028807,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": -5.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "diss",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "diss",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.15,
+    "props": {
+     "scale": 123.63486100676187,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": -4.5000000000000036,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "diss",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "diss",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.25,
+    "props": {
+     "scale": 118.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": -3.9000000000000004,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "diss",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "diss",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.45,
+    "props": {
+     "scale": 117.982421875,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": -3.8961914062500003,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "diss",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "diss",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.55,
+    "props": {
+     "scale": 102.19726562500004,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": -0.4760742187500093,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "diss",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "diss",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.595,
+    "props": {
+     "scale": 100.002197265625,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": -0.00047607421874973355,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "diss",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "diss",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.6,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "diss",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "diss",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.7,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "fatality",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "fatality",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 1.9,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "fatality",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "fatality",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.0,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 7.5,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "fatality",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "fatality",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.03,
+    "props": {
+     "scale": 162.5173611111109,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 1.9925291545189727,
+     "rot": 0.0,
+     "bord": 6.011284722222202,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "fatality",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "fatality",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.08,
+    "props": {
+     "scale": 167.30750113378673,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0008098477486231381,
+     "rot": 0.0,
+     "bord": 7.498056365403304,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "fatality",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "fatality",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.15,
+    "props": {
+     "scale": 123.27787005739796,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 5.698524052478139,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "fatality",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "fatality",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.25,
+    "props": {
+     "scale": 127.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 1.4788189060022312,
+     "bord": 3.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "fatality",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "fatality",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.45,
+    "props": {
+     "scale": 126.5,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 2.944444444444444,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "fatality",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "fatality",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.55,
+    "props": {
+     "scale": 102.31481481481487,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.2572016460905402,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "fatality",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "fatality",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.595,
+    "props": {
+     "scale": 100.00231481481481,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0002572016460904436,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "fatality",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "fatality",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.6,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "fatality",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "fatality",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.7,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "flash_word",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "flash_word",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 1.9,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "flash_word",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "flash_word",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.0,
+    "props": {
+     "scale": 112.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 9.0,
+     "rot": 0.0,
+     "bord": 6.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "flash_word",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "flash_word",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.03,
+    "props": {
+     "scale": 110.2635625,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 1.6793002915452142,
+     "rot": 0.0,
+     "bord": 3.974156250000011,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "flash_word",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "flash_word",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.08,
+    "props": {
+     "scale": 108.472,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 1.8839999999999983,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "flash_word",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "flash_word",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.15,
+    "props": {
+     "scale": 107.5703125,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.8320312500000007,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "flash_word",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "flash_word",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.25,
+    "props": {
+     "scale": 107.5,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "flash_word",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "flash_word",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.45,
+    "props": {
+     "scale": 107.5,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "flash_word",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "flash_word",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.55,
+    "props": {
+     "scale": 101.70687300864819,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "flash_word",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "flash_word",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.595,
+    "props": {
+     "scale": 100.00170687300866,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "flash_word",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "flash_word",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.6,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "flash_word",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "flash_word",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.7,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "glitch_snap",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "glitch_snap",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 1.9,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "glitch_snap",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "glitch_snap",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.0,
+    "props": {
+     "scale": 106.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 3.75,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "glitch_snap",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "glitch_snap",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.03,
+    "props": {
+     "scale": 112.53800637232587,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 3.0575642922166626,
+     "alpha": 0.6730769230769186
+    }
+   },
+   {
+    "preset": "glitch_snap",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "glitch_snap",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.08,
+    "props": {
+     "scale": 117.31725079654075,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 2.246586253982703,
+     "alpha": 0.4230769230769242
+    }
+   },
+   {
+    "preset": "glitch_snap",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "glitch_snap",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.15,
+    "props": {
+     "scale": 117.91260810195723,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 1.6703885980883024,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "glitch_snap",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "glitch_snap",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.25,
+    "props": {
+     "scale": 112.01092398725534,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 1.5001280154756487,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "glitch_snap",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "glitch_snap",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.45,
+    "props": {
+     "scale": 112.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.33853046980679863,
+     "bord": 1.5,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "glitch_snap",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "glitch_snap",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.55,
+    "props": {
+     "scale": 102.18658892128283,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.2733236151603554,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "glitch_snap",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "glitch_snap",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.595,
+    "props": {
+     "scale": 100.00218658892128,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0002733236151603591,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "glitch_snap",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "glitch_snap",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.6,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "glitch_snap",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "glitch_snap",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.7,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "knockout",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "knockout",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 1.9,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "knockout",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "knockout",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.0,
+    "props": {
+     "scale": 217.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 12.0,
+     "rot": -5.0,
+     "bord": 7.5,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "knockout",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "knockout",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.03,
+    "props": {
+     "scale": 139.97305210816174,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 4.297562623855088,
+     "rot": -1.9263664009205437,
+     "bord": 5.958823045943955,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "knockout",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "knockout",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.08,
+    "props": {
+     "scale": 106.24632201857482,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.14046359629585536,
+     "rot": 1.4763714236139664,
+     "bord": 4.2482534725076,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "knockout",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "knockout",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.15,
+    "props": {
+     "scale": 124.81933711405165,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 2.0680447111038056,
+     "bord": 3.1893646749404136,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "knockout",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "knockout",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.25,
+    "props": {
+     "scale": 124.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": -1.5,
+     "bord": 3.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "knockout",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "knockout",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.45,
+    "props": {
+     "scale": 123.84368003256665,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": -1.4902300020354162,
+     "bord": 2.9804600040708324,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "knockout",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "knockout",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.55,
+    "props": {
+     "scale": 102.44249949114598,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": -0.15265621819662428,
+     "bord": 0.30531243639324857,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "knockout",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "knockout",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.595,
+    "props": {
+     "scale": 100.00244249949115,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": -0.00015265621819654518,
+     "bord": 0.00030531243639309036,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "knockout",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "knockout",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.6,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "knockout",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "knockout",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.7,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "outline_burst",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "outline_burst",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 1.9,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "outline_burst",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "outline_burst",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.0,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "outline_burst",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "outline_burst",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.03,
+    "props": {
+     "scale": 110.70535546581513,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 9.27100560090943,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "outline_burst",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "outline_burst",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.08,
+    "props": {
+     "scale": 114.98873027798649,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 11.999639902373533,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "outline_burst",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "outline_burst",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.15,
+    "props": {
+     "scale": 112.51306452959346,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 6.824573551051634,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "outline_burst",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "outline_burst",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.25,
+    "props": {
+     "scale": 109.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 2.25,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "outline_burst",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "outline_burst",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.45,
+    "props": {
+     "scale": 109.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 2.25,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "outline_burst",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "outline_burst",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.55,
+    "props": {
+     "scale": 101.33333333333337,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.33333333333334014,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "outline_burst",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "outline_burst",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.595,
+    "props": {
+     "scale": 100.00133333333335,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0003333333333331856,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "outline_burst",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "outline_burst",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.6,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "outline_burst",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "outline_burst",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.7,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
    {
     "preset": "pop_clean",
     "effect": {
@@ -707,6 +4510,8 @@
     "t": 1.9,
     "props": {
      "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
      "blur": 0.0,
      "rot": 0.0,
      "bord": 0.0,
@@ -735,6 +4540,8 @@
     "t": 2.0,
     "props": {
      "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
      "blur": 0.0,
      "rot": 0.0,
      "bord": 0.0,
@@ -763,6 +4570,8 @@
     "t": 2.03,
     "props": {
      "scale": 117.51221211514607,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
      "blur": 0.0,
      "rot": 0.0,
      "bord": 0.0,
@@ -791,6 +4600,8 @@
     "t": 2.08,
     "props": {
      "scale": 125.42324500401654,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
      "blur": 0.0,
      "rot": 0.0,
      "bord": 0.0,
@@ -819,6 +4630,8 @@
     "t": 2.15,
     "props": {
      "scale": 110.17936875292645,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
      "blur": 0.0,
      "rot": 0.0,
      "bord": 0.0,
@@ -847,6 +4660,8 @@
     "t": 2.25,
     "props": {
      "scale": 109.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
      "blur": 0.0,
      "rot": 0.0,
      "bord": 0.0,
@@ -875,6 +4690,8 @@
     "t": 2.45,
     "props": {
      "scale": 109.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
      "blur": 0.0,
      "rot": 0.0,
      "bord": 0.0,
@@ -903,6 +4720,8 @@
     "t": 2.55,
     "props": {
      "scale": 101.63994169096213,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
      "blur": 0.0,
      "rot": 0.0,
      "bord": 0.0,
@@ -931,6 +4750,8 @@
     "t": 2.595,
     "props": {
      "scale": 100.00163994169097,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
      "blur": 0.0,
      "rot": 0.0,
      "bord": 0.0,
@@ -959,6 +4780,8 @@
     "t": 2.6,
     "props": {
      "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
      "blur": 0.0,
      "rot": 0.0,
      "bord": 0.0,
@@ -987,6 +4810,338 @@
     "t": 2.7,
     "props": {
      "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "pop_elastic",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "pop_elastic",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 1.9,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "pop_elastic",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "pop_elastic",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.0,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "pop_elastic",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "pop_elastic",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.03,
+    "props": {
+     "scale": 132.670924117205,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "pop_elastic",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "pop_elastic",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.08,
+    "props": {
+     "scale": 117.57184591229522,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "pop_elastic",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "pop_elastic",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.15,
+    "props": {
+     "scale": 112.73863903384625,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "pop_elastic",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "pop_elastic",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.25,
+    "props": {
+     "scale": 111.916014181431,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "pop_elastic",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "pop_elastic",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.45,
+    "props": {
+     "scale": 112.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "pop_elastic",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "pop_elastic",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.55,
+    "props": {
+     "scale": 101.7777777777778,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "pop_elastic",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "pop_elastic",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.595,
+    "props": {
+     "scale": 100.00177777777776,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "pop_elastic",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "pop_elastic",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.6,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "pop_elastic",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "pop_elastic",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.7,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
      "blur": 0.0,
      "rot": 0.0,
      "bord": 0.0,
@@ -1015,6 +5170,8 @@
     "t": 1.9,
     "props": {
      "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
      "blur": 0.0,
      "rot": 0.0,
      "bord": 0.0,
@@ -1043,6 +5200,8 @@
     "t": 2.0,
     "props": {
      "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
      "blur": 3.5999999999999996,
      "rot": 0.0,
      "bord": 0.0,
@@ -1071,6 +5230,8 @@
     "t": 2.03,
     "props": {
      "scale": 150.30238251068846,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
      "blur": 0.5173955296404364,
      "rot": 0.0,
      "bord": 3.971240724528035,
@@ -1099,6 +5260,8 @@
     "t": 2.08,
     "props": {
      "scale": 132.66483789589216,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
      "blur": 0.0,
      "rot": 0.0,
      "bord": 4.466922440803351,
@@ -1127,6 +5290,8 @@
     "t": 2.15,
     "props": {
      "scale": 107.53908415217938,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
      "blur": 0.0,
      "rot": 0.0,
      "bord": 2.249859026503021,
@@ -1155,6 +5320,8 @@
     "t": 2.25,
     "props": {
      "scale": 112.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
      "blur": 0.0,
      "rot": 0.0,
      "bord": 1.5,
@@ -1183,6 +5350,8 @@
     "t": 2.45,
     "props": {
      "scale": 112.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
      "blur": 0.0,
      "rot": 0.0,
      "bord": 1.5,
@@ -1211,6 +5380,8 @@
     "t": 2.55,
     "props": {
      "scale": 101.7777777777778,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
      "blur": 0.0,
      "rot": 0.0,
      "bord": 0.2222222222222267,
@@ -1239,6 +5410,8 @@
     "t": 2.595,
     "props": {
      "scale": 100.00177777777776,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
      "blur": 0.0,
      "rot": 0.0,
      "bord": 0.00022222222222217924,
@@ -1267,6 +5440,8 @@
     "t": 2.6,
     "props": {
      "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
      "blur": 0.0,
      "rot": 0.0,
      "bord": 0.0,
@@ -1295,6 +5470,998 @@
     "t": 2.7,
     "props": {
      "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "slam",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "slam",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 1.9,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "slam",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "slam",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.0,
+    "props": {
+     "scale": 202.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 10.5,
+     "rot": -3.75,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "slam",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "slam",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.03,
+    "props": {
+     "scale": 123.53958302959644,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 3.363245371045374,
+     "rot": -1.524923399912535,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "slam",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "slam",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.08,
+    "props": {
+     "scale": 94.02874838681807,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.041332555766145695,
+     "rot": 0.17283647762064502,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "slam",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "slam",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.15,
+    "props": {
+     "scale": 113.7603528215491,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.18828138212567502,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "slam",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "slam",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.25,
+    "props": {
+     "scale": 112.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "slam",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "slam",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.45,
+    "props": {
+     "scale": 112.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "slam",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "slam",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.55,
+    "props": {
+     "scale": 102.18658892128283,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "slam",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "slam",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.595,
+    "props": {
+     "scale": 100.00218658892128,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "slam",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "slam",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.6,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "slam",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "slam",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.7,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "soft_impact",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "soft_impact",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 1.9,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "soft_impact",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "soft_impact",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.0,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 3.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "soft_impact",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "soft_impact",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.03,
+    "props": {
+     "scale": 100.0645197997269,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 2.9462558936052483,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "soft_impact",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "soft_impact",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.08,
+    "props": {
+     "scale": 101.223486572599,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 1.9808525009587654,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "soft_impact",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "soft_impact",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.15,
+    "props": {
+     "scale": 107.31941283568503,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.06522543993863916,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "soft_impact",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "soft_impact",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.25,
+    "props": {
+     "scale": 110.4976103777879,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "soft_impact",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "soft_impact",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.45,
+    "props": {
+     "scale": 110.30555555555554,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "soft_impact",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "soft_impact",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.55,
+    "props": {
+     "scale": 100.90020576131688,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "soft_impact",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "soft_impact",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.595,
+    "props": {
+     "scale": 100.00090020576133,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "soft_impact",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "soft_impact",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.6,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "soft_impact",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "soft_impact",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.7,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "word_stretch",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "word_stretch",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 1.9,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "word_stretch",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "word_stretch",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.0,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "word_stretch",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "word_stretch",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.03,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 162.99999999999983,
+     "scale_y": 89.50000000000003,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "word_stretch",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "word_stretch",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.08,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 170.83333333333331,
+     "scale_y": 88.27777777777779,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "word_stretch",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "word_stretch",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.15,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 112.93750000000004,
+     "scale_y": 102.0625,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "word_stretch",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "word_stretch",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.25,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 118.0,
+     "scale_y": 106.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "word_stretch",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "word_stretch",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.45,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 118.0,
+     "scale_y": 106.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "word_stretch",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "word_stretch",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.55,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 102.66666666666671,
+     "scale_y": 100.88888888888891,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "word_stretch",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "word_stretch",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.595,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.00266666666667,
+     "scale_y": 100.0008888888889,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "word_stretch",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "word_stretch",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.6,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
+     "blur": 0.0,
+     "rot": 0.0,
+     "bord": 0.0,
+     "alpha": 0.0
+    }
+   },
+   {
+    "preset": "word_stretch",
+    "effect": {
+     "id": "t1",
+     "type": "text_emphasis",
+     "preset": "word_stretch",
+     "target": {
+      "kind": "words",
+      "idx": [
+       2
+      ]
+     },
+     "start": 2.0,
+     "end": 2.6,
+     "intensity": "forte",
+     "enabled": true,
+     "seed": 9,
+     "params": {}
+    },
+    "t": 2.7,
+    "props": {
+     "scale": 100.0,
+     "scale_x": 100.0,
+     "scale_y": 100.0,
      "blur": 0.0,
      "rot": 0.0,
      "bord": 0.0,

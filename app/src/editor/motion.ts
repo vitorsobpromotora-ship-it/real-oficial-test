@@ -222,18 +222,24 @@ export interface TextPreset {
   label: string;
   categoria: string;
   descricao?: string;
+  color?: string; // cor da palavra durante o efeito (params.color vence)
+  outline_color?: string;
   phases: { enter?: TextPhase; hold?: TextPhase; exit?: TextPhase };
 }
 
 export interface TextProps {
   scale: number; // % (100 = neutro)
+  scale_x: number; // eixos separados (Word Stretch) — 100 = usa `scale`
+  scale_y: number;
   blur: number;
   rot: number;
   bord: number; // delta sobre o outline do estilo
   alpha: number; // 0..1 (0 = opaco)
 }
 
-export const TEXT_NEUTRAL: TextProps = { scale: 100, blur: 0, rot: 0, bord: 0, alpha: 0 };
+export const TEXT_NEUTRAL: TextProps = {
+  scale: 100, scale_x: 100, scale_y: 100, blur: 0, rot: 0, bord: 0, alpha: 0,
+};
 const ROT_MAX = 5;
 
 function faseEm(preset: TextPreset, tMs: number, durMs: number):
@@ -276,6 +282,8 @@ export function textPropsAt(e: EffectInstance, preset: TextPreset, tOut: number)
   }
   props.rot = Math.max(-ROT_MAX, Math.min(ROT_MAX, props.rot));
   props.scale = Math.max(10, Math.min(220, props.scale));
+  props.scale_x = Math.max(10, Math.min(220, props.scale_x));
+  props.scale_y = Math.max(10, Math.min(220, props.scale_y));
   props.blur = Math.max(0, Math.min(24, props.blur));
   props.alpha = Math.max(0, Math.min(1, props.alpha));
   return props;

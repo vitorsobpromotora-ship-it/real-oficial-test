@@ -101,8 +101,12 @@ export default function MotionPanel(p: Props) {
           <label>Animação</label>
           <select value={sel.preset} data-testid="mo-preset"
                   onChange={(ev) => mudar(sel.id, { preset: ev.target.value })}>
-            {p.presets.map((pr) => (
-              <option key={pr.id} value={pr.id}>{pr.label}</option>
+            {[...new Set(p.presets.map((pr) => pr.categoria))].map((cat) => (
+              <optgroup key={cat} label={cat}>
+                {p.presets.filter((pr) => pr.categoria === cat).map((pr) => (
+                  <option key={pr.id} value={pr.id}>{pr.label}</option>
+                ))}
+              </optgroup>
             ))}
             {!p.presets.some((pr) => pr.id === sel.preset) ? (
               <option value={sel.preset}>{sel.preset}</option>
