@@ -1,5 +1,12 @@
 # Real Oficial — Desktop (Windows 10/11)
 
+> **v3.0.0** — a tela do corte virou **decisão editorial** (assistir, ler a
+> análise, título/descrição, aprovar ou rejeitar) e **toda a edição técnica**
+> mora no Editor: canvas 9:16 WYSIWYG, inspector contextual, timeline com
+> tracks de enquadramento/legendas/punch-in em relógio relativo (00:00),
+> editor de palavras (substituir/excluir/inserir ancorado), ênfase por palavra
+> com 12 efeitos, família Palavra Pop e posição livre da legenda.
+
 **Real Oficial** transforma vídeos longos (podcasts, entrevistas, lives, aulas — até ~10h) em
 **cortes verticais 9:16 prontos para TikTok, Reels e Shorts**, com inteligência artificial:
 

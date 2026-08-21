@@ -10,7 +10,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { mediaUrl } from "../api/client";
 import type { BrandKit, CaptionCards, Cut, KitLayer, Source } from "../api/types";
-import { fmtSrc, fmtT, outDur, srcToOut, type Draft } from "./model";
+import { captionBox, fmtSrc, fmtT, outDur, srcToOut, type Draft } from "./model";
 
 const CW = 1080;
 const CH = 1920;
@@ -167,27 +167,8 @@ export default function Canvas(p: Props) {
   const st = { ...(p.captions?.style ?? {}), ...(p.draft.caption_style ?? {}) } as
     Record<string, unknown>;
   const card = (p.captions?.cards ?? []).find((c) => outNow >= c.start && outNow <= c.end) ?? null;
-  const widthPct = Number(st.max_width_pct ?? 88);
-  // MESMA precedência do motor (captions._margens): normalizado › margens › %
-  let anchor = Number(st.anchor_top ?? 1280);
-  let ml: number;
-  let mr: number;
-  if (st.pos_y != null) anchor = Math.round(Number(st.pos_y) * CH);
-  anchor = Math.max(0, Math.min(anchor, CH - 80));
-  if (st.pos_x != null) {
-    const meia = (CW * widthPct) / 200;
-    const centro = Number(st.pos_x) * CW;
-    ml = Math.round(centro - meia);
-    mr = Math.round(CW - (centro + meia));
-    if (ml < 0) { mr = Math.max(0, mr + ml); ml = 0; }
-    if (mr < 0) { ml = Math.max(0, ml + mr); mr = 0; }
-  } else if (st.margin_l != null || st.margin_r != null) {
-    ml = Math.max(0, Number(st.margin_l ?? 24));
-    mr = Math.max(0, Number(st.margin_r ?? 24));
-  } else {
-    ml = Math.max(24, Math.round((CW * (100 - widthPct)) / 200));
-    mr = ml;
-  }
+  // geometria da legenda pela MESMA regra do motor (impede divergência)
+  const { ml, mr, anchor_top: anchor } = captionBox(st, [CW, CH]);
   const fontPx = Number(st.font_size ?? 74) * SC;
   const outlinePx = Math.max(1, Number(st.outline ?? 3) * SC);
   const oc = String(st.outline_color ?? "#000");

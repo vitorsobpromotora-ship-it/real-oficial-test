@@ -1,0 +1,143 @@
+{
+  "_comentario": "Contrato WYSIWYG (Pontos 7 e 49): a MESMA descrição de edição tem de produzir a MESMA geometria de legenda no motor (render) e no canvas do Editor (preview). Gerado por engine/tests/test_wysiwyg.py e verificado pelos dois lados — se um divergir, os testes quebram.",
+  "casos": [
+    {
+      "nome": "padrao do preset",
+      "style": {
+        "preset": "bold_karaoke"
+      },
+      "res": {
+        "1080x1920": {
+          "ml": 64,
+          "mr": 64,
+          "anchor_top": 1280
+        },
+        "540x960": {
+          "ml": 32,
+          "mr": 32,
+          "anchor_top": 880
+        }
+      }
+    },
+    {
+      "nome": "normalizado centro-baixo",
+      "style": {
+        "preset": "clean",
+        "pos_x": 0.5,
+        "pos_y": 0.68,
+        "max_width_pct": 80
+      },
+      "res": {
+        "1080x1920": {
+          "ml": 108,
+          "mr": 108,
+          "anchor_top": 1306
+        },
+        "540x960": {
+          "ml": 54,
+          "mr": 54,
+          "anchor_top": 653
+        }
+      }
+    },
+    {
+      "nome": "normalizado esquerda-alto",
+      "style": {
+        "preset": "clean",
+        "pos_x": 0.28,
+        "pos_y": 0.18,
+        "max_width_pct": 60
+      },
+      "res": {
+        "1080x1920": {
+          "ml": 0,
+          "mr": 432,
+          "anchor_top": 346
+        },
+        "540x960": {
+          "ml": 0,
+          "mr": 216,
+          "anchor_top": 173
+        }
+      }
+    },
+    {
+      "nome": "normalizado colado na borda",
+      "style": {
+        "preset": "clean",
+        "pos_x": 0.95,
+        "pos_y": 0.5,
+        "max_width_pct": 70
+      },
+      "res": {
+        "1080x1920": {
+          "ml": 324,
+          "mr": 0,
+          "anchor_top": 960
+        },
+        "540x960": {
+          "ml": 162,
+          "mr": 0,
+          "anchor_top": 480
+        }
+      }
+    },
+    {
+      "nome": "area de legenda do Estudio",
+      "style": {
+        "preset": "clean",
+        "margin_l": 90,
+        "margin_r": 30,
+        "anchor_top": 900
+      },
+      "res": {
+        "1080x1920": {
+          "ml": 90,
+          "mr": 30,
+          "anchor_top": 900
+        },
+        "540x960": {
+          "ml": 90,
+          "mr": 30,
+          "anchor_top": 880
+        }
+      }
+    },
+    {
+      "nome": "palavra pop classic",
+      "style": {
+        "preset": "palavra_pop"
+      },
+      "res": {
+        "1080x1920": {
+          "ml": 43,
+          "mr": 43,
+          "anchor_top": 1180
+        },
+        "540x960": {
+          "ml": 24,
+          "mr": 24,
+          "anchor_top": 880
+        }
+      }
+    },
+    {
+      "nome": "subtitle bar",
+      "style": {
+        "preset": "subtitle_bar"
+      },
+      "res": {
+        "1080x1920": {
+          "ml": 54,
+          "mr": 54,
+          "anchor_top": 1680
+        },
+        "540x960": {
+          "ml": 27,
+          "mr": 27,
+          "anchor_top": 880
+        }
+      }
+    }
+  ]
+}

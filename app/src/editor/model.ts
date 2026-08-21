@@ -160,3 +160,38 @@ export function fmtSrc(t: number): string {
   const ss = s.toFixed(3).padStart(6, "0");
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
+
+
+/**
+ * Geometria da legenda — ESPELHO EXATO de captions._margens do motor
+ * (Pontos 7, 21, 49). O canvas do Editor e o render final leem a mesma
+ * descrição e chegam à mesma caixa; `shared/wysiwyg-cases.json` prova isso
+ * nos dois lados.
+ */
+export function captionBox(
+  style: Record<string, unknown>,
+  res: [number, number] = [1080, 1920],
+): { ml: number; mr: number; anchor_top: number } {
+  const [w, h] = res;
+  const pct = Number(style.max_width_pct ?? 88);
+  let anchor = style.anchor_top != null
+    ? Number(style.anchor_top)
+    : Math.max(200, h - Number(style.margin_v ?? 420) - 220);
+  if (style.pos_y != null) anchor = Math.round(Number(style.pos_y) * h);
+  anchor = Math.max(0, Math.min(anchor, h - 80));
+  if (style.pos_x != null) {
+    const meia = (w * (pct / 100)) / 2;
+    const centro = Number(style.pos_x) * w;
+    let ml = Math.round(centro - meia);
+    let mr = Math.round(w - (centro + meia));
+    if (ml < 0) { mr = Math.max(0, mr + ml); ml = 0; }
+    if (mr < 0) { ml = Math.max(0, ml + mr); mr = 0; }
+    return { ml, mr, anchor_top: anchor };
+  }
+  if (style.margin_l != null || style.margin_r != null) {
+    return { ml: Math.max(0, Number(style.margin_l ?? 24)),
+             mr: Math.max(0, Number(style.margin_r ?? 24)), anchor_top: anchor };
+  }
+  const lateral = Math.max(24, Math.trunc((w * (100 - pct)) / 200));
+  return { ml: lateral, mr: lateral, anchor_top: anchor };
+}

@@ -164,3 +164,31 @@ def test_sequencia_mista_mantem_a_linha_base(tmp_path):
     assert len(topos) >= 5
     # a linha-base é a MESMA em todos os cartões (1 linha, 2 linhas, com ênfase…)
     assert max(topos) - min(topos) <= 4, f"a legenda pulou verticalmente: {topos}"
+
+
+def test_rotacao_nunca_arremessa_a_palavra(tmp_path):
+    """Em libass, \\frz gira em torno da âncora da LINHA: ângulos grandes
+    deslocariam a palavra para fora. Os efeitos que giram (shake, fatality)
+    ficam presos a ±5° — e aqui medimos que a caixa horizontal não anda."""
+    base = _png(tmp_path, "rot_base", None, t=0.78)
+    ys0, xs0 = np.nonzero(base > 60)
+    for efeito in ("shake", "fatality"):
+        edits = {"word_emphasis": [{"idx": [1], "effect": efeito, "intensity": "forte"}]}
+        for t in (0.75, 0.78, 0.82, 0.86):
+            arr = _png(tmp_path, f"rot_{efeito}_{int(t * 100)}", edits, t=t)
+            ys, xs = np.nonzero(arr > 60)
+            # a palavra pode CRESCER (escala), mas nunca sair andando pela tela
+            assert xs.min() >= xs0.min() - 40 and xs.max() <= xs0.max() + 40, \
+                f"{efeito}@{t}: caixa horizontal deslocou ({xs.min()}–{xs.max()} "
+            assert ys.min() >= ys0.min() - 40 and ys.max() <= ys0.max() + 40, \
+                f"{efeito}@{t}: caixa vertical deslocou ({ys.min()}–{ys.max()})"
+
+
+def test_angulo_limitado_mesmo_em_intensidade_forte():
+    style = captions.resolve_style({"preset": "bold_karaoke"}, None)
+    for efeito in ("shake", "fatality"):
+        pre, _ = captions._emphasis_tags({"effect": efeito, "intensity": "forte"},
+                                         style, 0, 400)
+        angulos = [abs(float(p.split(")")[0].split(",")[0]))
+                   for p in pre.split("\\frz")[1:]]
+        assert angulos and max(angulos) <= 5.0, angulos

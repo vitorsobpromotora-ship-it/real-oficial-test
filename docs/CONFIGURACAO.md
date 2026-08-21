@@ -224,3 +224,112 @@ app (o desinstalador também não apaga).
 - O projeto mostra o **funil da análise** (candidatos → válidos → dedup → recomendados) e, se o
   vídeo render menos cortes que a meta, o app **avisa em vez de inventar cortes ruins** — as
   sobras boas ficam em reserva no botão **“Mostrar mais oportunidades”** (sem custo de IA).
+
+
+---
+
+## 13. Novidades da v3 — o fluxo editorial e o Editor completo
+
+A v3 separa em definitivo **avaliar** de **editar**. Nada do que você já fazia
+se perdeu: o que mudou foi onde cada coisa mora.
+
+### 13.1 Para revisar / Aprovados / Rejeitados
+
+O projeto abre em **Para revisar** — e ali fica **só o que ainda exige uma
+decisão sua**. Ao aprovar, o corte sai da lista na hora e aparece em
+**Aprovados**; ao rejeitar, vai para **Rejeitados** (com um **Desfazer** por
+alguns segundos). Em Rejeitados existe **Restaurar para revisão**; enquanto o
+corte estiver rejeitado, ele não renderiza.
+
+Depois de revisar vinte cortes, olhar para “Para revisar” responde na hora o
+que falta.
+
+### 13.2 A tela do corte é editorial
+
+Clicar num corte abre uma tela para **decidir**, não para mexer no vídeo:
+
+- player para assistir (nada de controles de edição em volta);
+- **Título** e **Descrição** — a descrição é nova e já fica guardada como
+  metadado de publicação para o módulo futuro de postagem;
+- a análise (gancho, desenvolvimento, conclusão, pontos fortes e fracos,
+  público), expansível com os 18 parâmetros;
+- **Aprovar**, **Rejeitar**, **✂ Editor** e **Fechar** — e, quando aprovado,
+  **Renderizar** na própria tela.
+
+Alterar o vídeo agora só acontece dentro do Editor. Essa é a regra.
+
+### 13.3 Estado de renderização e “Render desatualizado”
+
+O estado editorial (para revisar / aprovado / rejeitado) e o estado técnico
+(não renderizado / na fila / renderizando / renderizado / falhou) são coisas
+diferentes e aparecem separados.
+
+Se você renderizar, voltar ao Editor e mudar qualquer coisa, o sistema marca
+**⚠ Render desatualizado** e oferece **Renderizar nova versão** — você nunca
+vai acreditar que o arquivo antigo tem as alterações novas.
+
+### 13.4 O novo Editor
+
+Vídeo grande em cima, propriedades à direita, **timeline logo abaixo do
+vídeo**:
+
+- **Canvas 9:16 WYSIWYG** — enquadramento, punch-in, legendas (com estilo,
+  cores, posição e ênfases) e o Kit de Marca aparecem enquanto você edita.
+  Os controles de reprodução ficam dentro do próprio vídeo (Espaço = play).
+- **Inspector contextual** — as 9 ferramentas (Corte, Pausas, Áudio,
+  Enquadrar, Punch-in, Legenda, Palavras, Estilo, Kit) e o painel mostra
+  **apenas** a selecionada. Clicar num objeto seleciona a ferramenta dele:
+  um trecho abre Corte, um bloco de enquadramento abre Enquadrar, a legenda
+  no vídeo abre Legenda, um cartão de legenda abre Palavras.
+- **Relógio relativo** — a timeline começa sempre em `00:00`, mesmo num corte
+  que veio de `06:20` do vídeo original (a origem aparece como informação).
+  As margens disponíveis antes e depois continuam ali, indicadas como
+  “8,0s antes” / “15,0s depois”.
+- **Tracks** — além do vídeo: **Enquadramento** (blocos que você arrasta,
+  redimensiona e divide), **Legendas** (cada cartão é um bloco clicável) e
+  **Punch-in**. Tudo no mesmo playhead.
+- **Autosave** — o header mostra “Salvando…” e “Salvo”. **Voltar** e
+  **Salvar e fechar** levam de volta ao MESMO corte, com tudo persistido.
+
+### 13.5 Editor de palavras
+
+Clique numa palavra da legenda para:
+
+- **Substituir** (corrige “paleto” → “paletó” mantendo o tempo original);
+- **Excluir** (some da legenda; a transcrição continua intacta e a palavra
+  pode ser restaurada);
+- **Inserir antes** / **Inserir depois** — a palavra nova fica **ancorada** na
+  vizinha: se houver uma pausa, ela ocupa a pausa; se não houver, divide só a
+  janela da âncora. As outras palavras **não** saem do lugar.
+
+Durante a reprodução, a palavra que está sendo falada fica destacada.
+
+### 13.6 Ênfase por palavra
+
+Selecione uma palavra e escolha **✨ Ênfase**: Pop, Punch, Impact, **Fatality**,
+Color Hit, Shake, Highlight Box, Soft Lift, Glow, Outline Burst, Flash e
+Bounce — com intensidade **Suave / Normal / Forte** e cor própria.
+
+A ênfase dispara no instante em que a palavra é falada e **nunca desloca a
+linha de leitura**: a palavra cresce, o resto do cartão fica onde estava.
+
+### 13.7 Família Palavra Pop e seletor visual
+
+O **Palavra Pop Classic** continua exatamente como era. Ao lado dele nasceram
+**Clean**, **Bold**, **Impact**, **Box**, **Neon**, **Soft** e **Minimal** —
+cada um com diferença visível de verdade (tamanho, peso, caixa, brilho,
+movimento). A escolha agora é por **cards de amostra**, não por lista de nomes.
+
+### 13.8 Posição livre e cores
+
+Arraste a legenda direto no vídeo, ou use **Posição X/Y**, **Largura máxima** e
+**Alinhamento** (com atalhos Topo/Centro/Inferior). A posição é proporcional:
+o que você vê na prévia é o que sai no MP4 1080×1920. Há ainda a **área
+segura** opcional, que marca onde as plataformas costumam cobrir a tela.
+
+As cinco cores (principal, palavra ativa, contorno, fundo e sombra) podem ser
+ajustadas por corte, com **Restaurar padrão**. A precedência é explícita:
+
+```
+palavra (ênfase) › corte › Kit de Marca › preset
+```

@@ -533,12 +533,15 @@ iframe.report { width: 100%; height: 75vh; border: 1px solid var(--line);
 
 /* inspector contextual */
 .insp { display: flex; min-height: 0; width: 100%; }
-.insp-rail { flex: 0 0 96px; display: flex; flex-direction: column; gap: 2px;
-  border-right: 1px solid var(--line); padding: 8px 6px; overflow-y: auto; }
-.insp-tab { display: flex; flex-direction: column; align-items: center; gap: 2px;
-  font-size: 11px; padding: 8px 4px; border: 1px solid transparent; background: none;
-  color: var(--muted); border-radius: 10px; }
-.insp-tab span { font-size: 16px; }
+/* trilho compacto: as 9 ferramentas cabem sem rolagem, mesmo em telas baixas */
+.insp-rail { flex: 0 0 84px; display: flex; flex-direction: column; gap: 1px;
+  border-right: 1px solid var(--line); padding: 6px 5px; overflow: hidden;
+  justify-content: space-between; }
+.insp-tab { display: flex; flex-direction: column; align-items: center; gap: 1px;
+  font-size: 10px; line-height: 1.1; padding: 5px 3px; border: 1px solid transparent;
+  background: none; color: var(--muted); border-radius: 8px; flex: 1 1 auto;
+  justify-content: center; min-height: 34px; }
+.insp-tab span { font-size: 14px; }
 .insp-tab:hover { color: var(--fg); background: var(--panel2); }
 .insp-tab.on { color: var(--fg); background: var(--accent-soft);
   border-color: var(--line-strong); }

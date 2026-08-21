@@ -474,6 +474,11 @@ def _emphasis_tags(spec: dict, style: dict, t0_ms: int, dur_ms: int) -> tuple[st
     def esc(v: float) -> int:  # escala com intensidade, limitada para não estourar
         return int(round(100 + (v - 100) * k))
 
+    def ang(v: float) -> float:
+        """Rotação SEMPRE pequena: em libass \\frz gira em torno da âncora da
+        linha, então ângulos grandes deslocariam a palavra (coberto por teste)."""
+        return round(max(-5.0, min(5.0, v * k)), 2)
+
     reset = f"{{\\fscx100\\fscy100\\bord{bord:g}\\blur0\\frz0\\c{cor_base}\\3c{cor_out}}}"
     if efeito == "pop":
         t = (f"{{\\t({t1},{t1 + d // 2},\\fscx{esc(118)}\\fscy{esc(118)})"
@@ -491,8 +496,8 @@ def _emphasis_tags(spec: dict, style: dict, t0_ms: int, dur_ms: int) -> tuple[st
         cor_f = cor or hex_to_ass("#FF2D2D")
         t = (f"{{\\t({t1},{t1 + q},\\fscx{esc(142)}\\fscy{esc(142)}\\bord{bord + 4 * k:g}"
              f"\\c{cor_f})"
-             f"\\t({t1 + q},{t1 + 2 * q},\\frz{-2.5 * k:g})"
-             f"\\t({t1 + 2 * q},{t1 + 3 * q},\\frz{2.5 * k:g})"
+             f"\\t({t1 + q},{t1 + 2 * q},\\frz{ang(-2.5):g})"
+             f"\\t({t1 + 2 * q},{t1 + 3 * q},\\frz{ang(2.5):g})"
              f"\\t({t1 + 3 * q},{t1 + 4 * q},\\frz0)"
              f"\\t({t1 + 4 * q},{t1 + d},\\fscx100\\fscy100\\bord{bord:g}\\c{cor_base})}}")
     elif efeito == "color_hit":
@@ -501,7 +506,7 @@ def _emphasis_tags(spec: dict, style: dict, t0_ms: int, dur_ms: int) -> tuple[st
              f"\\t({t1 + d},{t1 + d + 120},\\c{cor_base})}}")
     elif efeito == "shake":
         q = max(25, d // 5)
-        a = 3.0 * k
+        a = ang(3.0)
         t = (f"{{\\t({t1},{t1 + q},\\frz{-a:g})\\t({t1 + q},{t1 + 2 * q},\\frz{a:g})"
              f"\\t({t1 + 2 * q},{t1 + 3 * q},\\frz{-a / 2:g})"
              f"\\t({t1 + 3 * q},{t1 + 4 * q},\\frz0)}}")
