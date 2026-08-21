@@ -30,7 +30,12 @@ Rotas de mídia/HTML aceitam também `?token=` (para `<video>`/iframe/navegador)
 |---|---|---|
 | GET | `/api/v1/projects/{id}/cuts?status=&source_video_id=&sort=score\|time` | ordenado por score por padrão |
 | GET/DELETE | `/api/v1/cuts/{id}` | inclui `score_breakdown` (18 parâmetros), `crop_plan`, `censor_plan` |
-| PATCH | `/api/v1/cuts/{id}` | `{status?, start_s?, end_s?, title?, caption_style?, brand_kit_id?, edits?, human_rank?, review_started?}` — trim invalida o `crop_plan` (recalculado no próximo render) |
+| PATCH | `/api/v1/cuts/{id}` | `{status?, description?, platform_metadata?, start_s?, end_s?, framing?, punch_in?, title?, caption_style?, brand_kit_id?, edits?, edl?, human_rank?, review_started?}` — trim invalida o `crop_plan` (recalculado no próximo render) |
+| GET | `/api/v1/captions/presets` | presets de legenda com rótulo PT-BR e `family` (Clássicos / Palavra Pop) |
+| GET | `/api/v1/cuts/{id}/caption-cards` | cartões RESOLVIDOS pelo mesmo código do render: `{style, fps, out_duration, cards[{start, end, breaks, words[{idx, ins_id, start_s, end_s, word, emphasis}]}]}` — base do preview WYSIWYG |
+| GET | `/api/v1/cuts/{id}/words?pad_s=` | palavras da transcrição na janela do corte (tempos da FONTE) |
+| GET | `/api/v1/cuts/{id}/waveform?pps=&pad_s=` | picos de áudio para a timeline |
+| POST | `/api/v1/cuts/{id}/pauses-preview` | `{nivel: "leve"\|"normal"\|"agressivo"}` → EDL com as pausas removidas (não aplica) |
 | POST | `/api/v1/cuts/bulk` | `{cut_ids[], patch{…}}` — edição em massa |
 | POST | `/api/v1/cuts/{id}/preview` | agenda preview 540×960 → `{render_id, job_id}` |
 
@@ -48,6 +53,8 @@ Rotas de mídia/HTML aceitam também `?token=` (para `<video>`/iframe/navegador)
 | POST | `/api/v1/renders/{id}/cancel` | |
 | GET | `/api/v1/media/{render_id}/file?token=` | MP4 final/preview |
 | GET | `/api/v1/media/cuts/{cut_id}/preview?token=` | preview mais recente do corte |
+| GET | `/api/v1/media/cuts/{cut_id}/filmstrip?t0=&t1=&frames=&token=` | tira de miniaturas da timeline |
+| GET | `/api/v1/media/sources/{id}/file?token=` | vídeo original (player do Editor) |
 
 Saída final: 1080×1920 H.264 CRF 19 + AAC 192k, `loudnorm I=-14:TP=-1.5:LRA=11`, `+faststart`.
 
@@ -102,3 +109,47 @@ POST /shorts (URL) → poll GET /shorts/{id} até done → escolher clips por sc
 `401` token ausente/inválido · `404` recurso inexistente · `409` job/render já finalizado ·
 `422` validação (ex.: arquivo não encontrado, `end_s ≤ start_s`) · `503` motor inicializando.
 Corpo de erro: `{"detail": "mensagem em português"}`.
+
+
+## Estado editorial e ciclo de render (v3)
+
+`CutOut` separa as duas dimensões — e nunca as mistura:
+
+| Campo | Valores | Significado |
+|---|---|---|
+| `status` | `pending_review` · `approved` · `rejected` · `reserve` | decisão **editorial** (`draft` ainda é aceito no PATCH como sinônimo de `pending_review`) |
+| `render_state` | `not_rendered` · `queued` · `rendering` · `rendered` · `render_failed` | derivado do render **final** mais recente |
+| `render_outdated` | bool | `edit_revision` do corte > revisão carimbada no render concluído |
+| `edit_revision` | int | incrementa a cada alteração **visual** salva |
+| `latest_render_id` | id \| null | render final mais recente (assistir / re-renderizar) |
+
+Renderizar um corte `rejected` devolve **422**.
+
+## Camada de edição do corte (`edits`)
+
+```jsonc
+{
+  "framing": "auto|left|right|center|blur|fit|two|split",
+  "punch_in": "off|leve|dinamico",
+  "framing_segments": [{"start_s": 18.0, "end_s": 24.0, "mode": "left"}],
+  "word_overrides": {"42": "paletó"},          // substituir (mantém o tempo)
+  "word_deleted": [43],                         // some da legenda, não da transcrição
+  "word_inserted": [                            // ancorada na vizinha (não desloca ninguém)
+    {"id": "w1", "anchor_idx": 44, "placement": "before", "text": "realmente"}
+  ],
+  "word_emphasis": [                            // uma palavra, várias, ou uma expressão
+    {"idx": [44], "effect": "fatality", "intensity": "forte", "color": "#FF2D2D"}
+  ]
+}
+```
+
+Efeitos de ênfase: `pop`, `punch`, `impact`, `fatality`, `color_hit`, `shake`,
+`highlight_box`, `soft_lift`, `glow`, `outline_burst`, `flash`, `bounce`.
+
+`caption_style` aceita, além do `preset`, as cores (`text_color`,
+`highlight_color`, `outline_color`, `back_color`, `shadow_color`) e a posição
+**normalizada** `pos_x` / `pos_y` (0–1) com `max_width_pct` e `align` — é o que
+garante que a prévia 540×960 e o render 1080×1920 mostrem a legenda na mesma
+posição proporcional.
+
+Precedência de estilo: `palavra (ênfase) › corte › Kit de Marca › preset`.
