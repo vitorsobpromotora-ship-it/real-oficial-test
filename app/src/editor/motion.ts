@@ -301,6 +301,15 @@ export interface VideoPreset {
   params?: Record<string, number>;
 }
 
+export interface CalloutPreset extends TextPreset {
+  layout?: "stack" | "line";
+  bg?: "none" | "darken" | "blur" | "black";
+  font_scale?: number;
+  stagger_ms?: number;
+  last_word_scale?: number;
+  last_word_color?: string;
+}
+
 export interface VideoProps {
   zoom: number; // 1 = neutro
   dx: number; // px na referência 1080×1920

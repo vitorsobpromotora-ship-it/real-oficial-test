@@ -65,6 +65,12 @@ vi.mock("../src/api/client", () => ({
           params: { amount: 0.12 } },
         { id: "flash", label: "Flash", categoria: "Cena",
           params: { amount: 0.42, decay_s: 0.15 } },
+      ], callout_presets: [
+        { id: "center_impact", label: "Impacto Central", categoria: "Callouts",
+          layout: "line", bg: "darken", font_scale: 1.45, stagger_ms: 0,
+          phases: { enter: { dur_ms: 240, tracks: { scale: [
+            { t: 0, v: 158 }, { t: 0.5, v: 96, ease: "rapido" },
+            { t: 1, v: 104, ease: "impacto" }] } } } },
       ], presets: [
         { id: "pop_clean", label: "Pop Clean", categoria: "Básicos",
           phases: { enter: { dur_ms: 170, tracks: { scale: [
@@ -232,5 +238,37 @@ describe("v4 FASE F — Video FX pela interface", () => {
       expect(e.end - e.start).toBeCloseTo(0.6, 2);
     }, { timeout: 4000 });
     expect(screen.getByTestId("fx-track").textContent).toContain("Flash");
+  });
+});
+
+describe("v4 FASE E — Text Callout pela interface", () => {
+  it("🗯 Destaque no cartão cria o callout, esconde a legenda e persiste", async () => {
+    renderEditor();
+    fireEvent.click(await screen.findByTestId("tool-palavras"));
+    fireEvent.click(await screen.findByTestId("wp-callout-0"));
+
+    // painel Motion abre com o callout selecionado e controles próprios
+    expect(await screen.findByTestId("mo-editor")).toBeInTheDocument();
+    expect(screen.getByTestId("mo-preset")).toHaveValue("center_impact");
+    expect(screen.getByTestId("mo-callout-extra")).toBeInTheDocument();
+
+    // canvas: o destaque assume e a legenda base sai de cena (takeover)
+    expect(screen.getByTestId("cv-callout")).toBeInTheDocument();
+    expect(screen.queryByTestId("cv-caption")).not.toBeInTheDocument();
+
+    // persistência: manifest com as palavras do cartão e a janela dele
+    await waitFor(() => {
+      const e = ultimoMotion()!.effects[0];
+      expect(e.type).toBe("text_callout");
+      expect(e.target.idx).toEqual([0, 1, 2]);
+      expect(e.start).toBeCloseTo(0, 2);
+      expect(e.end).toBeCloseTo(1.9, 2);
+    }, { timeout: 4000 });
+
+    // fundo trocado no painel entra em params
+    fireEvent.change(screen.getByTestId("mo-bg"), { target: { value: "black" } });
+    await waitFor(() => {
+      expect(ultimoMotion()!.effects[0].params?.bg).toBe("black");
+    }, { timeout: 4000 });
   });
 });

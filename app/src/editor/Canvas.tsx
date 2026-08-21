@@ -12,7 +12,8 @@ import { mediaUrl } from "../api/client";
 import type { BrandKit, CaptionCards, Cut, KitLayer, Source } from "../api/types";
 import { captionBox, fmtSrc, fmtT, outDur, srcToOut, type Draft } from "./model";
 import {
-  textPropsAt, videoFxAt, type EffectInstance, type TextPreset, type VideoPreset,
+  textPropsAt, videoFxAt, type CalloutPreset, type EffectInstance,
+  type TextPreset, type VideoPreset,
 } from "./motion";
 import type { CanvasZoom } from "./workspace";
 
@@ -45,6 +46,9 @@ interface Props {
   onZoom(z: CanvasZoom): void;
   motionPresets: TextPreset[]; // catálogo do motor — preview avalia AS MESMAS trilhas
   videoPresets: VideoPreset[]; // FX de vídeo — mesmas fórmulas do filtergraph
+  calloutPresets: CalloutPreset[];
+  selFx: string | null;
+  onCalloutMove(id: string, pos: { pos_x: number; pos_y: number }): void;
 }
 
 const MODO_POR_FRAMING: Record<string, string> = {
@@ -265,7 +269,19 @@ export default function Canvas(p: Props) {
     ? `translate(${(vfx.dx * SC).toFixed(1)}px, ${(vfx.dy * SC).toFixed(1)}px)`
       + ` scale(${vfx.zoom.toFixed(4)})`
     : undefined;
+  // Text Callout ativo no instante atual (Typography Takeover):
+  // a legenda base some e o destaque assume — igual ao render
+  const callout = (p.draft.motion?.effects ?? []).find((e) =>
+    e.type === "text_callout" && e.enabled !== false
+    && e.start <= outNow && outNow < e.end) ?? null;
+  const calloutPreset = callout
+    ? p.calloutPresets.find((c) => c.id === callout.preset) ?? null : null;
+  const calloutBg = callout
+    ? String(callout.params?.bg ?? calloutPreset?.bg ?? "none") : "none";
+
   const vfxFilters: string[] = [];
+  if (calloutBg === "darken") vfxFilters.push("brightness(0.68) saturate(0.75)");
+  if (calloutBg === "blur") vfxFilters.push(`blur(${(12 * SC).toFixed(1)}px) brightness(0.88)`);
   if (vfx.gray) vfxFilters.push("grayscale(1)");
   if (vfx.darken) vfxFilters.push(`brightness(${(1 - vfx.darken).toFixed(3)})`);
   if (vfx.blur) vfxFilters.push(`blur(${(vfx.blur * SC).toFixed(1)}px)`);
@@ -355,7 +371,19 @@ export default function Canvas(p: Props) {
           </div>
         ) : null}
 
-        {card ? (
+        {calloutBg === "black" ? (
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.94)",
+                        zIndex: 4, pointerEvents: "none" }} />
+        ) : null}
+
+        {callout && calloutPreset ? (
+          <CalloutView callout={callout} preset={calloutPreset}
+                       captions={p.captions} draft={p.draft} outNow={outNow}
+                       cw={cw} ch={ch} sel={p.selFx === callout.id}
+                       onMove={(pos) => p.onCalloutMove(callout.id, pos)} />
+        ) : null}
+
+        {card && !callout ? (
           <div
             className={`cv-caption${p.capSelecionada ? " sel" : ""}`}
             data-testid="cv-caption"
@@ -540,4 +568,92 @@ function KitLayerView({ l, sc, titulo, assets }:
                          borderRadius: (l.radius ?? 0) * sc }} />;
   }
   return null;
+}
+
+/** Overlay do Text Callout no canvas — mesmas fases/props do render (via
+ *  textPropsAt) com layout stack/line e arrastar-para-posicionar. */
+function CalloutView({ callout, preset, captions, draft, outNow, cw, ch, sel, onMove }: {
+  callout: EffectInstance;
+  preset: CalloutPreset;
+  captions: CaptionCards | null;
+  draft: Draft;
+  outNow: number;
+  cw: number;
+  ch: number;
+  sel: boolean;
+  onMove(pos: { pos_x: number; pos_y: number }): void;
+}) {
+  const SC = cw / 1080;
+  const alvoIdx = new Set(callout.target.idx ?? []);
+  const alvoIns = new Set(callout.target.ins_ids ?? []);
+  const palavras = (captions?.cards ?? []).flatMap((c) => c.words)
+    .filter((w) => (w.idx != null && alvoIdx.has(w.idx))
+      || (w.ins_id != null && alvoIns.has(w.ins_id)))
+    .map((w) => {
+      const ov = w.idx != null ? draft.word_overrides[String(w.idx)] : undefined;
+      return { ...w, word: ov ?? w.word };
+    });
+  if (!palavras.length) return null;
+  const grupos = preset.layout === "line" ? [palavras] : palavras.map((w) => [w]);
+  const n = grupos.length;
+  const posX = Number(callout.params?.pos_x ?? 0.5);
+  const posY = Number(callout.params?.pos_y ?? 0.5);
+  const fontScale = Number(callout.params?.font_scale ?? preset.font_scale ?? 1.3);
+  const fsBase = 72 * fontScale * SC;
+  const stagger = Number(callout.params?.stagger_ms ?? preset.stagger_ms ?? 0) / 1000;
+  const lwScale = Number(preset.last_word_scale ?? 1);
+  const upper = true; // presets de legenda do produto usam caixa alta
+
+  function drag(e: React.PointerEvent) {
+    e.stopPropagation();
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    const el = (e.currentTarget as HTMLElement).parentElement!;
+    const rect = el.getBoundingClientRect();
+    const mover = (ev: PointerEvent) => {
+      const px = Math.min(0.9, Math.max(0.1, (ev.clientX - rect.left) / rect.width));
+      const py = Math.min(0.9, Math.max(0.1, (ev.clientY - rect.top) / rect.height));
+      onMove({ pos_x: Math.round(px * 100) / 100, pos_y: Math.round(py * 100) / 100 });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", mover);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", mover);
+    window.addEventListener("pointerup", up);
+  }
+
+  return (
+    <div className={`cv-callout${sel ? " sel" : ""}`} data-testid="cv-callout"
+         onPointerDown={drag}
+         style={{ left: posX * cw, top: posY * ch }}>
+      {grupos.map((grupo, i) => {
+        const gStart = Math.min(callout.start + i * stagger, callout.end - 0.08);
+        const props = textPropsAt({ ...callout, start: gStart }, preset, outNow);
+        if (outNow < gStart) return null;
+        const ultima = i === n - 1 && n > 1;
+        const cor = ultima && preset.last_word_color ? preset.last_word_color
+          : (callout.params?.color as string | undefined) ?? preset.color ?? "#FFD400";
+        const sx = (props.scale_x !== 100 ? props.scale_x : props.scale) / 100;
+        const sy = (props.scale_y !== 100 ? props.scale_y : props.scale) / 100;
+        return (
+          <div key={i} style={{
+            fontSize: fsBase * (ultima ? lwScale : 1),
+            fontWeight: 800,
+            fontFamily: "Montserrat, Inter, sans-serif",
+            color: cor,
+            textShadow: "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000",
+            textAlign: "center",
+            lineHeight: 1.22,
+            whiteSpace: "nowrap",
+            opacity: 1 - props.alpha,
+            transform: `scale(${sx.toFixed(3)}, ${sy.toFixed(3)})`
+              + (props.rot ? ` rotate(${props.rot.toFixed(2)}deg)` : ""),
+            filter: props.blur > 0 ? `blur(${(props.blur * SC).toFixed(1)}px)` : undefined,
+          }}>
+            {grupo.map((w) => (upper ? w.word.toUpperCase() : w.word)).join(" ")}
+          </div>
+        );
+      })}
+    </div>
+  );
 }

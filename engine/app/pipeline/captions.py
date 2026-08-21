@@ -556,7 +556,7 @@ def build_ass(words: list[dict], caption_style: dict | None = None,
     (edits["word_emphasis"]); o texto já vem resolvido em `words`.
     `motion` é o Motion Manifest (v4): efeitos text_emphasis compilados pelo
     Text Motion Core têm precedência sobre a ênfase clássica na mesma palavra."""
-    from . import motion_text  # import tardio: motion_text usa hex_to_ass daqui
+    from . import motion_callout, motion_text  # tardio: usam hex_to_ass daqui
     style = resolve_style(caption_style, brand_kit)
     karaoke = bool(style.get("karaoke"))
     primary = hex_to_ass(style["highlight_color" if karaoke else "text_color"])
@@ -604,6 +604,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     mo_idx = motion_text.emphasis_index(motion)
 
     for card, (start_t, end_t) in zip(cards, janelas, strict=False):
+        # Typography Takeover: enquanto um callout ocupa a tela, o cartão de
+        # legenda que cruza a janela some — o texto da vez é um só
+        esconder = motion_callout.hide_windows(motion, start_t, end_t)
         texts = [w["word"].strip() for w in card]
         if style.get("uppercase"):
             texts = [t.upper() for t in texts]
@@ -648,7 +651,20 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 parts.append(f"{sep}{fx_pre}{text}{fx_pos}")
         corpo = "".join(parts)
         prefixo = palavra_fx if style.get("word_mode") else entrada
+        if esconder:
+            oculta = "".join(
+                f"\\t({max(0, round((a - start_t) * 1000))},"
+                f"{max(0, round((a - start_t) * 1000))},\\alpha&HFF&)"
+                f"\\t({round((b - start_t) * 1000)},"
+                f"{round((b - start_t) * 1000)},\\alpha&H00&)"
+                for a, b in esconder)
+            prefixo = "{" + oculta + "}" + prefixo
         lines.append(f"Dialogue: 0,{_ts(start_t)},{_ts(end_t)},Default,,0,0,0,,{prefixo}{corpo}")
+
+    # Text Callouts (FASE E): eventos próprios com \pos livre, layer 3
+    for efc, preset_c in motion_callout.collect(motion):
+        lines.extend(motion_callout.compile_callout(
+            efc, preset_c, style, words, res=res, fps=fps, ts=_ts))
 
     return header + "\n".join(lines) + "\n"
 

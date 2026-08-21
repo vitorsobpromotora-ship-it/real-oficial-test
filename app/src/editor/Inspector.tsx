@@ -10,7 +10,8 @@ import type {
 } from "../api/types";
 import MotionPanel from "./MotionPanel";
 import { manifestVazio, novoId, seedDe,
-  type EffectInstance, type TextPreset, type VideoPreset } from "./motion";
+  type CalloutPreset, type EffectInstance, type TextPreset,
+  type VideoPreset } from "./motion";
 import StylePicker from "./StylePicker";
 import {
   fmtSrc, fmtT, srcToOut, type Draft, type InsertedWord, type WordEmphasis,
@@ -81,6 +82,7 @@ interface Props {
   // Motion Engine (v4)
   motionPresets: TextPreset[];
   videoPresets: VideoPreset[];
+  calloutPresets: CalloutPreset[];
   selFx: string | null;
   setSelFx(id: string | null): void;
 }
@@ -288,7 +290,8 @@ export default function Inspector(p: Props) {
 
         {p.tool === "motion" ? (
           <MotionPanel draft={d} upd={p.upd} presets={p.motionPresets}
-                       videoPresets={p.videoPresets} outNow={p.outNow}
+                       videoPresets={p.videoPresets}
+                       calloutPresets={p.calloutPresets} outNow={p.outNow}
                        selFx={p.selFx} setSelFx={p.setSelFx}
                        captions={p.captions} onSeekOut={p.onSeekOut} />
         ) : null}
@@ -546,6 +549,31 @@ function WordsPanel({ draft, upd, words, captions, outNow, selCard, onSeekOut, o
     upd({ motion: { ...m, effects: [...m.effects, eff] } });
     onMotion(id);
   }
+
+  /** Transforma o CARTÃO num destaque de tela (Typography Takeover). */
+  function criarCallout(card: CaptionCards["cards"][number]) {
+    const vivas = card.words.filter((w) =>
+      !(w.idx != null && draft.word_deleted.includes(w.idx)));
+    const idx = vivas.filter((w) => w.idx != null).map((w) => w.idx as number);
+    const insIds = vivas.filter((w) => w.ins_id).map((w) => w.ins_id as string);
+    if (!idx.length && !insIds.length) return;
+    const id = novoId();
+    const eff: EffectInstance = {
+      id,
+      type: "text_callout",
+      preset: "center_impact",
+      target: { kind: "words",
+        ...(idx.length ? { idx } : {}), ...(insIds.length ? { ins_ids: insIds } : {}) },
+      start: Math.round(Math.max(0, card.start) * 100) / 100,
+      end: Math.round((card.end + 0.3) * 100) / 100,
+      intensity: "normal",
+      enabled: true,
+      seed: seedDe(id),
+    };
+    const m = draft.motion ?? manifestVazio();
+    upd({ motion: { ...m, effects: [...m.effects, eff] } });
+    onMotion(id);
+  }
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
@@ -648,10 +676,17 @@ function WordsPanel({ draft, upd, words, captions, outNow, selCard, onSeekOut, o
           <div key={ci} ref={(el) => { cardRefs.current[ci] = el; }}
                className={`wp-card${ativo ? " cur" : ""}${selCard === ci ? " sel" : ""}`}
                data-testid={`wp-card-${ci}`}>
-            <button className="wp-cardhead" onClick={() => onSeekOut(card.start + 0.01)}
-                    title="Levar o cursor até este cartão">
-              cartão {ci + 1} · {fmtT(card.start)}
-            </button>
+            <div className="row" style={{ gap: 4 }}>
+              <button className="wp-cardhead" onClick={() => onSeekOut(card.start + 0.01)}
+                      title="Levar o cursor até este cartão">
+                cartão {ci + 1} · {fmtT(card.start)}
+              </button>
+              <button className="wp-callout" data-testid={`wp-callout-${ci}`}
+                      title="Transformar em destaque de tela (Typography Takeover)"
+                      onClick={() => criarCallout(card)}>
+                🗯 Destaque
+              </button>
+            </div>
             <div className="ed-words">
               {chipsDe(card).map((chip) =>
                 editKey === chip.key ? (

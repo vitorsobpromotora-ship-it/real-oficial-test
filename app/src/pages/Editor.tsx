@@ -20,7 +20,7 @@ import {
   srcToOut, type Draft,
 } from "../editor/model";
 import { rotuloDoEfeito } from "../editor/MotionPanel";
-import type { TextPreset, VideoPreset } from "../editor/motion";
+import type { CalloutPreset, TextPreset, VideoPreset } from "../editor/motion";
 import Splitter from "../editor/Splitter";
 import { WORKSPACE_PRESETS, useWorkspace } from "../editor/workspace";
 
@@ -58,13 +58,14 @@ export default function EditorPage() {
   });
   const motionQ = useQuery({
     queryKey: ["motion-presets"],
-    queryFn: () => get<{ presets: TextPreset[]; video_presets: VideoPreset[] }>(
-      "/api/v1/motion/presets"),
+    queryFn: () => get<{ presets: TextPreset[]; video_presets: VideoPreset[];
+      callout_presets: CalloutPreset[] }>("/api/v1/motion/presets"),
     staleTime: Infinity,
   });
   const videoPresets = motionQ.data?.video_presets ?? [];
-  // catálogo combinado só para ROTULAR blocos (texto + vídeo)
-  const todosPresets = [...(motionQ.data?.presets ?? []),
+  const calloutPresets = motionQ.data?.callout_presets ?? [];
+  // catálogo combinado só para ROTULAR blocos (texto + vídeo + callout)
+  const todosPresets = [...(motionQ.data?.presets ?? []), ...calloutPresets,
     ...videoPresets.map((v) => ({ ...v, phases: {} }))] as TextPreset[];
 
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -676,6 +677,14 @@ export default function EditorPage() {
           onZoom={(z) => wsMudar({ canvas_zoom: z })}
           motionPresets={motionQ.data?.presets ?? []}
           videoPresets={videoPresets}
+          calloutPresets={calloutPresets}
+          selFx={selFx}
+          onCalloutMove={(id, pos) => {
+            const m = draft.motion;
+            if (!m) return;
+            upd({ motion: { ...m, effects: m.effects.map((e) =>
+              e.id === id ? { ...e, params: { ...(e.params ?? {}), ...pos } } : e) } });
+          }}
         />
         <Splitter
           dir="v"
@@ -706,6 +715,7 @@ export default function EditorPage() {
             selFr={selFr}
             motionPresets={motionQ.data?.presets ?? []}
             videoPresets={videoPresets}
+            calloutPresets={calloutPresets}
             selFx={selFx}
             setSelFx={setSelFx}
             playhead={playhead}
@@ -927,7 +937,7 @@ export default function EditorPage() {
                          if (i >= 0) setSelCard(i); // bloco → texto alvo (Entrega 91)
                          seekSrc(outToSrc(segs, e.start + 0.01));
                        }}>
-                    ✦ {rotuloDoEfeito(e, todosPresets)}
+                    {e.type === "text_callout" ? "🗯" : "✦"} {rotuloDoEfeito(e, todosPresets)}
                   </div>
                 );
               })}

@@ -29,7 +29,7 @@ from ..db.models import (
 )
 from ..jobs.registry import job_handler
 from ..services import ffmpeg
-from . import captions, censor, compose, motion_video
+from . import captions, censor, compose, motion_callout, motion_video
 from . import edl as edl_mod
 from .reframe import apply_framing_override, apply_punch_in, apply_segment_overrides, plan_crop
 
@@ -501,7 +501,9 @@ def render_cut(ctx) -> dict:
                 logo_input_index=logo_idx, video_trims=video_trims, audio_chunks=audio_sel,
                 audio_fx=edl["audio"],
                 video_fades={"fade_in_s": edl["fade_in_s"], "fade_out_s": edl["fade_out_s"]},
-                fx_chains=motion_video.compile_video_fx(cut.get("motion"), out_w, out_h))
+                fx_chains=motion_video.compile_video_fx(cut.get("motion"), out_w, out_h)
+                + [c for e, pr in motion_callout.collect(cut.get("motion"))
+                   if (c := motion_callout.background_chain(e, pr, out_w, out_h))])
         else:
             src_l = compose.source_layer(lay)
             box_w = compose.box_px(src_l.get("w", 1080), scale_c)
@@ -509,7 +511,9 @@ def render_cut(ctx) -> dict:
             chains, vb = _video_base_chains(crop_plan=plan_rel, video_trims=video_trims,
                                             out_w=box_w, out_h=box_h, fit="cover")
             for fx_i, fx in enumerate(
-                    motion_video.compile_video_fx(cut.get("motion"), box_w, box_h)):
+                    motion_video.compile_video_fx(cut.get("motion"), box_w, box_h)
+                    + [c for e, pr in motion_callout.collect(cut.get("motion"))
+                       if (c := motion_callout.background_chain(e, pr, box_w, box_h))]):
                 chains.append(f"[{vb}]{fx}[vmfx{fx_i}]")
                 vb = f"vmfx{fx_i}"
             bg_lbl = None

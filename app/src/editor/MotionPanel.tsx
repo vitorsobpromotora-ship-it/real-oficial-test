@@ -10,7 +10,7 @@ import type { CaptionCards } from "../api/types";
 import { fmtT, type Draft } from "./model";
 import {
   hash32, manifestVazio, novoId, seedDe,
-  type EffectInstance, type TextPreset, type VideoPreset,
+  type CalloutPreset, type EffectInstance, type TextPreset, type VideoPreset,
 } from "./motion";
 
 export const INTENS: [string, string][] = [
@@ -31,6 +31,7 @@ interface Props {
   upd(patch: Partial<Draft>): void;
   presets: TextPreset[];
   videoPresets: VideoPreset[];
+  calloutPresets: CalloutPreset[];
   outNow: number; // playhead em tempo de SAÍDA — onde nasce um FX novo
   selFx: string | null;
   setSelFx(id: string | null): void;
@@ -42,7 +43,8 @@ export default function MotionPanel(p: Props) {
   const effects = p.draft.motion?.effects ?? [];
   const sel = effects.find((e) => e.id === p.selFx) ?? null;
   const catalogoDe = (e: EffectInstance) =>
-    e.type === "video_fx" ? p.videoPresets : p.presets;
+    e.type === "video_fx" ? p.videoPresets
+      : e.type === "text_callout" ? p.calloutPresets : p.presets;
 
   /** Cria um efeito de VÍDEO no cursor (Entrega 17: track FX). */
   function criarVideoFx() {
@@ -67,6 +69,17 @@ export default function MotionPanel(p: Props) {
     const m = p.draft.motion ?? manifestVazio();
     p.upd({ motion: { ...m, effects: m.effects.filter((e) => e.id !== id) } });
     if (p.selFx === id) p.setSelFx(null);
+  }
+
+  const FUNDOS: [string, string][] = [
+    ["none", "Vídeo normal"], ["darken", "Escurecido"],
+    ["blur", "Desfocado"], ["black", "Tela preta"],
+  ];
+
+  function mudarParam(id: string, chave: string, valor: unknown) {
+    const e = effects.find((x) => x.id === id);
+    if (!e) return;
+    mudar(id, { params: { ...(e.params ?? {}), [chave]: valor } });
   }
 
   function alvoLegivel(e: EffectInstance): string {
@@ -121,7 +134,8 @@ export default function MotionPanel(p: Props) {
                   className={`mo-item${p.selFx === e.id ? " on" : ""}${e.enabled === false ? " off" : ""}`}
                   data-testid={`mo-item-${e.id}`}
                   onClick={() => { p.setSelFx(e.id); p.onSeekOut(e.start + 0.01); }}>
-            <b>{e.type === "video_fx" ? "⚡" : "✦"} {rotuloDoEfeito(e, catalogoDe(e))}</b>
+            <b>{e.type === "video_fx" ? "⚡" : e.type === "text_callout" ? "🗯" : "✦"}{" "}
+              {rotuloDoEfeito(e, catalogoDe(e))}</b>
             <span className="sub">
               {alvoLegivel(e)} · {fmtT(e.start)} → {fmtT(e.end)}
               {e.enabled === false ? " · desativado" : ""}
@@ -185,6 +199,42 @@ export default function MotionPanel(p: Props) {
                      }} />
             </div>
           </div>
+
+          {sel.type === "text_callout" ? (
+            <div data-testid="mo-callout-extra">
+              <label style={{ marginTop: 10 }}>Fundo da cena</label>
+              <select data-testid="mo-bg"
+                      value={String(sel.params?.bg
+                        ?? p.calloutPresets.find((c) => c.id === sel.preset)?.bg
+                        ?? "none")}
+                      onChange={(ev) => mudarParam(sel.id, "bg", ev.target.value)}>
+                {FUNDOS.map(([id, rotulo]) => (
+                  <option key={id} value={id}>{rotulo}</option>
+                ))}
+              </select>
+              <div className="row" style={{ marginTop: 8 }}>
+                <div style={{ flex: 1 }}>
+                  <label>Posição X</label>
+                  <input type="range" min={0.1} max={0.9} step={0.01}
+                         data-testid="mo-pos-x" style={{ width: "100%" }}
+                         value={Number(sel.params?.pos_x ?? 0.5)}
+                         onChange={(ev) => mudarParam(sel.id, "pos_x",
+                           Number(ev.target.value))} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label>Posição Y</label>
+                  <input type="range" min={0.1} max={0.9} step={0.01}
+                         data-testid="mo-pos-y" style={{ width: "100%" }}
+                         value={Number(sel.params?.pos_y ?? 0.5)}
+                         onChange={(ev) => mudarParam(sel.id, "pos_y",
+                           Number(ev.target.value))} />
+                </div>
+              </div>
+              <div className="sub" style={{ marginTop: 4 }}>
+                Também dá para arrastar o destaque direto no vídeo.
+              </div>
+            </div>
+          ) : null}
 
           <div className="row" style={{ marginTop: 10 }}>
             <label className="row" style={{ gap: 6 }}>
