@@ -10,7 +10,7 @@ import type {
 } from "../api/types";
 import MotionPanel from "./MotionPanel";
 import { manifestVazio, novoId, seedDe,
-  type EffectInstance, type TextPreset } from "./motion";
+  type EffectInstance, type TextPreset, type VideoPreset } from "./motion";
 import StylePicker from "./StylePicker";
 import {
   fmtSrc, fmtT, srcToOut, type Draft, type InsertedWord, type WordEmphasis,
@@ -80,6 +80,7 @@ interface Props {
   onOpenStudio(kitId: string): void;
   // Motion Engine (v4)
   motionPresets: TextPreset[];
+  videoPresets: VideoPreset[];
   selFx: string | null;
   setSelFx(id: string | null): void;
 }
@@ -287,6 +288,7 @@ export default function Inspector(p: Props) {
 
         {p.tool === "motion" ? (
           <MotionPanel draft={d} upd={p.upd} presets={p.motionPresets}
+                       videoPresets={p.videoPresets} outNow={p.outNow}
                        selFx={p.selFx} setSelFx={p.setSelFx}
                        captions={p.captions} onSeekOut={p.onSeekOut} />
         ) : null}

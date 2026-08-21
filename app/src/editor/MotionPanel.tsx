@@ -9,14 +9,17 @@
 import type { CaptionCards } from "../api/types";
 import { fmtT, type Draft } from "./model";
 import {
-  hash32, manifestVazio, type EffectInstance, type TextPreset,
+  hash32, manifestVazio, novoId, seedDe,
+  type EffectInstance, type TextPreset, type VideoPreset,
 } from "./motion";
 
 export const INTENS: [string, string][] = [
   ["suave", "Suave"], ["normal", "Normal"], ["forte", "Forte"],
 ];
 
-export function rotuloDoEfeito(e: EffectInstance, presets: TextPreset[]): string {
+export function rotuloDoEfeito(
+  e: EffectInstance, presets: { id: string; label: string }[],
+): string {
   const nome = presets.find((p) => p.id === e.preset)?.label ?? e.preset;
   const inten = typeof e.intensity === "string" && e.intensity !== "normal"
     ? ` — ${INTENS.find(([i]) => i === e.intensity)?.[1] ?? e.intensity}` : "";
@@ -27,6 +30,8 @@ interface Props {
   draft: Draft;
   upd(patch: Partial<Draft>): void;
   presets: TextPreset[];
+  videoPresets: VideoPreset[];
+  outNow: number; // playhead em tempo de SAÍDA — onde nasce um FX novo
   selFx: string | null;
   setSelFx(id: string | null): void;
   captions: CaptionCards | null;
@@ -36,6 +41,22 @@ interface Props {
 export default function MotionPanel(p: Props) {
   const effects = p.draft.motion?.effects ?? [];
   const sel = effects.find((e) => e.id === p.selFx) ?? null;
+  const catalogoDe = (e: EffectInstance) =>
+    e.type === "video_fx" ? p.videoPresets : p.presets;
+
+  /** Cria um efeito de VÍDEO no cursor (Entrega 17: track FX). */
+  function criarVideoFx() {
+    const id = novoId();
+    const inicio = Math.max(0, Math.round(p.outNow * 100) / 100);
+    const eff: EffectInstance = {
+      id, type: "video_fx", preset: "punch_zoom", target: { kind: "video" },
+      start: inicio, end: Math.round((inicio + 0.6) * 100) / 100,
+      intensity: "normal", enabled: true, seed: seedDe(id),
+    };
+    const m = p.draft.motion ?? manifestVazio();
+    p.upd({ motion: { ...m, effects: [...m.effects, eff] } });
+    p.setSelFx(id);
+  }
 
   function mudar(id: string, patch: Partial<EffectInstance>) {
     const m = p.draft.motion ?? manifestVazio();
@@ -49,6 +70,7 @@ export default function MotionPanel(p: Props) {
   }
 
   function alvoLegivel(e: EffectInstance): string {
+    if (e.target.kind === "video") return "cena inteira";
     const palavras = (p.captions?.cards ?? []).flatMap((c) => c.words);
     const nomes: string[] = [];
     for (const i of e.target.idx ?? []) {
@@ -69,10 +91,17 @@ export default function MotionPanel(p: Props) {
         <div className="sub">
           Nenhum efeito de motion neste corte ainda.
           <br /><br />
-          Para criar: abra <b>Palavras</b>, clique na palavra que merece o
-          destaque e escolha <b>✦ Motion</b>. O efeito aparece como um bloco
-          na track Motion da timeline — e é exatamente o que o render final
-          vai queimar no vídeo.
+          Texto: abra <b>Palavras</b>, clique na palavra que merece o destaque
+          e escolha <b>✦ Motion</b>.
+          <br />
+          Vídeo: posicione o cursor e crie um efeito de cena abaixo — zoom,
+          shake, flash… O bloco aparece na track FX e é exatamente o que o
+          render final aplica.
+        </div>
+        <div className="row" style={{ marginTop: 12 }}>
+          <button data-testid="mo-add-fx" onClick={criarVideoFx}>
+            ⚡ Efeito de vídeo no cursor
+          </button>
         </div>
       </>
     );
@@ -81,13 +110,18 @@ export default function MotionPanel(p: Props) {
   return (
     <>
       <h3>Motion</h3>
+      <div className="row" style={{ marginBottom: 10 }}>
+        <button data-testid="mo-add-fx" onClick={criarVideoFx}>
+          ⚡ Efeito de vídeo no cursor
+        </button>
+      </div>
       <div className="mo-lista" data-testid="mo-lista">
         {effects.map((e) => (
           <button key={e.id}
                   className={`mo-item${p.selFx === e.id ? " on" : ""}${e.enabled === false ? " off" : ""}`}
                   data-testid={`mo-item-${e.id}`}
                   onClick={() => { p.setSelFx(e.id); p.onSeekOut(e.start + 0.01); }}>
-            <b>✦ {rotuloDoEfeito(e, p.presets)}</b>
+            <b>{e.type === "video_fx" ? "⚡" : "✦"} {rotuloDoEfeito(e, catalogoDe(e))}</b>
             <span className="sub">
               {alvoLegivel(e)} · {fmtT(e.start)} → {fmtT(e.end)}
               {e.enabled === false ? " · desativado" : ""}
@@ -98,22 +132,22 @@ export default function MotionPanel(p: Props) {
 
       {sel ? (
         <div className="mo-editor" data-testid="mo-editor">
-          <label>Animação</label>
+          <label>{sel.type === "video_fx" ? "Efeito de vídeo" : "Animação"}</label>
           <select value={sel.preset} data-testid="mo-preset"
                   onChange={(ev) => mudar(sel.id, { preset: ev.target.value })}>
-            {[...new Set(p.presets.map((pr) => pr.categoria))].map((cat) => (
+            {[...new Set(catalogoDe(sel).map((pr) => pr.categoria))].map((cat) => (
               <optgroup key={cat} label={cat}>
-                {p.presets.filter((pr) => pr.categoria === cat).map((pr) => (
+                {catalogoDe(sel).filter((pr) => pr.categoria === cat).map((pr) => (
                   <option key={pr.id} value={pr.id}>{pr.label}</option>
                 ))}
               </optgroup>
             ))}
-            {!p.presets.some((pr) => pr.id === sel.preset) ? (
+            {!catalogoDe(sel).some((pr) => pr.id === sel.preset) ? (
               <option value={sel.preset}>{sel.preset}</option>
             ) : null}
           </select>
           <div className="sub" style={{ marginTop: 2 }}>
-            {p.presets.find((pr) => pr.id === sel.preset)?.descricao ?? ""}
+            {catalogoDe(sel).find((pr) => pr.id === sel.preset)?.descricao ?? ""}
           </div>
 
           <label style={{ marginTop: 10 }}>Intensidade</label>

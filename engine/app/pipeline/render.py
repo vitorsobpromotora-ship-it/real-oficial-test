@@ -29,7 +29,7 @@ from ..db.models import (
 )
 from ..jobs.registry import job_handler
 from ..services import ffmpeg
-from . import captions, censor, compose
+from . import captions, censor, compose, motion_video
 from . import edl as edl_mod
 from .reframe import apply_framing_override, apply_punch_in, apply_segment_overrides, plan_crop
 
@@ -218,7 +218,8 @@ def build_filtergraph(*, crop_plan: dict, duration: float, out_w: int, out_h: in
                       video_trims: list[dict] | None = None,
                       audio_chunks: list[dict] | None = None,
                       audio_fx: dict | None = None,
-                      video_fades: dict | None = None) -> tuple[str, str, str]:
+                      video_fades: dict | None = None,
+                      fx_chains: list[str] | None = None) -> tuple[str, str, str]:
     """Grafo clássico (tela cheia): retorna (filter_complex, video_label, audio_label).
 
     EDL: em modo crop os trims vêm embutidos nos segments do crop_plan (tempo
@@ -229,6 +230,11 @@ def build_filtergraph(*, crop_plan: dict, duration: float, out_w: int, out_h: in
     `duration` é a duração de SAÍDA (base dos fades globais)."""
     chains, v = _video_base_chains(crop_plan=crop_plan, video_trims=video_trims,
                                    out_w=out_w, out_h=out_h)
+    # Video FX do Motion Manifest: depois da base (t = tempo de SAÍDA) e ANTES
+    # das legendas — o vídeo treme/zooma/escurece, o texto continua parado
+    for i, fx in enumerate(fx_chains or []):
+        chains.append(f"[{v}]{fx}[vfx{i}]")
+        v = f"vfx{i}"
     if subs_file:
         ass_arg = f"ass={subs_file}"
         if fonts_dir:
@@ -494,13 +500,18 @@ def render_cut(ctx) -> dict:
                 censor_mode=censor_mode, logo=logo, beep_input_index=beep_idx,
                 logo_input_index=logo_idx, video_trims=video_trims, audio_chunks=audio_sel,
                 audio_fx=edl["audio"],
-                video_fades={"fade_in_s": edl["fade_in_s"], "fade_out_s": edl["fade_out_s"]})
+                video_fades={"fade_in_s": edl["fade_in_s"], "fade_out_s": edl["fade_out_s"]},
+                fx_chains=motion_video.compile_video_fx(cut.get("motion"), out_w, out_h))
         else:
             src_l = compose.source_layer(lay)
             box_w = compose.box_px(src_l.get("w", 1080), scale_c)
             box_h = compose.box_px(src_l.get("h", 1920), scale_c)
             chains, vb = _video_base_chains(crop_plan=plan_rel, video_trims=video_trims,
                                             out_w=box_w, out_h=box_h, fit="cover")
+            for fx_i, fx in enumerate(
+                    motion_video.compile_video_fx(cut.get("motion"), box_w, box_h)):
+                chains.append(f"[{vb}]{fx}[vmfx{fx_i}]")
+                vb = f"vmfx{fx_i}"
             bg_lbl = None
             if (lay.get("background") or {}).get("type") == "blur":
                 chains.append(f"[{vb}]split=2[vmain][vbgsrc]")

@@ -60,7 +60,12 @@ vi.mock("../src/api/client", () => ({
     if (path.startsWith("/api/v1/captions/presets"))
       return { presets: [{ id: "bold_karaoke", label: "Karaokê Bold" }] };
     if (path.startsWith("/api/v1/motion/presets"))
-      return { presets: [
+      return { video_presets: [
+        { id: "punch_zoom", label: "Punch Zoom", categoria: "Zoom",
+          params: { amount: 0.12 } },
+        { id: "flash", label: "Flash", categoria: "Cena",
+          params: { amount: 0.42, decay_s: 0.15 } },
+      ], presets: [
         { id: "pop_clean", label: "Pop Clean", categoria: "Básicos",
           phases: { enter: { dur_ms: 170, tracks: { scale: [
             { t: 0, v: 100 }, { t: 1, v: 106, ease: "suave" }] } } } },
@@ -203,5 +208,29 @@ describe("v4 FASE C — Motion pela interface", () => {
     // (o painel Palavras o mostraria; aqui basta o painel Motion aberto e
     // o bloco marcado como selecionado)
     expect(screen.getByTestId("mo-block-fx9").className).toContain("on");
+  });
+});
+
+describe("v4 FASE F — Video FX pela interface", () => {
+  it("⚡ cria efeito de vídeo no cursor, bloco na track FX e persiste", async () => {
+    renderEditor();
+    fireEvent.click(await screen.findByTestId("tool-motion"));
+    fireEvent.click(await screen.findByTestId("mo-add-fx"));
+
+    expect(await screen.findByTestId("mo-editor")).toBeInTheDocument();
+    expect(screen.getByTestId("mo-preset")).toHaveValue("punch_zoom");
+    expect(screen.getByTestId("fx-track").textContent).toContain("Punch Zoom");
+    expect(screen.getByTestId("mo-track").textContent).not.toContain("Punch Zoom");
+
+    // troca para um preset de CENA e persiste no manifest
+    fireEvent.change(screen.getByTestId("mo-preset"), { target: { value: "flash" } });
+    await waitFor(() => {
+      const e = ultimoMotion()!.effects[0];
+      expect(e.type).toBe("video_fx");
+      expect(e.preset).toBe("flash");
+      expect(e.target).toEqual({ kind: "video" });
+      expect(e.end - e.start).toBeCloseTo(0.6, 2);
+    }, { timeout: 4000 });
+    expect(screen.getByTestId("fx-track").textContent).toContain("Flash");
   });
 });

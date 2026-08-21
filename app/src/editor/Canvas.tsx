@@ -11,7 +11,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { mediaUrl } from "../api/client";
 import type { BrandKit, CaptionCards, Cut, KitLayer, Source } from "../api/types";
 import { captionBox, fmtSrc, fmtT, outDur, srcToOut, type Draft } from "./model";
-import { textPropsAt, type EffectInstance, type TextPreset } from "./motion";
+import {
+  textPropsAt, videoFxAt, type EffectInstance, type TextPreset, type VideoPreset,
+} from "./motion";
 import type { CanvasZoom } from "./workspace";
 
 const CW = 1080;
@@ -42,6 +44,7 @@ interface Props {
   zoom: CanvasZoom;
   onZoom(z: CanvasZoom): void;
   motionPresets: TextPreset[]; // catálogo do motor — preview avalia AS MESMAS trilhas
+  videoPresets: VideoPreset[]; // FX de vídeo — mesmas fórmulas do filtergraph
 }
 
 const MODO_POR_FRAMING: Record<string, string> = {
@@ -255,6 +258,23 @@ export default function Canvas(p: Props) {
     window.addEventListener("pointerup", up);
   }
 
+  // Video FX (FASE F): estado combinado no instante atual — o VÍDEO recebe o
+  // efeito; as legendas ficam paradas (no render o FX entra antes do ass=)
+  const vfx = videoFxAt(p.draft.motion ?? null, p.videoPresets, outNow);
+  const vfxTransform = (vfx.zoom !== 1 || vfx.dx || vfx.dy)
+    ? `translate(${(vfx.dx * SC).toFixed(1)}px, ${(vfx.dy * SC).toFixed(1)}px)`
+      + ` scale(${vfx.zoom.toFixed(4)})`
+    : undefined;
+  const vfxFilters: string[] = [];
+  if (vfx.gray) vfxFilters.push("grayscale(1)");
+  if (vfx.darken) vfxFilters.push(`brightness(${(1 - vfx.darken).toFixed(3)})`);
+  if (vfx.blur) vfxFilters.push(`blur(${(vfx.blur * SC).toFixed(1)}px)`);
+  if (vfx.rgb) {
+    const px = (vfx.rgb * SC).toFixed(1);
+    vfxFilters.push(`drop-shadow(${px}px 0 rgba(255,0,60,.55))`);
+    vfxFilters.push(`drop-shadow(-${px}px 0 rgba(0,229,255,.55))`);
+  }
+
   return (
     <div className="cv-area">
       <div className="cv-zoomctl" data-testid="cv-zoomctl">
@@ -284,19 +304,31 @@ export default function Canvas(p: Props) {
           }}
           onClick={p.onTogglePlay}
         >
-          {p.videoUrl ? (
-            <video
-              ref={p.videoRef as React.RefObject<HTMLVideoElement>}
-              src={p.videoUrl}
-              style={videoStyle}
-              onError={p.onVideoErro}
-              onLoadedMetadata={(e) => {
-                e.currentTarget.currentTime = segs[0]?.src_start ?? 0;
-              }}
-            />
-          ) : (
-            <div className="ed-loading">Abrindo vídeo…</div>
-          )}
+          <div className="cv-fxwrap" style={{
+            position: "absolute", inset: 0,
+            transform: vfxTransform,
+            filter: vfxFilters.length ? vfxFilters.join(" ") : undefined,
+          }}>
+            {p.videoUrl ? (
+              <video
+                ref={p.videoRef as React.RefObject<HTMLVideoElement>}
+                src={p.videoUrl}
+                style={videoStyle}
+                onError={p.onVideoErro}
+                onLoadedMetadata={(e) => {
+                  e.currentTarget.currentTime = segs[0]?.src_start ?? 0;
+                }}
+              />
+            ) : (
+              <div className="ed-loading">Abrindo vídeo…</div>
+            )}
+          </div>
+          {vfx.flash > 0 ? (
+            <div data-testid="cv-flash" style={{
+              position: "absolute", inset: 0, background: "#fff",
+              opacity: Math.min(1, vfx.flash), pointerEvents: "none", zIndex: 4,
+            }} />
+          ) : null}
         </div>
 
         {/* camadas do kit acima do vídeo (imagens, textos, formas, vídeo deco) */}

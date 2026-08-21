@@ -288,3 +288,115 @@ export function textPropsAt(e: EffectInstance, preset: TextPreset, tOut: number)
   props.alpha = Math.max(0, Math.min(1, props.alpha));
   return props;
 }
+
+// ---------------------------------------------------------------------------
+// Video FX (FASE F) — espelho de motion_video.video_props_at
+// ---------------------------------------------------------------------------
+
+export interface VideoPreset {
+  id: string;
+  label: string;
+  categoria: string;
+  descricao?: string;
+  params?: Record<string, number>;
+}
+
+export interface VideoProps {
+  zoom: number; // 1 = neutro
+  dx: number; // px na referência 1080×1920
+  dy: number;
+  rot: number;
+  darken: number; // 0..1
+  blur: number; // sigma na referência 1080
+  gray: number; // 0..1
+  flash: number; // 0..1
+  rgb: number; // px de separação na referência 1080
+}
+
+export const VIDEO_NEUTRAL: VideoProps = {
+  zoom: 1, dx: 0, dy: 0, rot: 0, darken: 0, blur: 0, gray: 0, flash: 0, rgb: 0,
+};
+
+export const SHAKE_FREQS = [23, 31, 29, 37] as const;
+
+const smooth = (u: number) => {
+  const c = u < 0 ? 0 : u > 1 ? 1 : u;
+  return c * c * (3 - 2 * c);
+};
+const clip01 = (u: number) => (u < 0 ? 0 : u > 1 ? 1 : u);
+
+function paramDe(e: EffectInstance, preset: VideoPreset, nome: string, def = 0): number {
+  const ep = (e.params ?? {}) as Record<string, unknown>;
+  if (typeof ep[nome] === "number") return ep[nome] as number;
+  return preset.params?.[nome] ?? def;
+}
+
+/** Estado do vídeo no instante t — MESMAS fórmulas que o filtergraph avalia. */
+export function videoPropsAt(e: EffectInstance, preset: VideoPreset, t: number): VideoProps {
+  const props: VideoProps = { ...VIDEO_NEUTRAL };
+  const t0 = e.start;
+  const t1 = e.end;
+  const dur = Math.max(0.05, t1 - t0);
+  if (!(e.enabled ?? true) || t < t0 || t >= t1) return props;
+  const k = intensityK(e.intensity);
+  const ts = t - t0;
+  const pid = preset.id;
+  if (pid === "punch_zoom") {
+    const am = paramDe(e, preset, "amount") * k;
+    const attack = Math.min(0.18, dur * 0.35);
+    const release = dur - attack;
+    props.zoom = 1 + am * (clip01(ts / attack) - smooth(clip01((ts - attack) / release)));
+  } else if (pid === "zoom_out") {
+    const am = paramDe(e, preset, "amount") * k;
+    props.zoom = 1 + am * (1 - smooth(clip01(ts / dur)));
+  } else if (pid === "shake" || pid === "impact_shake") {
+    const amp = paramDe(e, preset, "amp") * k;
+    const f = [0, 1, 2, 3].map((i) => rng01((e.seed ?? 1) | 0, i) * 2 * Math.PI);
+    const env = pid === "impact_shake"
+      ? Math.exp(-paramDe(e, preset, "decay", 6) * ts / dur)
+      : Math.max(0, 1 - ts / dur);
+    const [f1, f2, f3, f4] = SHAKE_FREQS;
+    props.dx = amp * env * (0.6 * Math.sin(2 * Math.PI * f1 * ts + f[0])
+      + 0.4 * Math.sin(2 * Math.PI * f2 * ts + f[1]));
+    props.dy = amp * env * (0.6 * Math.sin(2 * Math.PI * f3 * ts + f[2])
+      + 0.4 * Math.sin(2 * Math.PI * f4 * ts + f[3]));
+  } else if (pid === "rgb_split") {
+    props.rgb = paramDe(e, preset, "px") * k;
+  } else if (pid === "darken") {
+    props.darken = Math.min(0.85, paramDe(e, preset, "amount") * k);
+  } else if (pid === "flash") {
+    const decay = paramDe(e, preset, "decay_s", 0.15);
+    props.flash = Math.min(1, paramDe(e, preset, "amount") * k)
+      * Math.max(0, 1 - ts / decay);
+  } else if (pid === "blur_pulse") {
+    props.blur = paramDe(e, preset, "sigma") * k;
+  } else if (pid === "vignette_pulse") {
+    props.darken = 0.12; // aproximação do preview; o render usa vignette real
+  } else if (pid === "grayscale_hit") {
+    props.gray = 1;
+  }
+  return props;
+}
+
+/** FX de vídeo ativos e combinados no instante t (para o canvas). */
+export function videoFxAt(
+  m: MotionManifest | null, presets: VideoPreset[], t: number,
+): VideoProps {
+  const out: VideoProps = { ...VIDEO_NEUTRAL };
+  if (!m) return out;
+  for (const e of m.effects) {
+    if (e.type !== "video_fx" || e.enabled === false) continue;
+    const preset = presets.find((p) => p.id === e.preset);
+    if (!preset) continue;
+    const v = videoPropsAt(e, preset, t);
+    out.zoom *= v.zoom;
+    out.dx += v.dx;
+    out.dy += v.dy;
+    out.darken = Math.min(0.9, out.darken + v.darken);
+    out.blur += v.blur;
+    out.gray = Math.max(out.gray, v.gray);
+    out.flash = Math.min(1, out.flash + v.flash);
+    out.rgb = Math.max(out.rgb, v.rgb);
+  }
+  return out;
+}

@@ -140,8 +140,10 @@ def motion_presets():
     """Catálogo declarativo do Motion Engine — o preview TS avalia AS MESMAS
     trilhas de keyframes que o compilador ASS do render (paridade)."""
     from ..pipeline.motion_text import TEXT_PRESETS  # noqa: PLC0415
+    from ..pipeline.motion_video import VIDEO_PRESETS  # noqa: PLC0415
 
     return {"presets": list(TEXT_PRESETS.values()),
+            "video_presets": list(VIDEO_PRESETS.values()),
             "easings": motion_mod.EASING_LABELS_PTBR}
 
 

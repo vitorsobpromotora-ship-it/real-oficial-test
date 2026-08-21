@@ -20,7 +20,7 @@ import {
   srcToOut, type Draft,
 } from "../editor/model";
 import { rotuloDoEfeito } from "../editor/MotionPanel";
-import type { TextPreset } from "../editor/motion";
+import type { TextPreset, VideoPreset } from "../editor/motion";
 import Splitter from "../editor/Splitter";
 import { WORKSPACE_PRESETS, useWorkspace } from "../editor/workspace";
 
@@ -58,9 +58,14 @@ export default function EditorPage() {
   });
   const motionQ = useQuery({
     queryKey: ["motion-presets"],
-    queryFn: () => get<{ presets: TextPreset[] }>("/api/v1/motion/presets"),
+    queryFn: () => get<{ presets: TextPreset[]; video_presets: VideoPreset[] }>(
+      "/api/v1/motion/presets"),
     staleTime: Infinity,
   });
+  const videoPresets = motionQ.data?.video_presets ?? [];
+  // catálogo combinado só para ROTULAR blocos (texto + vídeo)
+  const todosPresets = [...(motionQ.data?.presets ?? []),
+    ...videoPresets.map((v) => ({ ...v, phases: {} }))] as TextPreset[];
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saved, setSaved] = useState("");
@@ -670,6 +675,7 @@ export default function EditorPage() {
           zoom={ws.canvas_zoom}
           onZoom={(z) => wsMudar({ canvas_zoom: z })}
           motionPresets={motionQ.data?.presets ?? []}
+          videoPresets={videoPresets}
         />
         <Splitter
           dir="v"
@@ -699,6 +705,7 @@ export default function EditorPage() {
             sel={sel}
             selFr={selFr}
             motionPresets={motionQ.data?.presets ?? []}
+            videoPresets={videoPresets}
             selFx={selFx}
             setSelFx={setSelFx}
             playhead={playhead}
@@ -902,14 +909,15 @@ export default function EditorPage() {
                 "Punch — Forte", nunca fx_273 (Entregas 18, 143) */}
             <div className="tl-track tl-track-mo" data-testid="mo-track">
               <span className="tl-tracklabel">Motion</span>
-              {(draft.motion?.effects ?? []).map((e) => {
+              {(draft.motion?.effects ?? [])
+                .filter((e) => e.type !== "video_fx").map((e) => {
                 const a = outToSrc(segs, e.start);
                 const b = outToSrc(segs, Math.max(e.start + 0.05, e.end));
                 return (
                   <div key={e.id} data-testid={`mo-block-${e.id}`}
                        className={`tl-moblock${selFx === e.id ? " on" : ""}${e.enabled === false ? " off" : ""}`}
                        style={{ left: x(a), width: Math.max(10, (b - a) * zoom) }}
-                       title={`${rotuloDoEfeito(e, motionQ.data?.presets ?? [])} · clique para editar`}
+                       title={`${rotuloDoEfeito(e, todosPresets)} · clique para editar`}
                        onClick={(ev) => {
                          ev.stopPropagation();
                          setSelFx(e.id);
@@ -919,7 +927,31 @@ export default function EditorPage() {
                          if (i >= 0) setSelCard(i); // bloco → texto alvo (Entrega 91)
                          seekSrc(outToSrc(segs, e.start + 0.01));
                        }}>
-                    ✦ {rotuloDoEfeito(e, motionQ.data?.presets ?? [])}
+                    ✦ {rotuloDoEfeito(e, todosPresets)}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* track FX (FASE F): efeitos de VÍDEO — zoom, shake, flash… */}
+            <div className="tl-track tl-track-fx" data-testid="fx-track">
+              <span className="tl-tracklabel">FX</span>
+              {(draft.motion?.effects ?? [])
+                .filter((e) => e.type === "video_fx").map((e) => {
+                const a = outToSrc(segs, e.start);
+                const b = outToSrc(segs, Math.max(e.start + 0.05, e.end));
+                return (
+                  <div key={e.id} data-testid={`fx-block-${e.id}`}
+                       className={`tl-fxblock${selFx === e.id ? " on" : ""}${e.enabled === false ? " off" : ""}`}
+                       style={{ left: x(a), width: Math.max(10, (b - a) * zoom) }}
+                       title={`${rotuloDoEfeito(e, todosPresets)} · clique para editar`}
+                       onClick={(ev) => {
+                         ev.stopPropagation();
+                         setSelFx(e.id);
+                         setTool("motion");
+                         seekSrc(outToSrc(segs, e.start + 0.01));
+                       }}>
+                    ⚡ {rotuloDoEfeito(e, todosPresets)}
                   </div>
                 );
               })}

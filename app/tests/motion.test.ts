@@ -9,9 +9,10 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  EASINGS, TEXT_NEUTRAL, ease, effectsAt, evalKeyframes, hash32, intensityK,
-  manifestVazio, progresso, rng01, seedDe, shakeOffset, textPropsAt,
-  type EffectInstance, type Keyframe, type TextPreset,
+  EASINGS, TEXT_NEUTRAL, VIDEO_NEUTRAL, ease, effectsAt, evalKeyframes, hash32,
+  intensityK, manifestVazio, progresso, rng01, seedDe, shakeOffset, textPropsAt,
+  videoFxAt, videoPropsAt,
+  type EffectInstance, type Keyframe, type TextPreset, type VideoPreset,
 } from "../src/editor/motion";
 
 const CASES = JSON.parse(
@@ -122,5 +123,46 @@ describe("Text Motion Core — paridade das 3 fases (FASE C)", () => {
     const e = TP.cases[0].effect;
     expect(textPropsAt(e, preset, 0)).toEqual(TEXT_NEUTRAL);
     expect(textPropsAt({ ...e, enabled: false }, preset, 2.3)).toEqual(TEXT_NEUTRAL);
+  });
+});
+
+describe("Video FX — paridade das fórmulas do filtergraph (FASE F)", () => {
+  interface VPCase {
+    preset: string;
+    effect: EffectInstance;
+    t: number;
+    props: Record<string, number>;
+  }
+  const VP = (CASES as unknown as {
+    video_props: { presets: Record<string, VideoPreset>; cases: VPCase[] };
+  }).video_props;
+
+  it("videoPropsAt bate com o motor em todos os presets e instantes", () => {
+    for (const c of VP.cases) {
+      const got = videoPropsAt(c.effect, VP.presets[c.preset], c.t);
+      for (const [prop, v] of Object.entries(c.props)) {
+        expect(got[prop as keyof typeof got], `${c.preset}@${c.t}s ${prop}`)
+          .toBeCloseTo(v, 12);
+      }
+    }
+  });
+
+  it("videoFxAt combina efeitos simultâneos (zoom multiplica, darken soma)", () => {
+    const presets = Object.values(VP.presets);
+    const m = {
+      version: 1,
+      effects: [
+        { id: "a", type: "video_fx", preset: "darken", target: { kind: "video" },
+          start: 1, end: 2, intensity: "normal", enabled: true, seed: 1 },
+        { id: "b", type: "video_fx", preset: "grayscale_hit", target: { kind: "video" },
+          start: 1.5, end: 2.5, intensity: "normal", enabled: true, seed: 1 },
+      ] as EffectInstance[],
+    };
+    const dentro = videoFxAt(m, presets, 1.7);
+    expect(dentro.darken).toBeCloseTo(0.22, 6);
+    expect(dentro.gray).toBe(1);
+    const fora = videoFxAt(m, presets, 3);
+    expect(fora).toEqual(VIDEO_NEUTRAL);
+    expect(videoFxAt(null, presets, 1.7)).toEqual(VIDEO_NEUTRAL);
   });
 });
