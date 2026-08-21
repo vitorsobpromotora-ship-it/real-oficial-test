@@ -153,3 +153,47 @@ garante que a prévia 540×960 e o render 1080×1920 mostrem a legenda na mesma
 posição proporcional.
 
 Precedência de estilo: `palavra (ênfase) › corte › Kit de Marca › preset`.
+
+## Motion Engine (v4)
+
+O corte carrega um **Motion Manifest** (`cut.motion`) — a fonte única da verdade
+de todos os efeitos. `null` = sem efeitos.
+
+```jsonc
+{
+  "version": 1,
+  "effects": [{
+    "id": "fx_ab12cd34",
+    "type": "text_emphasis|text_callout|video_fx|broll|transition|sfx",
+    "preset": "punch",                       // id no catálogo do tipo
+    "target": {"kind": "words|card|video|clip|media", "idx": [5], "media_id": "…"},
+    "start": 3.2, "end": 3.8,                // tempo de SAÍDA (pós-EDL)
+    "intensity": "suave|normal|forte",       // ou 0..2 contínuo
+    "easing": "ease_out",
+    "params": {},                            // overrides por efeito (cor, pos_x/pos_y, modo b-roll…)
+    "keyframes": {"scale": [{"t": 0, "v": 100, "ease": "linear"}]},
+    "enabled": true,
+    "seed": 7,                               // determinismo (shake, jitter, stagger)
+    "layer": 0,
+    "group": "grp_x", "group_label": "Fatality", // composições
+    "origin": "auto", "reason": "…"          // sugestões aplicadas
+  }],
+  "assets": []
+}
+```
+
+| Método | Rota | Observações |
+|---|---|---|
+| PATCH | `/api/v1/cuts/{id}` | `{motion: manifest\|null}` — validado/normalizado; `422` se inválido; conta como edição **visual** (`edit_revision`) |
+| GET | `/api/v1/motion/presets` | catálogos completos: `presets` (14 de texto), `video_presets` (10 FX), `callout_presets` (7), `composite_presets` (Fatality/Punchline), `easings` |
+| POST | `/api/v1/cuts/{id}/motion/suggest` | `{style, density}` → sugestões da camada semântica (**puro** — nada é gravado; a UI aplica com `origin:"auto"` + `reason`). `422` para estilo/densidade desconhecidos; devolve também `styles` e `densities` |
+| GET/POST | `/api/v1/projects/{id}/media` | biblioteca de B-roll do projeto; POST multipart `file` (mp4/mov/webm/png/jpg/webp) — copiado para o data dir e sondado com ffprobe |
+| DELETE | `/api/v1/projects/{id}/media/{media_id}` | remove da biblioteca (efeitos que apontam para ela passam a "mídia ausente") |
+| GET | `/api/v1/media/broll/{media_id}?token=` | arquivo da mídia (thumb/preview na UI) |
+
+Garantias do motor: presets são **dados** (nunca funções); mesmo manifest +
+mesma `seed` ⇒ vídeo bit-idêntico ("Nova variação" = nova seed); paridade
+preview×render verificada por contrato compartilhado (`shared/motion-cases.json`,
+testado no engine **e** no app); áudio principal **nunca** é tocado pelo B-roll;
+composições (ex.: Fatality) expandem para efeitos reais agrupados — tudo
+continua editável peça a peça.

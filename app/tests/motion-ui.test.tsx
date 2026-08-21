@@ -414,3 +414,38 @@ describe("v4 FASE J — Smart Motion pela interface", () => {
     }, { timeout: 4000 });
   });
 });
+
+describe("v4 FASE K — galeria, duplicar e copiar/colar", () => {
+  it("galeria animada aplica preset; ⧉ duplica; Ctrl+C/V cola no cursor", async () => {
+    renderEditor();
+    fireEvent.click(await screen.findByTestId("tool-palavras"));
+    fireEvent.click(await screen.findByTestId("wp-i1"));
+    fireEvent.click(await screen.findByTestId("wp-motion"));
+    await screen.findByTestId("mo-editor");
+
+    // galeria com cards animados (keyframes derivados das trilhas reais)
+    expect(screen.getByTestId("mo-galeria")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("mg-pop_clean"));
+    await waitFor(() => {
+      expect(ultimoMotion()!.effects[0].preset).toBe("pop_clean");
+    }, { timeout: 4000 });
+
+    fireEvent.click(screen.getByTestId("mo-duplicar"));
+    await waitFor(() => {
+      expect(ultimoMotion()!.effects).toHaveLength(2);
+    }, { timeout: 4000 });
+
+    // Ctrl+C no efeito selecionado, Ctrl+V cola mais um
+    fireEvent.keyDown(window, { key: "c", ctrlKey: true });
+    fireEvent.keyDown(window, { key: "v", ctrlKey: true });
+    await waitFor(() => {
+      expect(ultimoMotion()!.effects).toHaveLength(3);
+    }, { timeout: 4000 });
+
+    // Delete remove o efeito selecionado (não o trecho)
+    fireEvent.keyDown(window, { key: "Delete" });
+    await waitFor(() => {
+      expect(ultimoMotion()!.effects).toHaveLength(2);
+    }, { timeout: 4000 });
+  });
+});

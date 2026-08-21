@@ -106,6 +106,7 @@ export default function EditorPage() {
   const [title, setTitle] = useState("");
   const [selCard, setSelCard] = useState<number | null>(null); // cartão de legenda
   const [selFx, setSelFx] = useState<string | null>(null); // efeito de motion
+  const fxClipRef = useRef<Record<string, unknown> | null>(null); // Ctrl+C/V
   const [safeArea, setSafeArea] = useState(false); // guias das plataformas
   const [toast, setToast] = useState("");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -529,8 +530,30 @@ export default function EditorPage() {
         togglePlay();
       } else if (e.key === "s" || e.key === "S") {
         splitAt();
+      } else if ((e.key === "Delete" || e.key === "Backspace") && selFx != null
+          && draft?.motion) {
+        // efeito de motion selecionado: Delete remove o EFEITO, não o trecho
+        upd({ motion: { ...draft.motion,
+          effects: draft.motion.effects.filter((x) => x.id !== selFx) } });
+        setSelFx(null);
       } else if ((e.key === "Delete" || e.key === "Backspace") && sel != null) {
         removeSeg(sel);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c"
+          && selFx != null) {
+        const fx = draft?.motion?.effects.find((x) => x.id === selFx);
+        if (fx) fxClipRef.current = { ...fx };
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v"
+          && fxClipRef.current && draft) {
+        const base = fxClipRef.current as unknown as
+          import("../editor/motion").EffectInstance;
+        const id2 = Math.random().toString(16).slice(2, 14);
+        const dur = base.end - base.start;
+        const inicio = Math.round(srcToOut(draft.segments, playhead) * 100) / 100;
+        const m = draft.motion ?? { version: 1, effects: [] };
+        upd({ motion: { ...m, effects: [...m.effects,
+          { ...base, id: id2, group: undefined, group_label: undefined,
+            start: inicio, end: Math.round((inicio + dur) * 100) / 100 }] } });
+        setSelFx(id2);
       } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
         e.preventDefault();
         undo();
@@ -947,7 +970,8 @@ export default function EditorPage() {
             <div className="tl-track tl-track-mo" data-testid="mo-track">
               <span className="tl-tracklabel">Motion</span>
               {(draft.motion?.effects ?? [])
-                .filter((e) => e.type !== "video_fx").map((e) => {
+                .filter((e) => e.type !== "video_fx" && e.type !== "broll")
+                .map((e) => {
                 const a = outToSrc(segs, e.start);
                 const b = outToSrc(segs, Math.max(e.start + 0.05, e.end));
                 return (

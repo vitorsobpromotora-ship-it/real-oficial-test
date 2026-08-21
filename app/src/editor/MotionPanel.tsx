@@ -10,6 +10,7 @@ import { useState } from "react";
 import { post } from "../api/client";
 import type { CaptionCards } from "../api/types";
 import { fmtT, type Draft } from "./model";
+import MotionGallery from "./MotionGallery";
 import {
   expandComposite, hash32, manifestVazio, novoId, seedDe,
   type CalloutPreset, type CompositePreset, type EffectInstance,
@@ -307,6 +308,10 @@ export default function MotionPanel(p: Props) {
           <div className="sub" style={{ marginTop: 2 }}>
             {catalogoDe(sel).find((pr) => pr.id === sel.preset)?.descricao ?? ""}
           </div>
+          {sel.type === "text_emphasis" ? (
+            <MotionGallery presets={p.presets} atual={sel.preset}
+                           onAplicar={(pid) => mudar(sel.id, { preset: pid })} />
+          ) : null}
 
           <label style={{ marginTop: 10 }}>Intensidade</label>
           <div className="row">
@@ -449,6 +454,19 @@ export default function MotionPanel(p: Props) {
                     onClick={() => mudar(sel.id,
                       { seed: hash32(((sel.seed ?? 1) + 1) >>> 0) })}>
               🎲 Nova variação
+            </button>
+            <button data-testid="mo-duplicar" title="Duplica logo à frente"
+                    onClick={() => {
+                      const id2 = novoId();
+                      const dur = sel.end - sel.start;
+                      const m = p.draft.motion ?? manifestVazio();
+                      p.upd({ motion: { ...m, effects: [...m.effects,
+                        { ...sel, id: id2, seed: seedDe(id2),
+                          start: Math.round((sel.end + 0.05) * 100) / 100,
+                          end: Math.round((sel.end + 0.05 + dur) * 100) / 100 }] } });
+                      p.setSelFx(id2);
+                    }}>
+              ⧉ Duplicar
             </button>
             <button className="danger right" data-testid="mo-excluir"
                     onClick={() => excluir(sel.id)}>

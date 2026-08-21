@@ -795,3 +795,23 @@ iframe.report { width: 100%; height: 75vh; border: 1px solid var(--line);
 .mo-sug { display: flex; flex-direction: column; gap: 1px; padding: 6px 8px;
   border: 1px solid var(--line); border-radius: 8px; }
 .mo-sug b { font-size: 12px; }
+
+/* ---------- v4 FASE K: galeria animada de presets ---------- */
+.mg { margin-top: 8px; }
+.mg-cat { font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--faint); margin: 8px 0 4px; }
+.mg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.mg-card { position: relative; display: flex; flex-direction: column;
+  align-items: center; gap: 4px; padding: 12px 6px 7px; border-radius: 8px;
+  border: 1px solid var(--line); background: #0d0f16; overflow: hidden; }
+.mg-card:hover { border-color: #a855f7; }
+.mg-card.on { border-color: #a855f7; box-shadow: 0 0 0 1px #a855f7; }
+.mg-demo { font-weight: 800; font-size: 15px; font-family: Montserrat, Inter,
+  sans-serif; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000,
+  1px 1px 0 #000; animation-duration: 1.1s; animation-iteration-count: infinite;
+  animation-play-state: paused; animation-timing-function: linear; }
+.mg-card:hover .mg-demo { animation-play-state: running; }
+.mg-nome { font-size: 10px; color: var(--muted); }
+.mg-card:hover .mg-nome { color: var(--fg); }
+.mg-fav { position: absolute; top: 2px; right: 5px; font-size: 11px;
+  color: #fbbf24; cursor: pointer; font-style: normal; opacity: .8; }

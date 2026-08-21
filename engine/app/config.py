@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 APP_NAME = "real-oficial"
-VERSION = "3.0.0"
+VERSION = "4.0.0"
 API_PREFIX = "/api/v1"
 
 if getattr(sys, "frozen", False):  # binário PyInstaller: assets ficam em _MEIPASS

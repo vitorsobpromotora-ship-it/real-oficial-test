@@ -1,11 +1,22 @@
 # Real Oficial — Desktop (Windows 10/11)
 
-> **v3.0.0** — a tela do corte virou **decisão editorial** (assistir, ler a
-> análise, título/descrição, aprovar ou rejeitar) e **toda a edição técnica**
-> mora no Editor: canvas 9:16 WYSIWYG, inspector contextual, timeline com
-> tracks de enquadramento/legendas/punch-in em relógio relativo (00:00),
-> editor de palavras (substituir/excluir/inserir ancorado), ênfase por palavra
-> com 12 efeitos, família Palavra Pop e posição livre da legenda.
+> **v4.0.0 — Motion Engine.** O Editor virou um motor de **motion design para
+> short-form** (nicho inicial: batalhas de rima/freestyle): **Motion Manifest**
+> como fonte única da verdade, tipografia cinética com 3 fases
+> (entrada/sustain/saída), 14 presets de ênfase + **Text Callout/Typography
+> Takeover** (7 presets), track de **efeitos de vídeo** (punch zoom, shake
+> procedural com seed, RGB split, darken, blur, flash…), **composições**
+> (Fatality/Punchline comandam texto+vídeo+cena num arco editável),
+> **B-roll** com biblioteca por projeto e áudio principal intacto, camada
+> **Smart Motion** (sugestões semânticas por estilo editorial e densidade,
+> nunca aplicadas sem você), galeria animada de presets, workspace
+> redimensionável e **paridade preview×render ≤ 1 frame** garantida por
+> contrato de testes compartilhado. Determinístico: mesma edição + mesma seed
+> = mesmo vídeo; "Nova variação" = nova seed.
+>
+> v3 continua aí: decisão editorial na tela do corte, canvas 9:16 WYSIWYG,
+> editor de palavras, ênfase por palavra, família Palavra Pop e posição livre
+> da legenda.
 
 **Real Oficial** transforma vídeos longos (podcasts, entrevistas, lives, aulas — até ~10h) em
 **cortes verticais 9:16 prontos para TikTok, Reels e Shorts**, com inteligência artificial:
@@ -29,6 +40,11 @@
 - 💬 **Legendas em PT-BR** queimadas (ASS/libass) com **8 presets reais** (Karaokê Bold, Clean,
   Podcast, Minimal, Palavra Pop, Highlight Box, Bounce, Subtitle Bar), âncora fixa sem pulos,
   regra temporal que impede sobreposição de cartões e excedente virando cartão sequencial
+- 🎬 **Motion Engine (v4)** — tipografia cinética por palavra (14 presets com quality gate),
+  callouts que tomam a tela, efeitos de vídeo temporais na track FX, composições
+  Fatality/Punchline, B-roll por projeto, sugestões Smart Motion por estilo editorial
+  (Limpa · Dinâmica · Batalha · Agressiva) e galeria animada — tudo declarativo, editável,
+  determinístico e com paridade preview×render testada dos dois lados
 - 🎨 **Estúdio de Marca (v2)** — canvas 9:16 com camadas (vídeo do corte com cantos
   arredondados/borda/sombra, imagens/logo, textos com `{titulo}`, formas, vídeo decorativo,
   área das legendas), fundos (cor/degradê/desfoque/imagem/vídeo), animações e templates prontos;
