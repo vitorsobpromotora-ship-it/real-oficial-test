@@ -205,3 +205,54 @@ describe("Pontos 27–28 — legendas na timeline e sincronismo", () => {
     expect(screen.getByTestId("wp-sw1").className).toContain("ins");
   });
 });
+
+describe("Pontos 21–25 — posição livre, safe area e cores da legenda", () => {
+  it("ajustar X/Y grava coordenadas NORMALIZADAS no estilo do corte", async () => {
+    renderEditor();
+    await waitFor(() => expect(screen.getByTestId("tool-legenda")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tool-legenda"));
+
+    await waitFor(() => expect(screen.getByTestId("cap-y")).toBeInTheDocument());
+    fireEvent.change(screen.getByTestId("cap-y"), { target: { value: "0.25" } });
+    fireEvent.change(screen.getByTestId("cap-x"), { target: { value: "0.3" } });
+
+    await waitFor(() => {
+      const cs = patchCalls[patchCalls.length - 1].body.caption_style as
+        Record<string, number>;
+      expect(cs.pos_y).toBeCloseTo(0.25, 3);
+      expect(cs.pos_x).toBeCloseTo(0.3, 3);
+    }, { timeout: 4000 });
+  });
+
+  it("cores do corte são gravadas e o botão restaura o padrão", async () => {
+    renderEditor();
+    await waitFor(() => expect(screen.getByTestId("tool-legenda")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tool-legenda"));
+
+    await waitFor(() => expect(screen.getByTestId("cor-highlight_color")).toBeInTheDocument());
+    fireEvent.change(screen.getByTestId("cor-highlight_color"),
+      { target: { value: "#00ff00" } });
+    await waitFor(() => {
+      const cs = patchCalls[patchCalls.length - 1].body.caption_style as
+        Record<string, string>;
+      expect(cs.highlight_color).toBe("#00FF00");
+    }, { timeout: 4000 });
+
+    fireEvent.click(screen.getByTestId("cor-reset"));
+    await waitFor(() => {
+      const cs = (patchCalls[patchCalls.length - 1].body.caption_style ?? {}) as
+        Record<string, string>;
+      expect(cs.highlight_color).toBeUndefined();
+    }, { timeout: 4000 });
+  }, 20000);
+
+  it("safe area aparece no canvas quando ligada", async () => {
+    renderEditor();
+    await waitFor(() => expect(screen.getByTestId("tool-legenda")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tool-legenda"));
+    await waitFor(() => expect(screen.getByTestId("cap-safe")).toBeInTheDocument());
+    expect(screen.queryByTestId("cv-safe")).toBeNull();
+    fireEvent.click(screen.getByTestId("cap-safe"));
+    await waitFor(() => expect(screen.getByTestId("cv-safe")).toBeInTheDocument());
+  });
+});

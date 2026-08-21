@@ -333,14 +333,33 @@ def _align_an(align: str) -> int:
 
 
 def _margens(style: dict, res: tuple[int, int]) -> tuple[int, int, int]:
+    """Margens laterais e âncora vertical, em pixels da resolução de saída.
+
+    Precedência de posição (Ponto 21): coordenadas NORMALIZADAS pos_x/pos_y
+    (0–1, arrastadas no canvas) › margens explícitas do Estúdio › atalho
+    anchor_top + largura percentual. Normalizado é o formato persistido: o
+    layout continua coerente entre a prévia 540×960 e o render 1080×1920."""
+    pct = float(style.get("max_width_pct") or 88)
     anchor_top = int(style.get("anchor_top")
                      or max(200, res[1] - int(style.get("margin_v", 420)) - 220))
+    if style.get("pos_y") is not None:
+        anchor_top = int(round(float(style["pos_y"]) * res[1]))
+    anchor_top = max(0, min(anchor_top, res[1] - 80))
+    if style.get("pos_x") is not None:
+        meia = res[0] * (pct / 100.0) / 2.0
+        centro = float(style["pos_x"]) * res[0]
+        ml = int(round(centro - meia))
+        mr = int(round(res[0] - (centro + meia)))
+        if ml < 0:   # a caixa nunca sai da tela
+            mr, ml = max(0, mr + ml), 0
+        if mr < 0:
+            ml, mr = max(0, ml + mr), 0
+        return ml, mr, anchor_top
     # margens explícitas (área de legenda do Brand Studio) vencem a largura %
     if style.get("margin_l") is not None or style.get("margin_r") is not None:
         ml = max(0, int(style.get("margin_l") or 24))
         mr = max(0, int(style.get("margin_r") or 24))
         return ml, mr, anchor_top
-    pct = float(style.get("max_width_pct") or 88)
     lateral = max(24, int(res[0] * (100 - pct) / 200))
     return lateral, lateral, anchor_top
 
@@ -390,8 +409,13 @@ def build_ass(words: list[dict], caption_style: dict | None = None,
     primary = hex_to_ass(style["highlight_color" if karaoke else "text_color"])
     secondary = hex_to_ass(style["text_color"])
     outline_c = hex_to_ass(style["outline_color"])
-    back_c = hex_to_ass(style.get("back_color", "#000000"),
-                        alpha="00" if int(style.get("border_style") or 1) == 3 else "96")
+    _bs = int(style.get("border_style") or 1)
+    # BackColour no ASS é a caixa (border_style 3) OU a sombra (border_style 1):
+    # shadow_color permite escolher a cor da sombra sem mexer na caixa.
+    back_c = hex_to_ass(
+        style.get("back_color", "#000000") if _bs == 3
+        else style.get("shadow_color", style.get("back_color", "#000000")),
+        alpha="00" if _bs == 3 else "96")
     bold = -1 if style.get("bold") else 0
     border_style = int(style.get("border_style") or 1)
     spacing = int(style.get("letter_spacing") or 0)

@@ -53,6 +53,8 @@ interface Props {
   playhead: number;
   onPauses(nivel: "leve" | "normal" | "agressivo"): void;
   onFrSplit(): void;
+  safeArea: boolean;
+  setSafeArea(v: boolean): void;
   onOpenStudio(kitId: string): void;
 }
 
@@ -246,31 +248,9 @@ export default function Inspector(p: Props) {
         ) : null}
 
         {p.tool === "legenda" ? (
-          <>
-            <h3>Legenda — posição</h3>
-            <div className="sub" style={{ marginBottom: 8 }}>
-              Atalhos de posição vertical (a âncora fica fixa; o texto cresce para
-              baixo sem pular). Clique na legenda no vídeo para selecioná-la.
-            </div>
-            <div className="row wrap">
-              {([["topo", "Topo", 220], ["centro", "Centro", 880],
-                 ["inferior", "Inferior", 1320]] as const).map(([id, rotulo, y]) => (
-                <button key={id}
-                        className={Number(d.caption_style?.anchor_top) === y ? "primary" : ""}
-                        onClick={() => p.upd({ caption_style:
-                          { ...(d.caption_style ?? {}), anchor_top: y } })}>
-                  {rotulo}
-                </button>
-              ))}
-              <button onClick={() => {
-                const cs = { ...(d.caption_style ?? {}) };
-                delete cs.anchor_top;
-                p.upd({ caption_style: Object.keys(cs).length ? cs : null });
-              }}>
-                Posição padrão do estilo
-              </button>
-            </div>
-          </>
+          <LegendaPanel draft={d} upd={p.upd} presets={p.presets}
+                        efetivo={p.captions?.style ?? {}}
+                        safeArea={p.safeArea} setSafeArea={p.setSafeArea} />
         ) : null}
 
         {p.tool === "palavras" ? (
@@ -321,6 +301,117 @@ export default function Inspector(p: Props) {
         ) : null}
       </div>
     </div>
+  );
+}
+
+// ---------- Legenda: posição livre, safe area e cores (Pontos 21–24) ----------
+const CORES: [string, string][] = [
+  ["text_color", "Cor principal"],
+  ["highlight_color", "Palavra ativa"],
+  ["outline_color", "Contorno"],
+  ["back_color", "Fundo (quando o estilo usa caixa)"],
+  ["shadow_color", "Sombra"],
+];
+
+function LegendaPanel({ draft, upd, efetivo, safeArea, setSafeArea }: {
+  draft: Draft;
+  upd(patch: Partial<Draft>): void;
+  presets: CaptionPreset[];
+  efetivo: Record<string, unknown>;
+  safeArea: boolean;
+  setSafeArea(v: boolean): void;
+}) {
+  const cs = (draft.caption_style ?? {}) as Record<string, unknown>;
+  // valor mostrado: override do corte › estilo efetivo (kit/preset) — Ponto 24
+  const val = (k: string, padrao: unknown) => cs[k] ?? efetivo[k] ?? padrao;
+  const set = (patch: Record<string, unknown>) => {
+    const novo = { ...cs, ...patch };
+    for (const [k, v] of Object.entries(patch)) if (v === undefined) delete novo[k];
+    upd({ caption_style: Object.keys(novo).length ? novo : null });
+  };
+  const posX = Number(val("pos_x", 0.5));
+  const posY = cs.pos_y != null ? Number(cs.pos_y)
+    : Number(val("anchor_top", 1280)) / 1920;
+  const largura = Number(val("max_width_pct", 88));
+
+  return (
+    <>
+      <h3>Legenda — posição</h3>
+      <div className="sub" style={{ marginBottom: 8 }}>
+        Arraste a legenda direto no vídeo, ou ajuste aqui. A posição é
+        proporcional: o render 1080×1920 fica igual ao que você vê.
+      </div>
+      <div className="row">
+        <div style={{ flex: 1 }}>
+          <label>Posição X ({(posX * 100).toFixed(0)}%)</label>
+          <input type="range" min={0} max={1} step={0.005} value={posX}
+                 data-testid="cap-x"
+                 onChange={(e) => set({ pos_x: Number(e.target.value) })} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label>Posição Y ({(posY * 100).toFixed(0)}%)</label>
+          <input type="range" min={0} max={1} step={0.005} value={posY}
+                 data-testid="cap-y"
+                 onChange={(e) => set({ pos_y: Number(e.target.value) })} />
+        </div>
+      </div>
+      <label>Largura máxima ({largura.toFixed(0)}%)</label>
+      <input type="range" min={40} max={100} step={1} value={largura}
+             data-testid="cap-w"
+             onChange={(e) => set({ max_width_pct: Number(e.target.value) })} />
+      <label>Alinhamento</label>
+      <div className="row wrap" style={{ marginBottom: 10 }}>
+        {([["left", "Esquerda"], ["center", "Centro"], ["right", "Direita"]] as const)
+          .map(([id, rotulo]) => (
+            <button key={id} className={val("align", "center") === id ? "primary" : ""}
+                    onClick={() => set({ align: id })}>{rotulo}</button>
+          ))}
+      </div>
+      <label>Atalhos verticais</label>
+      <div className="row wrap">
+        {([["Topo", 0.12], ["Centro", 0.46], ["Inferior", 0.68]] as const).map(([r, y]) => (
+          <button key={r} className={Math.abs(posY - y) < 0.005 ? "primary" : ""}
+                  onClick={() => set({ pos_y: y })}>{r}</button>
+        ))}
+        <button onClick={() => set({ pos_x: undefined, pos_y: undefined,
+                                     max_width_pct: undefined, align: undefined })}>
+          Posição padrão do estilo
+        </button>
+      </div>
+      <label className="ed-check" style={{ marginTop: 10 }}>
+        <input type="checkbox" checked={safeArea} data-testid="cap-safe"
+               onChange={(e) => setSafeArea(e.target.checked)} />
+        Mostrar área segura (evita botões e descrição das plataformas)
+      </label>
+
+      <h3 style={{ marginTop: 18 }}>Cores</h3>
+      <div className="sub" style={{ marginBottom: 8 }}>
+        Estas cores valem só para este corte e vencem o Kit e o preset.
+      </div>
+      <div className="cor-grid">
+        {CORES.map(([k, rotulo]) => {
+          const atual = String(val(k, k === "text_color" ? "#FFFFFF" : "#000000"));
+          return (
+            <div key={k} className="cor-item">
+              <label>{rotulo}</label>
+              <div className="cor-row">
+                <input type="color" value={atual} data-testid={`cor-${k}`}
+                       onChange={(e) => set({ [k]: e.target.value.toUpperCase() })} />
+                <input type="text" value={atual} spellCheck={false}
+                       onChange={(e) => {
+                         const v = e.target.value.trim().toUpperCase();
+                         if (/^#[0-9A-F]{6}$/.test(v)) set({ [k]: v });
+                       }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <button style={{ marginTop: 10 }} data-testid="cor-reset"
+              onClick={() => set(Object.fromEntries(CORES.map(([k]) => [k, undefined])))}>
+        Restaurar cores padrão
+      </button>
+    </>
   );
 }
 

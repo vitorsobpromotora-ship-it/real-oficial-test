@@ -33,6 +33,9 @@ interface Props {
   onTogglePlay(): void;
   onSeekOut(tOut: number): void;
   onSelectCaption(): void;
+  capSelecionada: boolean; // ferramenta Legenda ativa → mostra a caixa e permite arrastar
+  safeArea: boolean;
+  onCaptionMove(pos: { pos_x: number; pos_y: number }): void;
 }
 
 const MODO_POR_FRAMING: Record<string, string> = {
@@ -164,11 +167,27 @@ export default function Canvas(p: Props) {
   const st = { ...(p.captions?.style ?? {}), ...(p.draft.caption_style ?? {}) } as
     Record<string, unknown>;
   const card = (p.captions?.cards ?? []).find((c) => outNow >= c.start && outNow <= c.end) ?? null;
-  const anchor = Number(st.anchor_top ?? 1280);
   const widthPct = Number(st.max_width_pct ?? 88);
-  const ml = st.margin_l != null ? Number(st.margin_l)
-    : Math.max(24, Math.round((CW * (100 - widthPct)) / 200));
-  const mr = st.margin_r != null ? Number(st.margin_r) : ml;
+  // MESMA precedência do motor (captions._margens): normalizado › margens › %
+  let anchor = Number(st.anchor_top ?? 1280);
+  let ml: number;
+  let mr: number;
+  if (st.pos_y != null) anchor = Math.round(Number(st.pos_y) * CH);
+  anchor = Math.max(0, Math.min(anchor, CH - 80));
+  if (st.pos_x != null) {
+    const meia = (CW * widthPct) / 200;
+    const centro = Number(st.pos_x) * CW;
+    ml = Math.round(centro - meia);
+    mr = Math.round(CW - (centro + meia));
+    if (ml < 0) { mr = Math.max(0, mr + ml); ml = 0; }
+    if (mr < 0) { ml = Math.max(0, ml + mr); mr = 0; }
+  } else if (st.margin_l != null || st.margin_r != null) {
+    ml = Math.max(0, Number(st.margin_l ?? 24));
+    mr = Math.max(0, Number(st.margin_r ?? 24));
+  } else {
+    ml = Math.max(24, Math.round((CW * (100 - widthPct)) / 200));
+    mr = ml;
+  }
   const fontPx = Number(st.font_size ?? 74) * SC;
   const outlinePx = Math.max(1, Number(st.outline ?? 3) * SC);
   const oc = String(st.outline_color ?? "#000");
@@ -182,6 +201,32 @@ export default function Canvas(p: Props) {
 
   const outline = `${-outlinePx}px ${-outlinePx}px 0 ${oc}, ${outlinePx}px ${-outlinePx}px 0 ${oc}, `
     + `${-outlinePx}px ${outlinePx}px 0 ${oc}, ${outlinePx}px ${outlinePx}px 0 ${oc}`;
+
+  // arrastar a legenda direto no vídeo (Ponto 21) — grava X/Y NORMALIZADOS
+  function arrastarLegenda(e: React.PointerEvent) {
+    e.stopPropagation();
+    if (!p.capSelecionada) {
+      p.onSelectCaption(); // 1º clique seleciona a ferramenta (Ponto 25)
+      return;
+    }
+    const alvo = e.currentTarget as HTMLElement;
+    alvo.setPointerCapture?.(e.pointerId);
+    const caixa = boxRef.current?.getBoundingClientRect();
+    if (!caixa) return;
+    const mover = (ev: PointerEvent | React.PointerEvent) => {
+      const px = Math.min(1, Math.max(0, (ev.clientX - caixa.left) / caixa.width));
+      const py = Math.min(1, Math.max(0, (ev.clientY - caixa.top) / caixa.height));
+      p.onCaptionMove({ pos_x: Math.round(px * 1000) / 1000,
+                        pos_y: Math.round(py * 1000) / 1000 });
+    };
+    mover(e);
+    const up = () => {
+      window.removeEventListener("pointermove", mover);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", mover);
+    window.addEventListener("pointerup", up);
+  }
 
   return (
     <div className="cv-wrap" ref={wrapRef}>
@@ -233,11 +278,17 @@ export default function Canvas(p: Props) {
         ) : null}
 
         {/* legenda ativa — cartão calculado pelo motor, estilo ao vivo */}
+        {p.safeArea ? (
+          <div className="cv-safe" data-testid="cv-safe">
+            <span>área segura</span>
+          </div>
+        ) : null}
+
         {card ? (
           <div
-            className="cv-caption"
+            className={`cv-caption${p.capSelecionada ? " sel" : ""}`}
             data-testid="cv-caption"
-            onClick={(e) => { e.stopPropagation(); p.onSelectCaption(); }}
+            onPointerDown={arrastarLegenda}
             style={{
               top: anchor * (ch / CH),
               left: ml * SC,

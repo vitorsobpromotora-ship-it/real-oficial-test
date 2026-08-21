@@ -66,6 +66,7 @@ export default function EditorPage() {
   const [playing, setPlaying] = useState(false);
   const [title, setTitle] = useState("");
   const [selCard, setSelCard] = useState<number | null>(null); // cartão de legenda
+  const [safeArea, setSafeArea] = useState(false); // guias das plataformas
   const [toast, setToast] = useState("");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoErro, setVideoErro] = useState(false);
@@ -617,6 +618,10 @@ export default function EditorPage() {
           onTogglePlay={togglePlay}
           onSeekOut={(tOut) => seekSrc(outToSrc(segs, tOut))}
           onSelectCaption={() => setTool("legenda")}
+          capSelecionada={tool === "legenda"}
+          safeArea={safeArea}
+          onCaptionMove={(pos) => upd({ caption_style:
+            { ...(draft.caption_style ?? {}), ...pos } })}
         />
         <div className="card ed3-side">
           <Inspector
@@ -638,6 +643,8 @@ export default function EditorPage() {
             playhead={playhead}
             onPauses={aplicarPausas}
             onFrSplit={frSplit}
+            safeArea={safeArea}
+            setSafeArea={setSafeArea}
             onOpenStudio={(kid) => nav(`/estudio/${kid}`)}
           />
         </div>

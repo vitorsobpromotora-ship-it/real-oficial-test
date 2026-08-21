@@ -625,3 +625,18 @@ iframe.report { width: 100%; height: 75vh; border: 1px solid var(--line);
 .sp-card.on .sp-name { color: var(--fg); }
 .sp-reset { width: 100%; font-size: 12px; }
 .sp-reset.on { border-color: var(--accent); }
+
+/* legenda selecionável/arrastável no canvas + área segura (Pontos 21, 22, 25) */
+.cv-caption.sel { outline: 1.5px dashed var(--accent); outline-offset: 6px;
+  cursor: grab; }
+.cv-caption.sel:active { cursor: grabbing; }
+.cv-safe { position: absolute; z-index: 4; pointer-events: none;
+  left: 5.5%; right: 5.5%; top: 11.5%; bottom: 17%;
+  border: 1px dashed rgba(255,255,255,.45); border-radius: 6px; }
+.cv-safe span { position: absolute; right: 4px; bottom: 4px; font-size: 9px;
+  color: rgba(255,255,255,.6); }
+.cor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cor-item { display: flex; flex-direction: column; gap: 4px; }
+.cor-row { display: flex; gap: 6px; align-items: center; }
+.cor-row input[type="color"] { width: 34px; height: 28px; padding: 2px; flex: 0 0 auto; }
+.cor-row input[type="text"] { flex: 1; min-width: 0; font-size: 11px; }
