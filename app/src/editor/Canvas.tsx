@@ -11,6 +11,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { mediaUrl } from "../api/client";
 import type { BrandKit, CaptionCards, Cut, KitLayer, Source } from "../api/types";
 import { captionBox, fmtSrc, fmtT, outDur, srcToOut, type Draft } from "./model";
+import type { CanvasZoom } from "./workspace";
 
 const CW = 1080;
 const CH = 1920;
@@ -36,6 +37,9 @@ interface Props {
   capSelecionada: boolean; // ferramenta Legenda ativa → mostra a caixa e permite arrastar
   safeArea: boolean;
   onCaptionMove(pos: { pos_x: number; pos_y: number }): void;
+  // zoom do CANVAS (v4 FASE A) — separado do zoom da timeline; "fit" = encaixa
+  zoom: CanvasZoom;
+  onZoom(z: CanvasZoom): void;
 }
 
 const MODO_POR_FRAMING: Record<string, string> = {
@@ -46,7 +50,7 @@ const MODO_POR_FRAMING: Record<string, string> = {
 export default function Canvas(p: Props) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
-  const [cw, setCw] = useState(300); // largura CSS do canvas
+  const [fitW, setFitW] = useState(300); // largura CSS do canvas no modo "fit"
   const [vol, setVol] = useState(1);
   const [muted, setMuted] = useState(false);
   const [assets, setAssets] = useState<Record<string, string>>({});
@@ -57,7 +61,8 @@ export default function Canvas(p: Props) {
     const mede = () => {
       const h = el.clientHeight || 480;
       const w = el.clientWidth || 300;
-      setCw(Math.max(180, Math.min(w, (h * 9) / 16)));
+      // "contain" 9:16 — o player cresce/encolhe com o workspace e NUNCA distorce
+      setFitW(Math.max(180, Math.min(w - 20, ((h - 20) * 9) / 16)));
     };
     mede();
     if (typeof ResizeObserver === "undefined") return; // jsdom/testes
@@ -65,6 +70,27 @@ export default function Canvas(p: Props) {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // zoom do canvas: 100% = pixels reais da composição 1080×1920
+  const cw = p.zoom === "fit" ? fitW : Math.round(CW * (p.zoom / 100));
+
+  // pan: com zoom além do encaixe, arrastar o fundo rola a área (scroll = pan)
+  function panStart(e: React.PointerEvent) {
+    const el = wrapRef.current;
+    if (p.zoom === "fit" || !el || e.target !== el) return;
+    const sx = el.scrollLeft + e.clientX;
+    const sy = el.scrollTop + e.clientY;
+    const move = (ev: PointerEvent) => {
+      el.scrollLeft = sx - ev.clientX;
+      el.scrollTop = sy - ev.clientY;
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
 
   // resolve os arquivos do kit (imagens/vídeos decorativos) para URLs de mídia
   const layout = p.kit?.layout ?? null;
@@ -219,7 +245,19 @@ export default function Canvas(p: Props) {
   }
 
   return (
-    <div className="cv-wrap" ref={wrapRef}>
+    <div className="cv-area">
+      <div className="cv-zoomctl" data-testid="cv-zoomctl">
+        {(["fit", 50, 75, 100] as CanvasZoom[]).map((z) => (
+          <button key={z} className={p.zoom === z ? "on" : ""}
+                  data-testid={`cv-zoom-${z}`}
+                  title={z === "fit" ? "Encaixar no espaço" : `${z}% do tamanho real`}
+                  onClick={() => p.onZoom(z)}>
+            {z === "fit" ? "Fit" : `${z}%`}
+          </button>
+        ))}
+      </div>
+      <div className={`cv-wrap${p.zoom !== "fit" ? " zoomed" : ""}`} ref={wrapRef}
+           onPointerDown={panStart}>
       <div className="cv-canvas" ref={boxRef} style={{ width: cw, height: ch }}>
         {/* fundo do layout do kit */}
         <div className="cv-bg" style={bgStyle(layout, assets)} />
@@ -384,6 +422,7 @@ export default function Canvas(p: Props) {
             ⛶
           </button>
         </div>
+      </div>
       </div>
     </div>
   );

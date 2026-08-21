@@ -650,3 +650,60 @@ iframe.report { width: 100%; height: 75vh; border: 1px solid var(--line);
 .wp-enf { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
 .wp-enfgrid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
 .wp-enfgrid button { padding: 5px 4px; font-size: 11px; }
+
+/* ---------- v4 FASE A: workspace redimensionável ---------- */
+/* o grid do meio passa a ter 3 colunas (canvas · splitter · inspector) com
+   larguras controladas por inline style; o espaçamento vem dos splitters */
+.ed3-mid { gap: 0; margin-bottom: 0; }
+.ed3 .ed-tl-card { padding-top: 10px; }
+
+.split { position: relative; display: flex; align-items: center; justify-content: center;
+  z-index: 20; touch-action: none; user-select: none; flex: 0 0 auto; }
+.split-v { width: 8px; cursor: col-resize; }
+.split-h { height: 10px; cursor: row-resize; }
+.split::before { content: ""; position: absolute; background: var(--line);
+  border-radius: 2px; transition: background .15s; }
+.split-v::before { width: 2px; top: 14px; bottom: 14px; left: 3px; }
+.split-h::before { height: 2px; left: 14px; right: 14px; top: 4px; }
+.split:hover::before, .split:active::before { background: var(--accent); }
+.split.collapsed { cursor: default; }
+.split-toggle { position: absolute; z-index: 21; display: flex; align-items: center;
+  justify-content: center; padding: 0; font-size: 10px; line-height: 1;
+  color: var(--muted); background: var(--panel2); border: 1px solid var(--line);
+  border-radius: 6px; }
+.split-v .split-toggle { width: 18px; height: 34px; top: 6px; left: -5px; }
+.split-h .split-toggle { width: 34px; height: 16px; left: calc(50% - 17px); top: -3px; }
+.split-toggle:hover { color: var(--fg); border-color: var(--line-strong); }
+
+.ws-preset { padding: 5px 8px; font-size: 12px; border-radius: 8px;
+  background: var(--panel2); color: var(--muted); border: 1px solid var(--line);
+  max-width: 150px; }
+.ws-preset:hover { color: var(--fg); }
+
+/* área do canvas: controle de zoom fixo no canto; wrap rola quando ampliado */
+.cv-area { position: relative; display: flex; min-width: 0; min-height: 0; }
+.cv-area .cv-wrap { flex: 1 1 auto; min-width: 0; min-height: 0; }
+.cv-zoomctl { position: absolute; top: 8px; right: 8px; z-index: 12; display: flex;
+  gap: 2px; background: rgba(10, 10, 16, .78); border: 1px solid var(--line);
+  border-radius: 8px; padding: 2px; }
+.cv-zoomctl button { padding: 2px 8px; font-size: 11px; background: none; border: none;
+  color: var(--muted); border-radius: 6px; }
+.cv-zoomctl button:hover { color: var(--fg); }
+.cv-zoomctl button.on { background: var(--accent-soft); color: var(--fg); }
+.cv-wrap.zoomed { display: block; overflow: auto; cursor: grab; }
+.cv-wrap.zoomed:active { cursor: grabbing; }
+.cv-wrap.zoomed .cv-canvas { margin: 14px auto; }
+
+/* timeline com viewport de altura controlada (o conteúdo mantém a geometria) */
+.tl-scroll { overflow-y: auto; }
+
+/* tracks compactas (Entrega 16): mais timeline visível no mesmo espaço */
+.tl-content.tl-compact { height: 214px; }
+.tl-compact .tl-strip { height: 30px; }
+.tl-compact .tl-wave { top: 54px; height: 26px; }
+.tl-compact .tl-segrow { top: 84px; height: 40px; }
+.tl-compact .tl-seg { height: 30px; }
+.tl-compact .tl-track-fr { top: 128px; height: 28px; }
+.tl-compact .tl-track-cap { top: 156px; height: 32px; }
+.tl-compact .tl-capcard { top: 5px; }
+.tl-compact .tl-track-pi { top: 188px; height: 26px; }

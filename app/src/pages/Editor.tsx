@@ -19,6 +19,8 @@ import {
   PAD_S, draftFromCut, envelope, fmtT, outDur, outToSrc, patchFromDraft,
   srcToOut, type Draft,
 } from "../editor/model";
+import Splitter from "../editor/Splitter";
+import { WORKSPACE_PRESETS, useWorkspace } from "../editor/workspace";
 
 export default function EditorPage() {
   const { projectId = "", cutId = "" } = useParams();
@@ -73,6 +75,18 @@ export default function EditorPage() {
   const [stripUrl, setStripUrl] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // workspace redimensionável (v4 FASE A) — preferência da instalação, fora do Draft
+  const { ws, mudar: wsMudar, aplicarPreset, resetInspector, resetTimeline } = useWorkspace();
+  const wsBaseRef = useRef(0);
+  function arrastaInspector(delta: number, fase: "start" | "move" | "end") {
+    if (fase === "start") { wsBaseRef.current = ws.inspector_w; return; }
+    wsMudar({ inspector_w: wsBaseRef.current - delta }); // p/ a esquerda = mais largo
+  }
+  function arrastaTimeline(delta: number, fase: "start" | "move" | "end") {
+    if (fase === "start") { wsBaseRef.current = ws.timeline_h; return; }
+    wsMudar({ timeline_h: wsBaseRef.current - delta }); // p/ cima = mais alto
+  }
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -488,6 +502,10 @@ export default function EditorPage() {
       ) {
         e.preventDefault();
         redo();
+      } else if (e.key === "+" || e.key === "=") {
+        setZoom((z) => Math.min(60, z + 4)); // zoom da TIMELINE (o do canvas é à parte)
+      } else if (e.key === "-" || e.key === "_") {
+        setZoom((z) => Math.max(6, z - 4));
       }
     };
     window.addEventListener("keydown", h);
@@ -588,6 +606,20 @@ export default function EditorPage() {
           />
         </div>
         <div className="row">
+          <select
+            className="ws-preset"
+            title="Área de trabalho — arranjo dos painéis (só desta instalação)"
+            data-testid="ws-preset"
+            value={ws.preset in WORKSPACE_PRESETS ? ws.preset : "personalizado"}
+            onChange={(e) => aplicarPreset(e.target.value)}
+          >
+            {Object.entries(WORKSPACE_PRESETS).map(([id, p]) => (
+              <option key={id} value={id}>{p.label}</option>
+            ))}
+            {!(ws.preset in WORKSPACE_PRESETS) ? (
+              <option value="personalizado" disabled>Personalizado</option>
+            ) : null}
+          </select>
           <span className={`ed-savestate${salvar.isPending ? " saving" : dirty ? " dirty" : ""}`}
                 data-testid="save-state">
             {salvar.isPending ? "Salvando…" : dirty ? "Alterações pendentes…" : "Salvo"}
@@ -601,7 +633,12 @@ export default function EditorPage() {
         </div>
       </div>
 
-      <div className="ed3-mid">
+      <div
+        className="ed3-mid"
+        data-testid="ed3-mid"
+        style={{ gridTemplateColumns:
+          `minmax(0, 1fr) 8px ${ws.inspector_collapsed ? 0 : ws.inspector_w}px` }}
+      >
         <Canvas
           cut={cut}
           source={source}
@@ -622,8 +659,20 @@ export default function EditorPage() {
           safeArea={safeArea}
           onCaptionMove={(pos) => upd({ caption_style:
             { ...(draft.caption_style ?? {}), ...pos } })}
+          zoom={ws.canvas_zoom}
+          onZoom={(z) => wsMudar({ canvas_zoom: z })}
         />
-        <div className="card ed3-side">
+        <Splitter
+          dir="v"
+          testid="split-inspector"
+          label="Largura do Inspector"
+          collapsed={ws.inspector_collapsed}
+          onDrag={arrastaInspector}
+          onReset={resetInspector}
+          onToggleCollapse={() => wsMudar({ inspector_collapsed: !ws.inspector_collapsed })}
+        />
+        <div className="card ed3-side"
+             style={ws.inspector_collapsed ? { display: "none" } : undefined}>
           <Inspector
             tool={tool}
             setTool={setTool}
@@ -650,8 +699,17 @@ export default function EditorPage() {
         </div>
       </div>
 
+      <Splitter
+        dir="h"
+        testid="split-timeline"
+        label="Altura da timeline"
+        collapsed={ws.timeline_collapsed}
+        onDrag={arrastaTimeline}
+        onReset={resetTimeline}
+        onToggleCollapse={() => wsMudar({ timeline_collapsed: !ws.timeline_collapsed })}
+      />
       <div className="card ed-tl-card">
-        <div className="row" style={{ marginBottom: 10 }}>
+        <div className="row" style={{ marginBottom: ws.timeline_collapsed ? 0 : 10 }}>
           <button onClick={splitAt} title="Tecla S">✂ Dividir no cursor</button>
           <button
             className="danger"
@@ -669,18 +727,31 @@ export default function EditorPage() {
             aparar (snap em palavra/pausa/segundo) · sombras entre trechos = removido
             (clique para restaurar)
           </span>
-          <span className="right sub">Zoom</span>
+          <button
+            className="right"
+            data-testid="tl-density"
+            title="Altura das tracks da timeline"
+            onClick={() => wsMudar({ tracks: ws.tracks === "compacta" ? "normal" : "compacta" })}
+          >
+            {ws.tracks === "compacta" ? "▤ Compactas" : "▦ Normais"}
+          </button>
+          <span className="sub">Zoom</span>
           <input
             type="range"
             min={6}
             max={60}
             value={zoom}
             style={{ width: 130 }}
+            title="Zoom da timeline (+/−)"
             onChange={(e) => setZoom(Number(e.target.value))}
           />
         </div>
-        <div className="tl-scroll" ref={scrollRef}>
-          <div className="tl-content" ref={contentRef} style={{ width: winW }}>
+        <div className="tl-scroll" ref={scrollRef}
+             style={ws.timeline_collapsed ? { display: "none" }
+               : { height: ws.timeline_h }}
+             data-testid="tl-scroll">
+          <div className={`tl-content${ws.tracks === "compacta" ? " tl-compact" : ""}`}
+               ref={contentRef} style={{ width: winW }}>
             <div className="tl-ruler" onPointerDown={scrubStart}>
               {/* relógio RELATIVO: 0:00 no início do corte, recalculado a cada trim */}
               {outTicks.map((t) => (
