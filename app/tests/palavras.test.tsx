@@ -256,3 +256,54 @@ describe("Pontos 21–25 — posição livre, safe area e cores da legenda", () 
     await waitFor(() => expect(screen.getByTestId("cv-safe")).toBeInTheDocument());
   });
 });
+
+describe("Pontos 15–17 — ênfase por palavra", () => {
+  it("aplica Fatality na palavra, ajusta intensidade e depois troca por Soft Lift", async () => {
+    renderEditor();
+    await waitFor(() => expect(screen.getByTestId("tool-palavras")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tool-palavras"));
+    await waitFor(() => expect(screen.getByTestId("wp-i2")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("wp-i2")); // "muito"
+    fireEvent.click(screen.getByTestId("wp-enfase"));
+    fireEvent.click(screen.getByTestId("enf-fatality"));
+
+    await waitFor(() => {
+      const e = ultimosEdits().word_emphasis as Record<string, unknown>[];
+      expect(e).toHaveLength(1);
+      expect(e[0]).toMatchObject({ effect: "fatality", intensity: "normal", idx: [2] });
+    }, { timeout: 4000 });
+
+    fireEvent.click(screen.getByTestId("enf-int-forte"));
+    await waitFor(() => {
+      const e = ultimosEdits().word_emphasis as Record<string, unknown>[];
+      expect(e[0]).toMatchObject({ effect: "fatality", intensity: "forte" });
+    }, { timeout: 4000 });
+
+    // Ponto 45: trocar o efeito muda SÓ o override daquela palavra
+    fireEvent.click(screen.getByTestId("enf-soft_lift"));
+    await waitFor(() => {
+      const e = ultimosEdits().word_emphasis as Record<string, unknown>[];
+      expect(e).toHaveLength(1);
+      expect(e[0]).toMatchObject({ effect: "soft_lift", idx: [2], intensity: "forte" });
+    }, { timeout: 4000 });
+  }, 25000);
+
+  it("palavra com ênfase fica marcada e o efeito pode ser removido", async () => {
+    cutAtual = makeCut({
+      edits: { word_emphasis: [{ idx: [1], effect: "impact", intensity: "normal" }] },
+    });
+    renderEditor();
+    await waitFor(() => expect(screen.getByTestId("tool-palavras")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tool-palavras"));
+    await waitFor(() => expect(screen.getByTestId("wp-i1")).toBeInTheDocument());
+    expect(screen.getByTestId("wp-i1").className).toContain("enf");
+
+    fireEvent.click(screen.getByTestId("wp-i1"));
+    fireEvent.click(screen.getByTestId("wp-enfase"));
+    fireEvent.click(screen.getByTestId("enf-remover"));
+    await waitFor(() => {
+      expect(ultimosEdits().word_emphasis).toBeUndefined();
+    }, { timeout: 4000 });
+  }, 20000);
+});

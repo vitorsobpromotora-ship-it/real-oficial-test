@@ -129,6 +129,7 @@ export interface CaptionWord {
   start_s: number; // tempo de SAÍDA
   end_s: number;
   word: string;
+  emphasis?: { effect: string; intensity?: string; color?: string } | null;
 }
 
 export interface CaptionCard {

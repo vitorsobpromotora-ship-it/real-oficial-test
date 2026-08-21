@@ -9,7 +9,25 @@ import type {
   BrandKit, CaptionCards, CaptionPreset, Cut, TranscriptWord,
 } from "../api/types";
 import StylePicker from "./StylePicker";
-import { fmtSrc, fmtT, srcToOut, type Draft, type InsertedWord } from "./model";
+import {
+  fmtSrc, fmtT, srcToOut, type Draft, type InsertedWord, type WordEmphasis,
+} from "./model";
+
+// biblioteca de ênfases (Ponto 16) — rótulo e para que serve
+export const ENFASES: { id: string; label: string; dica: string }[] = [
+  { id: "pop", label: "Pop", dica: "Aumento leve — uso geral" },
+  { id: "punch", label: "Punch", dica: "Entrada rápida e grande — frases fortes" },
+  { id: "impact", label: "Impact", dica: "Escala + contorno reforçado" },
+  { id: "fatality", label: "Fatality", dica: "Golpe: cresce, treme e muda de cor" },
+  { id: "color_hit", label: "Color Hit", dica: "Só a cor muda por um instante" },
+  { id: "shake", label: "Shake", dica: "Vibração curta" },
+  { id: "highlight_box", label: "Highlight Box", dica: "Bloco atrás da palavra" },
+  { id: "soft_lift", label: "Soft Lift", dica: "Movimento suave — conteúdo sério" },
+  { id: "glow", label: "Glow", dica: "Brilho temporário" },
+  { id: "outline_burst", label: "Outline Burst", dica: "Contorno cresce e volta" },
+  { id: "flash", label: "Flash", dica: "Estouro de contraste" },
+  { id: "bounce", label: "Bounce", dica: "Sobe e assenta" },
+];
 
 export type Tool =
   | "corte" | "pausas" | "audio" | "enquadramento" | "punchin"
@@ -438,6 +456,51 @@ function WordsPanel({ draft, upd, words, captions, outNow, selCard, onSeekOut }:
   const [menu, setMenu] = useState<Chip | null>(null);
   const [editKey, setEditKey] = useState<string | null>(null);
   const [ins, setIns] = useState<{ anchorIdx: number; placement: "before" | "after" } | null>(null);
+  const [enfaseAberta, setEnfaseAberta] = useState(false);
+
+  const rotuloEnf = (id: string) => ENFASES.find((e) => e.id === id)?.label ?? id;
+
+  /** Ênfase que cobre este chip, se houver. */
+  function enfDe(chip: Chip): WordEmphasis | undefined {
+    return draft.word_emphasis.find((e) =>
+      (chip.idx != null && (e.idx ?? []).includes(chip.idx))
+      || (chip.insId != null && (e.ins_ids ?? []).includes(chip.insId)));
+  }
+
+  function semEsteChip(chip: Chip): WordEmphasis[] {
+    return draft.word_emphasis
+      .map((e) => ({
+        ...e,
+        idx: (e.idx ?? []).filter((i) => i !== chip.idx),
+        ins_ids: (e.ins_ids ?? []).filter((i) => i !== chip.insId),
+      }))
+      .filter((e) => (e.idx?.length ?? 0) + (e.ins_ids?.length ?? 0) > 0);
+  }
+
+  function aplicarEnfase(chip: Chip, effect: string) {
+    const atual = enfDe(chip);
+    const base = semEsteChip(chip);
+    const nova: WordEmphasis = {
+      effect,
+      intensity: atual?.intensity ?? "normal",
+      ...(atual?.color ? { color: atual.color } : {}),
+      ...(chip.idx != null ? { idx: [chip.idx] } : {}),
+      ...(chip.insId != null ? { ins_ids: [chip.insId] } : {}),
+    };
+    upd({ word_emphasis: [...base, nova] });
+  }
+
+  function mudarEnfase(chip: Chip, patch: Partial<WordEmphasis>) {
+    const atual = enfDe(chip);
+    if (!atual) return;
+    upd({ word_emphasis: [...semEsteChip(chip), { ...atual, ...patch,
+      ...(chip.idx != null ? { idx: [chip.idx] } : {}),
+      ...(chip.insId != null ? { ins_ids: [chip.insId] } : {}) }] });
+  }
+
+  function removerEnfase(chip: Chip) {
+    upd({ word_emphasis: semEsteChip(chip) });
+  }
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
@@ -562,10 +625,12 @@ function WordsPanel({ draft, upd, words, captions, outNow, selCard, onSeekOut }:
                             + (chip.kind === "word" && draft.word_overrides[String(chip.idx)]
                               ? " fixed" : "")
                             + (chip.start != null && outNow >= chip.start && outNow < (chip.end ?? 0)
-                              ? " cur" : "")}
+                              ? " cur" : "")
+                            + (enfDe(chip) ? " enf" : "")}
                           onClick={() => {
                             setMenu(menu?.key === chip.key ? null : chip);
                             setIns(null);
+                            setEnfaseAberta(false);
                             if (chip.start != null) onSeekOut(chip.start + 0.01);
                           }}>
                     {chip.label}
@@ -595,11 +660,52 @@ function WordsPanel({ draft, upd, words, captions, outNow, selCard, onSeekOut }:
                         </button>
                       </>
                     ) : null}
+                    <button data-testid="wp-enfase"
+                            onClick={() => setEnfaseAberta(!enfaseAberta)}>
+                      ✨ Ênfase{enfDe(menu) ? ` · ${rotuloEnf(enfDe(menu)!.effect)}` : ""}
+                    </button>
                     <button className="danger" onClick={() => excluir(menu)}>
                       {menu.kind === "ins" ? "Remover inserção" : "Excluir"}
                     </button>
                   </>
                 )}
+                {enfaseAberta && menu ? (
+                  <div className="wp-enf" data-testid="wp-enf-painel">
+                    <div className="wp-enfgrid">
+                      {ENFASES.map((e) => (
+                        <button key={e.id} title={e.dica}
+                                data-testid={`enf-${e.id}`}
+                                className={enfDe(menu)?.effect === e.id ? "primary" : ""}
+                                onClick={() => aplicarEnfase(menu, e.id)}>
+                          {e.label}
+                        </button>
+                      ))}
+                    </div>
+                    {enfDe(menu) ? (
+                      <>
+                        <div className="row wrap" style={{ marginTop: 8 }}>
+                          {(["suave", "normal", "forte"] as const).map((n) => (
+                            <button key={n} data-testid={`enf-int-${n}`}
+                                    className={(enfDe(menu)!.intensity ?? "normal") === n
+                                      ? "primary" : ""}
+                                    onClick={() => mudarEnfase(menu, { intensity: n })}>
+                              {n === "suave" ? "Suave" : n === "normal" ? "Normal" : "Forte"}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="cor-row" style={{ marginTop: 8 }}>
+                          <input type="color" data-testid="enf-cor"
+                                 value={enfDe(menu)!.color ?? "#FF2D2D"}
+                                 onChange={(ev) => mudarEnfase(menu,
+                                   { color: ev.target.value.toUpperCase() })} />
+                          <span className="sub">cor desta palavra (vence tudo)</span>
+                          <button className="danger" data-testid="enf-remover"
+                                  onClick={() => removerEnfase(menu)}>Remover</button>
+                        </div>
+                      </>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </div>

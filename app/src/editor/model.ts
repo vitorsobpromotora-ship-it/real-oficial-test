@@ -23,6 +23,15 @@ export interface InsertedWord {
   text: string;
 }
 
+export interface WordEmphasis {
+  idx?: number[];      // palavras da transcrição
+  ins_ids?: string[];  // palavras inseridas manualmente
+  effect: string;      // pop | punch | impact | fatality | color_hit | shake | ...
+  intensity?: "suave" | "normal" | "forte";
+  color?: string;
+  outline_color?: string;
+}
+
 export interface Draft {
   segments: EdlSegment[];
   fade_in_s: number;
@@ -35,6 +44,7 @@ export interface Draft {
   word_overrides: Record<string, string>; // substituir (mesma janela temporal)
   word_deleted: number[]; // excluir da legenda (a transcrição não muda)
   word_inserted: InsertedWord[]; // inserir antes/depois, ancorado (Ponto 14)
+  word_emphasis: WordEmphasis[]; // ênfase por palavra/expressão (Pontos 15–18)
   caption_style: Record<string, unknown> | null; // overrides do corte (preset, cores, posição)
   brand_kit_id: string | null;
 }
@@ -63,6 +73,7 @@ export function draftFromCut(cut: Cut): Draft {
     word_overrides: { ...((cut.edits?.word_overrides as Record<string, string>) ?? {}) },
     word_deleted: [...((cut.edits?.word_deleted as number[]) ?? [])],
     word_inserted: ((cut.edits?.word_inserted as InsertedWord[]) ?? []).map((w) => ({ ...w })),
+    word_emphasis: ((cut.edits?.word_emphasis as WordEmphasis[]) ?? []).map((w) => ({ ...w })),
     caption_style: cut.caption_style ? { ...cut.caption_style } : null,
     brand_kit_id: cut.brand_kit_id,
   };
@@ -78,6 +89,9 @@ export function patchFromDraft(d: Draft, title: string, baseEdits: Record<string
   const insOk = d.word_inserted.filter((w) => w.text.trim());
   if (insOk.length) edits.word_inserted = insOk;
   else delete edits.word_inserted;
+  const enfOk = d.word_emphasis.filter((w) => (w.idx?.length ?? 0) + (w.ins_ids?.length ?? 0) > 0);
+  if (enfOk.length) edits.word_emphasis = enfOk;
+  else delete edits.word_emphasis;
   const frOk = d.framing_segments.filter((s) => s.end_s > s.start_s);
   if (frOk.length) edits.framing_segments = frOk;
   else delete edits.framing_segments;

@@ -177,6 +177,7 @@ def caption_cards(cut_id: str):
     lay = compose.layout_of(kit)
     if lay is not None:
         style = {**style, **compose.caption_overrides(lay)}
+    enf_idx = captions._emphasis_index(edits)
     cards = captions.build_cards(words_out, style)
     janelas = captions.card_windows(cards, fps=fps)
     out = []
@@ -188,7 +189,9 @@ def caption_cards(cut_id: str):
         out.append({"start": a, "end": b, "breaks": breaks,
                     "words": [{"idx": w.get("idx"), "ins_id": w.get("ins_id"),
                                "start_s": w["start_s"], "end_s": w["end_s"],
-                               "word": w["word"]} for w in card]})
+                               "word": w["word"],
+                               "emphasis": captions._emphasis_for(w, enf_idx)}
+                              for w in card]})
     return {"style": style, "fps": fps, "out_duration": edl_mod.out_duration(eff),
             "cards": out}
 

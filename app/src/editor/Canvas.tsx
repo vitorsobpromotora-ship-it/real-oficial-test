@@ -194,6 +194,15 @@ export default function Canvas(p: Props) {
   const karaoke = Boolean(st.karaoke) || st.anim_word === "color";
   const boxBg = Number(st.border_style ?? 1) === 3 ? String(st.back_color ?? "#000") : null;
 
+  /** Ênfase efetiva da palavra: a do rascunho vence a que veio do motor. */
+  function enfDe(w: { idx: number | null; ins_id?: string | null;
+                      emphasis?: { effect: string; intensity?: string; color?: string } | null }) {
+    const local = p.draft.word_emphasis.find((e) =>
+      (w.idx != null && (e.idx ?? []).includes(w.idx))
+      || (w.ins_id && (e.ins_ids ?? []).includes(w.ins_id)));
+    return local ?? w.emphasis ?? undefined;
+  }
+
   function textoDe(w: { idx: number | null; word: string }): string {
     const t = (w.idx != null && p.draft.word_overrides[String(w.idx)]) || w.word;
     return st.uppercase ? t.toUpperCase() : t;
@@ -306,16 +315,37 @@ export default function Canvas(p: Props) {
               const cor = karaoke
                 ? (falada ? String(st.highlight_color ?? "#FFD400") : String(st.text_color ?? "#FFF"))
                 : String(st.text_color ?? "#FFF");
+              // ênfase (Pontos 15–18): aproximação viva do que o ASS vai queimar —
+              // só escala/cor, jamais tamanho de fonte (a linha não pode pular)
+              const enf = enfDe(w);
+              const dentro = enf && outNow >= w.start_s
+                && outNow < w.start_s + Math.max(0.25, (w.end_s - w.start_s) * 0.55);
+              const k = enf?.intensity === "forte" ? 1.5
+                : enf?.intensity === "suave" ? 0.6 : 1;
+              const escalas: Record<string, number> = {
+                pop: 118, punch: 136, impact: 128, fatality: 142, bounce: 124,
+                soft_lift: 108, shake: 100, color_hit: 100, flash: 100,
+                glow: 100, outline_burst: 100, highlight_box: 100,
+              };
+              const esc = dentro
+                ? 1 + (((escalas[enf!.effect] ?? 100) - 100) * k) / 100 : 1;
+              const corEnf = enf?.color
+                ?? (dentro && enf?.effect === "fatality" ? "#FF2D2D" : undefined);
+              const caixaEnf = dentro && enf?.effect === "highlight_box";
               return (
                 <span key={i}>
                   <span
-                    className="cv-word"
+                    className={`cv-word${enf ? " enf" : ""}`}
                     style={{
-                      color: cor,
+                      color: corEnf ?? cor,
                       textShadow: boxBg ? "none" : outline,
-                      background: boxBg ?? "transparent",
-                      padding: boxBg ? `${2 * SC}px ${10 * SC}px` : 0,
-                      borderRadius: boxBg ? 6 * SC : 0,
+                      background: caixaEnf ? String(st.highlight_color ?? "#FFD400")
+                        : boxBg ?? "transparent",
+                      padding: boxBg || caixaEnf ? `${2 * SC}px ${10 * SC}px` : 0,
+                      borderRadius: boxBg || caixaEnf ? 6 * SC : 0,
+                      transform: esc !== 1 ? `scale(${esc.toFixed(3)})` : undefined,
+                      transformOrigin: "center bottom",
+                      transition: "transform .09s ease-out, color .09s linear",
                     }}
                   >
                     {textoDe(w)}

@@ -444,7 +444,8 @@ def render_cut(ctx) -> dict:
         if words_rel or headline:
             ass_text = captions.build_ass(words_rel, caption_style, kit, headline=headline,
                                           clip_duration=duration,
-                                          fps=float(src.get("fps") or 30.0))
+                                          fps=float(src.get("fps") or 30.0),
+                                          edits=cut["edits"])
             (workdir / "subs.ass").write_text(ass_text, encoding="utf-8")
             subs_file = "subs.ass"
         comp = None

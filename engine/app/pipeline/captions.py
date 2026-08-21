@@ -399,11 +399,155 @@ def _anim_word_tags(style: dict) -> str:
     return ""
 
 
+
+# ---------------------------------------------------------------------------
+# Ênfase por palavra (Pontos 15–18) — a palavra ganha tratamento próprio SEM
+# deslocar a linha de leitura: só escala/cor/contorno/desfoque/rotação, nunca
+# tamanho de fonte (\fs) ou posição (\pos), que refluiriam o cartão.
+#
+# Modelo persistido em cut.edits["word_emphasis"]:
+#   [{"idx": [4, 5], "effect": "fatality", "intensity": "forte",
+#     "color": "#FF0000", "outline_color": "#000000"}]
+#   (para palavras inseridas manualmente: {"ins_ids": ["w1"], ...})
+# Um mesmo item pode cobrir várias palavras — uma expressão inteira recebe o
+# efeito como bloco. O campo fica pronto para a IA preencher no futuro
+# (punchline, número importante, nome…) sem mudar nada aqui.
+# ---------------------------------------------------------------------------
+EMPHASIS_EFFECTS = (
+    "pop", "punch", "impact", "fatality", "color_hit", "shake",
+    "highlight_box", "soft_lift", "glow", "outline_burst", "flash", "bounce",
+)
+
+EMPHASIS_LABELS_PTBR = {
+    "pop": "Pop", "punch": "Punch", "impact": "Impact", "fatality": "Fatality",
+    "color_hit": "Color Hit", "shake": "Shake", "highlight_box": "Highlight Box",
+    "soft_lift": "Soft Lift", "glow": "Glow", "outline_burst": "Outline Burst",
+    "flash": "Flash", "bounce": "Bounce",
+}
+
+# multiplicador de intensidade → escala do efeito e duração
+INTENSITIES = {"suave": 0.6, "normal": 1.0, "forte": 1.5}
+
+
+def _emphasis_index(edits: dict | None) -> dict:
+    """{"idx:<n>" | "ins:<id>" → spec} para consulta rápida por palavra."""
+    idx: dict[str, dict] = {}
+    for item in (edits or {}).get("word_emphasis") or []:
+        if not isinstance(item, dict) or item.get("effect") not in EMPHASIS_EFFECTS:
+            continue
+        for i in item.get("idx") or []:
+            idx[f"idx:{int(i)}"] = item
+        for w in item.get("ins_ids") or []:
+            idx[f"ins:{w}"] = item
+    return idx
+
+
+def _emphasis_for(word: dict, indice: dict) -> dict | None:
+    if not indice:
+        return None
+    if word.get("ins_id"):
+        achado = indice.get(f"ins:{word['ins_id']}")
+        if achado:
+            return achado
+    if word.get("idx") is not None:
+        return indice.get(f"idx:{int(word['idx'])}")
+    return None
+
+
+def _emphasis_tags(spec: dict, style: dict, t0_ms: int, dur_ms: int) -> tuple[str, str]:
+    """(tags antes da palavra, tags de reset depois dela).
+
+    As animações são ancoradas no instante EM QUE A PALAVRA É FALADA
+    (t0_ms, relativo ao início do evento), então a ênfase acompanha a fala.
+    O reset devolve o estado do estilo para as palavras seguintes."""
+    efeito = spec.get("effect")
+    k = INTENSITIES.get(str(spec.get("intensity") or "normal"), 1.0)
+    d = max(90, min(600, int(dur_ms * 0.55) if dur_ms else 220))
+    t1 = max(0, t0_ms)
+    bord = float(style.get("outline") or 3)
+    cor_base = hex_to_ass(style.get("highlight_color" if style.get("karaoke")
+                                    else "text_color", "#FFFFFF"))
+    cor_out = hex_to_ass(style.get("outline_color", "#000000"))
+    cor = hex_to_ass(spec["color"]) if spec.get("color") else None
+    cor_borda = hex_to_ass(spec["outline_color"]) if spec.get("outline_color") else None
+
+    def esc(v: float) -> int:  # escala com intensidade, limitada para não estourar
+        return int(round(100 + (v - 100) * k))
+
+    reset = f"{{\\fscx100\\fscy100\\bord{bord:g}\\blur0\\frz0\\c{cor_base}\\3c{cor_out}}}"
+    if efeito == "pop":
+        t = (f"{{\\t({t1},{t1 + d // 2},\\fscx{esc(118)}\\fscy{esc(118)})"
+             f"\\t({t1 + d // 2},{t1 + d},\\fscx100\\fscy100)}}")
+    elif efeito == "punch":
+        t = (f"{{\\t({t1},{t1 + max(40, d // 4)},\\fscx{esc(136)}\\fscy{esc(136)})"
+             f"\\t({t1 + max(40, d // 4)},{t1 + d},\\fscx100\\fscy100)}}")
+    elif efeito == "impact":
+        t = (f"{{\\t({t1},{t1 + max(40, d // 4)},\\fscx{esc(128)}\\fscy{esc(128)}"
+             f"\\bord{bord + 3 * k:g})"
+             f"\\t({t1 + max(40, d // 4)},{t1 + d},\\fscx100\\fscy100\\bord{bord:g})}}")
+    elif efeito == "fatality":
+        # golpe: cresce muito, borda reforçada, cor quente e um tremor curto
+        q = max(30, d // 6)
+        cor_f = cor or hex_to_ass("#FF2D2D")
+        t = (f"{{\\t({t1},{t1 + q},\\fscx{esc(142)}\\fscy{esc(142)}\\bord{bord + 4 * k:g}"
+             f"\\c{cor_f})"
+             f"\\t({t1 + q},{t1 + 2 * q},\\frz{-2.5 * k:g})"
+             f"\\t({t1 + 2 * q},{t1 + 3 * q},\\frz{2.5 * k:g})"
+             f"\\t({t1 + 3 * q},{t1 + 4 * q},\\frz0)"
+             f"\\t({t1 + 4 * q},{t1 + d},\\fscx100\\fscy100\\bord{bord:g}\\c{cor_base})}}")
+    elif efeito == "color_hit":
+        cor_h = cor or hex_to_ass("#FFD400")
+        t = (f"{{\\t({t1},{t1 + 40},\\c{cor_h})"
+             f"\\t({t1 + d},{t1 + d + 120},\\c{cor_base})}}")
+    elif efeito == "shake":
+        q = max(25, d // 5)
+        a = 3.0 * k
+        t = (f"{{\\t({t1},{t1 + q},\\frz{-a:g})\\t({t1 + q},{t1 + 2 * q},\\frz{a:g})"
+             f"\\t({t1 + 2 * q},{t1 + 3 * q},\\frz{-a / 2:g})"
+             f"\\t({t1 + 3 * q},{t1 + 4 * q},\\frz0)}}")
+    elif efeito == "highlight_box":
+        # caixa possível dentro de UM evento: contorno grosso colorido, que em
+        # libass envolve a palavra como um bloco sólido
+        cor_cx = cor_borda or cor or hex_to_ass("#FFD400")
+        t = (f"{{\\t({t1},{t1 + 60},\\bord{bord + 9 * k:g}\\3c{cor_cx})"
+             f"\\t({t1 + d + 200},{t1 + d + 320},\\bord{bord:g}\\3c{cor_out})}}")
+    elif efeito == "soft_lift":
+        t = (f"{{\\t({t1},{t1 + d},\\fscx{esc(108)}\\fscy{esc(108)})"
+             f"\\t({t1 + d},{t1 + int(d * 1.8)},\\fscx100\\fscy100)}}")
+    elif efeito == "glow":
+        t = (f"{{\\t({t1},{t1 + d // 2},\\blur{3 * k:g}\\bord{bord + 1.5 * k:g})"
+             f"\\t({t1 + d // 2},{t1 + d},\\blur0\\bord{bord:g})}}")
+    elif efeito == "outline_burst":
+        t = (f"{{\\t({t1},{t1 + d // 2},\\bord{bord + 6 * k:g})"
+             f"\\t({t1 + d // 2},{t1 + d},\\bord{bord:g})}}")
+    elif efeito == "flash":
+        cor_f = cor or hex_to_ass("#FFFFFF")
+        t = (f"{{\\t({t1},{t1 + 30},\\c{cor_f}\\3c{cor_f})"
+             f"\\t({t1 + 90},{t1 + 160},\\c{cor_base}\\3c{cor_out})}}")
+    elif efeito == "bounce":
+        q = max(35, d // 3)
+        t = (f"{{\\t({t1},{t1 + q},\\fscx{esc(124)}\\fscy{esc(124)})"
+             f"\\t({t1 + q},{t1 + 2 * q},\\fscx{esc(94)}\\fscy{esc(94)})"
+             f"\\t({t1 + 2 * q},{t1 + 3 * q},\\fscx100\\fscy100)}}")
+    else:
+        return "", ""
+    # cor fixa pedida pelo usuário vale enquanto a palavra existir (Ponto 24:
+    # a ênfase é o override mais específico de todos)
+    if cor and efeito not in ("color_hit", "fatality", "flash"):
+        t = f"{{\\c{cor}}}" + t
+    if cor_borda and efeito != "highlight_box":
+        t = f"{{\\3c{cor_borda}}}" + t
+    return t, reset
+
+
 def build_ass(words: list[dict], caption_style: dict | None = None,
               brand_kit: dict | None = None, headline: str | None = None,
               res: tuple[int, int] = (1080, 1920), clip_duration: float | None = None,
-              fps: float = DEFAULT_FPS) -> str:
-    """`words`: [{"start_s","end_s","word"}] RELATIVOS ao clipe."""
+              fps: float = DEFAULT_FPS, edits: dict | None = None) -> str:
+    """`words`: [{"start_s","end_s","word"}] RELATIVOS ao clipe.
+
+    `edits` traz a camada do corte — hoje usada para a ênfase por palavra
+    (edits["word_emphasis"]); o texto já vem resolvido em `words`."""
     style = resolve_style(caption_style, brand_kit)
     karaoke = bool(style.get("karaoke"))
     primary = hex_to_ass(style["highlight_color" if karaoke else "text_color"])
@@ -447,6 +591,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     janelas = card_windows(cards, fps=fps)
     entrada = _anim_in_tags(style)
     palavra_fx = _anim_word_tags(style)
+    enf_idx = _emphasis_index(edits)
 
     for card, (start_t, end_t) in zip(cards, janelas, strict=False):
         texts = [w["word"].strip() for w in card]
@@ -458,14 +603,21 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         gasto_cs = 0
         for i, (w, text) in enumerate(zip(card, texts, strict=False)):
             sep = "\\N" if i in breaks else (" " if i > 0 else "")
+            enf = _emphasis_for(w, enf_idx)
+            fx_pre, fx_pos = ("", "")
+            if enf:
+                fx_pre, fx_pos = _emphasis_tags(
+                    enf, style,
+                    t0_ms=int(max(0.0, w["start_s"] - start_t) * 1000),
+                    dur_ms=int(max(0.0, w["end_s"] - w["start_s"]) * 1000))
             if karaoke:
                 dur_cs = max(1, round((w["end_s"] - w["start_s"]) * 100))
                 if i == len(card) - 1:  # último {\k} nunca ultrapassa a janela do cartão
                     dur_cs = max(1, min(dur_cs, janela_cs - gasto_cs))
                 gasto_cs += dur_cs
-                parts.append(f"{sep}{{\\k{dur_cs}}}{text}")
+                parts.append(f"{sep}{{\\k{dur_cs}}}{fx_pre}{text}{fx_pos}")
             else:
-                parts.append(f"{sep}{text}")
+                parts.append(f"{sep}{fx_pre}{text}{fx_pos}")
         corpo = "".join(parts)
         prefixo = palavra_fx if style.get("word_mode") else entrada
         lines.append(f"Dialogue: 0,{_ts(start_t)},{_ts(end_t)},Default,,0,0,0,,{prefixo}{corpo}")
