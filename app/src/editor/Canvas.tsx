@@ -11,6 +11,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { mediaUrl } from "../api/client";
 import type { BrandKit, CaptionCards, Cut, KitLayer, Source } from "../api/types";
 import { captionBox, fmtSrc, fmtT, outDur, srcToOut, type Draft } from "./model";
+import { textPropsAt, type EffectInstance, type TextPreset } from "./motion";
 import type { CanvasZoom } from "./workspace";
 
 const CW = 1080;
@@ -40,6 +41,7 @@ interface Props {
   // zoom do CANVAS (v4 FASE A) — separado do zoom da timeline; "fit" = encaixa
   zoom: CanvasZoom;
   onZoom(z: CanvasZoom): void;
+  motionPresets: TextPreset[]; // catálogo do motor — preview avalia AS MESMAS trilhas
 }
 
 const MODO_POR_FRAMING: Record<string, string> = {
@@ -202,6 +204,15 @@ export default function Canvas(p: Props) {
   const boxBg = Number(st.border_style ?? 1) === 3 ? String(st.back_color ?? "#000") : null;
 
   /** Ênfase efetiva da palavra: a do rascunho vence a que veio do motor. */
+  function motionDe(w: { idx: number | null; ins_id?: string | null }):
+      EffectInstance | undefined {
+    return (p.draft.motion?.effects ?? []).find((e) =>
+      e.type === "text_emphasis" && e.enabled !== false
+      && e.target.kind === "words"
+      && ((w.idx != null && (e.target.idx ?? []).includes(w.idx))
+        || (w.ins_id != null && (e.target.ins_ids ?? []).includes(w.ins_id))));
+  }
+
   function enfDe(w: { idx: number | null; ins_id?: string | null;
                       emphasis?: { effect: string; intensity?: string; color?: string } | null }) {
     const local = p.draft.word_emphasis.find((e) =>
@@ -351,20 +362,36 @@ export default function Canvas(p: Props) {
               const corEnf = enf?.color
                 ?? (dentro && enf?.effect === "fatality" ? "#FF2D2D" : undefined);
               const caixaEnf = dentro && enf?.effect === "highlight_box";
+              // Motion Engine (v4): avalia AS MESMAS trilhas do render — a
+              // paridade vem de textPropsAt (contrato shared/motion-cases)
+              const fxMo = motionDe(w);
+              const presetMo = fxMo
+                ? p.motionPresets.find((pr) => pr.id === fxMo.preset) : undefined;
+              const mo = fxMo && presetMo
+                ? textPropsAt(fxMo, presetMo, outNow) : null;
+              const moAtivo = !!mo && (mo.scale !== 100 || mo.blur > 0
+                || mo.rot !== 0 || mo.alpha > 0 || mo.bord !== 0);
               return (
                 <span key={i}>
                   <span
                     className={`cv-word${enf ? " enf" : ""}`}
                     style={{
-                      color: corEnf ?? cor,
+                      color: (fxMo?.params?.color as string | undefined) ?? corEnf ?? cor,
                       textShadow: boxBg ? "none" : outline,
                       background: caixaEnf ? String(st.highlight_color ?? "#FFD400")
                         : boxBg ?? "transparent",
                       padding: boxBg || caixaEnf ? `${2 * SC}px ${10 * SC}px` : 0,
                       borderRadius: boxBg || caixaEnf ? 6 * SC : 0,
-                      transform: esc !== 1 ? `scale(${esc.toFixed(3)})` : undefined,
+                      transform: moAtivo
+                        ? `scale(${(mo!.scale / 100).toFixed(3)})`
+                          + (mo!.rot ? ` rotate(${mo!.rot.toFixed(2)}deg)` : "")
+                        : esc !== 1 ? `scale(${esc.toFixed(3)})` : undefined,
+                      filter: moAtivo && mo!.blur > 0
+                        ? `blur(${(mo!.blur * SC).toFixed(1)}px)` : undefined,
+                      opacity: moAtivo ? 1 - mo!.alpha : undefined,
                       transformOrigin: "center bottom",
-                      transition: "transform .09s ease-out, color .09s linear",
+                      transition: moAtivo ? "none"
+                        : "transform .09s ease-out, color .09s linear",
                     }}
                   >
                     {textoDe(w)}

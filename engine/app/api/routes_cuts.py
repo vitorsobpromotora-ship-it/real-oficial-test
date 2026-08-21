@@ -135,6 +135,16 @@ def caption_presets():
                         for nome, campos in PRESETS.items()]}
 
 
+@router.get("/motion/presets")
+def motion_presets():
+    """Catálogo declarativo do Motion Engine — o preview TS avalia AS MESMAS
+    trilhas de keyframes que o compilador ASS do render (paridade)."""
+    from ..pipeline.motion_text import TEXT_PRESETS  # noqa: PLC0415
+
+    return {"presets": list(TEXT_PRESETS.values()),
+            "easings": motion_mod.EASING_LABELS_PTBR}
+
+
 @router.get("/cuts/{cut_id}/caption-cards")
 def caption_cards(cut_id: str):
     """Cartões de legenda RESOLVIDOS pelo MESMO código do render (WYSIWYG).

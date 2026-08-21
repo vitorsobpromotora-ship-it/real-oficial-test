@@ -548,11 +548,15 @@ def _emphasis_tags(spec: dict, style: dict, t0_ms: int, dur_ms: int) -> tuple[st
 def build_ass(words: list[dict], caption_style: dict | None = None,
               brand_kit: dict | None = None, headline: str | None = None,
               res: tuple[int, int] = (1080, 1920), clip_duration: float | None = None,
-              fps: float = DEFAULT_FPS, edits: dict | None = None) -> str:
+              fps: float = DEFAULT_FPS, edits: dict | None = None,
+              motion: dict | None = None) -> str:
     """`words`: [{"start_s","end_s","word"}] RELATIVOS ao clipe.
 
-    `edits` traz a camada do corte — hoje usada para a ênfase por palavra
-    (edits["word_emphasis"]); o texto já vem resolvido em `words`."""
+    `edits` traz a camada do corte — a ênfase clássica por palavra
+    (edits["word_emphasis"]); o texto já vem resolvido em `words`.
+    `motion` é o Motion Manifest (v4): efeitos text_emphasis compilados pelo
+    Text Motion Core têm precedência sobre a ênfase clássica na mesma palavra."""
+    from . import motion_text  # import tardio: motion_text usa hex_to_ass daqui
     style = resolve_style(caption_style, brand_kit)
     karaoke = bool(style.get("karaoke"))
     primary = hex_to_ass(style["highlight_color" if karaoke else "text_color"])
@@ -597,24 +601,43 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     entrada = _anim_in_tags(style)
     palavra_fx = _anim_word_tags(style)
     enf_idx = _emphasis_index(edits)
+    mo_idx = motion_text.emphasis_index(motion)
 
     for card, (start_t, end_t) in zip(cards, janelas, strict=False):
         texts = [w["word"].strip() for w in card]
         if style.get("uppercase"):
             texts = [t.upper() for t in texts]
         breaks = set(split_lines(texts, int(style["max_chars"]), int(style["max_lines"])))
+        # Motion Engine: cada efeito deste cartão vira um EVENTO OVERLAY e a
+        # palavra alvo fica invisível no cartão base durante a janela — as
+        # vizinhas não se movem nem um pixel (linha de leitura estável).
+        mo_hide: dict[int, tuple[str, str]] = {}
+        mo_efeitos: dict[str, tuple[dict, set[int]]] = {}
+        for i, w in enumerate(card):
+            efx = motion_text.effect_for(w, mo_idx)
+            if efx and motion_text.preset_of(efx):
+                mo_efeitos.setdefault(efx["id"], (efx, set()))[1].add(i)
+        for efx, alvo in mo_efeitos.values():
+            ov = motion_text.overlay_line(efx, motion_text.preset_of(efx), style,
+                                          texts, breaks, alvo, start_t, end_t,
+                                          fps, _ts)
+            if ov:
+                lines.append(ov)
+                for i in alvo:
+                    mo_hide[i] = motion_text.hide_word_tags(efx, start_t, end_t)
         parts: list[str] = []
         janela_cs = max(1, round((end_t - start_t) * 100))
         gasto_cs = 0
         for i, (w, text) in enumerate(zip(card, texts, strict=False)):
             sep = "\\N" if i in breaks else (" " if i > 0 else "")
-            enf = _emphasis_for(w, enf_idx)
-            fx_pre, fx_pos = ("", "")
-            if enf:
-                fx_pre, fx_pos = _emphasis_tags(
-                    enf, style,
-                    t0_ms=int(max(0.0, w["start_s"] - start_t) * 1000),
-                    dur_ms=int(max(0.0, w["end_s"] - w["start_s"]) * 1000))
+            fx_pre, fx_pos = mo_hide.get(i, ("", ""))
+            if not fx_pre:
+                enf = _emphasis_for(w, enf_idx)
+                if enf:
+                    fx_pre, fx_pos = _emphasis_tags(
+                        enf, style,
+                        t0_ms=int(max(0.0, w["start_s"] - start_t) * 1000),
+                        dur_ms=int(max(0.0, w["end_s"] - w["start_s"]) * 1000))
             if karaoke:
                 dur_cs = max(1, round((w["end_s"] - w["start_s"]) * 100))
                 if i == len(card) - 1:  # último {\k} nunca ultrapassa a janela do cartão

@@ -206,3 +206,77 @@ export function progresso(e: EffectInstance, tOut: number): number {
   const u = (tOut - e.start) / d;
   return u < 0 ? 0 : u > 1 ? 1 : u;
 }
+
+// ---------------------------------------------------------------------------
+// Text Motion Core (FASE C) — espelho de motion_text.text_props_at
+// ---------------------------------------------------------------------------
+
+export interface TextPhase {
+  dur_ms?: number;
+  tracks?: Record<string, Keyframe[]>;
+  jitter?: { rot?: number; freq?: number };
+}
+
+export interface TextPreset {
+  id: string;
+  label: string;
+  categoria: string;
+  descricao?: string;
+  phases: { enter?: TextPhase; hold?: TextPhase; exit?: TextPhase };
+}
+
+export interface TextProps {
+  scale: number; // % (100 = neutro)
+  blur: number;
+  rot: number;
+  bord: number; // delta sobre o outline do estilo
+  alpha: number; // 0..1 (0 = opaco)
+}
+
+export const TEXT_NEUTRAL: TextProps = { scale: 100, blur: 0, rot: 0, bord: 0, alpha: 0 };
+const ROT_MAX = 5;
+
+function faseEm(preset: TextPreset, tMs: number, durMs: number):
+    { fase: TextPhase; u: number; tFaseMs: number } {
+  const enter = preset.phases.enter ?? { dur_ms: 0, tracks: {} };
+  const exit = preset.phases.exit ?? { dur_ms: 0, tracks: {} };
+  const hold = preset.phases.hold ?? { tracks: {} };
+  const eDur = Math.min(enter.dur_ms ?? 0, durMs * 0.5);
+  const xDur = Math.min(exit.dur_ms ?? 0, durMs * 0.3);
+  if (tMs < eDur) return { fase: enter, u: eDur > 0 ? tMs / eDur : 1, tFaseMs: tMs };
+  if (tMs >= durMs - xDur) {
+    const rest = tMs - (durMs - xDur);
+    return { fase: exit, u: xDur > 0 ? rest / xDur : 1, tFaseMs: rest };
+  }
+  const hDur = durMs - eDur - xDur;
+  const rest = tMs - eDur;
+  return { fase: hold, u: hDur > 0 ? rest / hDur : 0, tFaseMs: rest };
+}
+
+/** Propriedades da palavra no instante t (tempo de SAÍDA) — MESMA avaliação
+ *  que o compilador ASS do motor amostra; provada por shared/motion-cases. */
+export function textPropsAt(e: EffectInstance, preset: TextPreset, tOut: number): TextProps {
+  const props: TextProps = { ...TEXT_NEUTRAL };
+  if (!(e.enabled ?? true) || tOut < e.start || tOut >= e.end) return props;
+  const durMs = (e.end - e.start) * 1000;
+  const tMs = (tOut - e.start) * 1000;
+  const { fase, u, tFaseMs } = faseEm(preset, tMs, durMs);
+  const k = intensityK(e.intensity);
+  for (const [prop, trilha] of Object.entries(fase.tracks ?? {})) {
+    if (!(prop in TEXT_NEUTRAL)) continue; // propriedade futura: ignorada
+    const v = evalKeyframes(trilha, u);
+    const neutro = TEXT_NEUTRAL[prop as keyof TextProps];
+    props[prop as keyof TextProps] = neutro + (v - neutro) * (prop === "alpha" ? 1 : k);
+  }
+  if (fase.jitter?.rot) {
+    const seed = (e.seed ?? 1) | 0;
+    const { rot } = shakeOffset(tFaseMs / 1000, seed, 0, 0,
+      fase.jitter.rot * k, fase.jitter.freq ?? 9);
+    props.rot += rot;
+  }
+  props.rot = Math.max(-ROT_MAX, Math.min(ROT_MAX, props.rot));
+  props.scale = Math.max(10, Math.min(220, props.scale));
+  props.blur = Math.max(0, Math.min(24, props.blur));
+  props.alpha = Math.max(0, Math.min(1, props.alpha));
+  return props;
+}

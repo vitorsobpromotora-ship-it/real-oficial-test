@@ -43,7 +43,7 @@ def _semeia() -> str:
 
 def test_easings_batem_com_o_contrato_compartilhado():
     for nome, esperados in CASES["easings"].items():
-        for u, v in zip(CASES["us"], esperados):
+        for u, v in zip(CASES["us"], esperados, strict=False):
             assert m.ease(nome, u) == pytest.approx(v, abs=1e-12), f"{nome}@{u}"
     # biblioteca fechada: todo easing do contrato existe e vice-versa
     assert sorted(m.EASINGS) == sorted(CASES["easings"])
@@ -51,7 +51,7 @@ def test_easings_batem_com_o_contrato_compartilhado():
 
 def test_keyframes_batem_com_o_contrato_compartilhado():
     for caso in CASES["keyframes"]:
-        for u, v in zip(caso["us"], caso["vals"]):
+        for u, v in zip(caso["us"], caso["vals"], strict=False):
             assert m.eval_keyframes(caso["track"], u) == pytest.approx(v, abs=1e-12)
 
 

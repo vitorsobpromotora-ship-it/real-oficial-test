@@ -312,7 +312,7 @@ def _load_render_bundle(render_id: str) -> dict:
             "cut": {"id": cut.id, "start_s": cut.start_s, "end_s": cut.end_s,
                     "title": cut.title, "caption_style": cut.caption_style,
                     "censor_plan": cut.censor_plan, "crop_plan": cut.crop_plan,
-                    "edits": cut.edits, "edl": cut.edl,
+                    "edits": cut.edits, "edl": cut.edl, "motion": cut.motion,
                     "edit_revision": cut.edit_revision or 1},
             "source": {"id": src.id, "file_path": src.file_path,
                        "width": src.width or 1920, "height": src.height or 1080,
@@ -445,7 +445,8 @@ def render_cut(ctx) -> dict:
             ass_text = captions.build_ass(words_rel, caption_style, kit, headline=headline,
                                           clip_duration=duration,
                                           fps=float(src.get("fps") or 30.0),
-                                          edits=cut["edits"])
+                                          edits=cut["edits"],
+                                          motion=cut.get("motion"))
             (workdir / "subs.ass").write_text(ass_text, encoding="utf-8")
             subs_file = "subs.ass"
         comp = None

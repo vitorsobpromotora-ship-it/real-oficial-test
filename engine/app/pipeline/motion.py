@@ -118,7 +118,7 @@ def eval_keyframes(kfs: list[dict], u: float) -> float:
         return 0.0
     if u <= kfs[0]["t"]:
         return float(kfs[0]["v"])
-    for a, b in zip(kfs, kfs[1:]):
+    for a, b in zip(kfs, kfs[1:], strict=False):
         if u <= b["t"]:
             span = b["t"] - a["t"]
             k = 0.0 if span <= 0 else (u - a["t"]) / span

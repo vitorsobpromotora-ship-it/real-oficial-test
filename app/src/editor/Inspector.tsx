@@ -8,6 +8,9 @@ import { useEffect, useRef, useState } from "react";
 import type {
   BrandKit, CaptionCards, CaptionPreset, Cut, TranscriptWord,
 } from "../api/types";
+import MotionPanel from "./MotionPanel";
+import { manifestVazio, novoId, seedDe,
+  type EffectInstance, type TextPreset } from "./motion";
 import StylePicker from "./StylePicker";
 import {
   fmtSrc, fmtT, srcToOut, type Draft, type InsertedWord, type WordEmphasis,
@@ -31,7 +34,7 @@ export const ENFASES: { id: string; label: string; dica: string }[] = [
 
 export type Tool =
   | "corte" | "pausas" | "audio" | "enquadramento" | "punchin"
-  | "legenda" | "palavras" | "estilo" | "kit";
+  | "legenda" | "palavras" | "motion" | "estilo" | "kit";
 
 export const TOOLS: { id: Tool; label: string; icon: string }[] = [
   { id: "corte", label: "Corte", icon: "✂" },
@@ -41,6 +44,7 @@ export const TOOLS: { id: Tool; label: string; icon: string }[] = [
   { id: "punchin", label: "Punch-in", icon: "🔍" },
   { id: "legenda", label: "Legenda", icon: "💬" },
   { id: "palavras", label: "Palavras", icon: "🔤" },
+  { id: "motion", label: "Motion", icon: "✦" },
   { id: "estilo", label: "Estilo", icon: "🎨" },
   { id: "kit", label: "Kit", icon: "🏷" },
 ];
@@ -74,6 +78,10 @@ interface Props {
   safeArea: boolean;
   setSafeArea(v: boolean): void;
   onOpenStudio(kitId: string): void;
+  // Motion Engine (v4)
+  motionPresets: TextPreset[];
+  selFx: string | null;
+  setSelFx(id: string | null): void;
 }
 
 export default function Inspector(p: Props) {
@@ -273,7 +281,14 @@ export default function Inspector(p: Props) {
 
         {p.tool === "palavras" ? (
           <WordsPanel draft={d} upd={p.upd} words={p.words} captions={p.captions}
-                      outNow={p.outNow} selCard={p.selCard} onSeekOut={p.onSeekOut} />
+                      outNow={p.outNow} selCard={p.selCard} onSeekOut={p.onSeekOut}
+                      onMotion={(fxId) => { p.setSelFx(fxId); p.setTool("motion"); }} />
+        ) : null}
+
+        {p.tool === "motion" ? (
+          <MotionPanel draft={d} upd={p.upd} presets={p.motionPresets}
+                       selFx={p.selFx} setSelFx={p.setSelFx}
+                       captions={p.captions} onSeekOut={p.onSeekOut} />
         ) : null}
 
         {p.tool === "estilo" ? (
@@ -444,7 +459,7 @@ interface Chip {
   end?: number;
 }
 
-function WordsPanel({ draft, upd, words, captions, outNow, selCard, onSeekOut }: {
+function WordsPanel({ draft, upd, words, captions, outNow, selCard, onSeekOut, onMotion }: {
   draft: Draft;
   upd(patch: Partial<Draft>): void;
   words: TranscriptWord[];
@@ -452,6 +467,7 @@ function WordsPanel({ draft, upd, words, captions, outNow, selCard, onSeekOut }:
   outNow: number;
   selCard: number | null;
   onSeekOut(t: number): void;
+  onMotion(fxId: string): void;
 }) {
   const [menu, setMenu] = useState<Chip | null>(null);
   const [editKey, setEditKey] = useState<string | null>(null);
@@ -500,6 +516,33 @@ function WordsPanel({ draft, upd, words, captions, outNow, selCard, onSeekOut }:
 
   function removerEnfase(chip: Chip) {
     upd({ word_emphasis: semEsteChip(chip) });
+  }
+
+  /** Cria um efeito de MOTION para a palavra — nasce na janela em que ela é
+   *  falada e vira um bloco na track Motion (Entrega 152: UI→estado→…). */
+  function criarMotion(chip: Chip) {
+    const todas = (captions?.cards ?? []).flatMap((c) => c.words);
+    const w = chip.idx != null
+      ? todas.find((x) => x.idx === chip.idx)
+      : todas.find((x) => x.ins_id === chip.insId);
+    if (!w) return;
+    const id = novoId();
+    const eff: EffectInstance = {
+      id,
+      type: "text_emphasis",
+      preset: "punch",
+      target: chip.idx != null
+        ? { kind: "words", idx: [chip.idx] }
+        : { kind: "words", ins_ids: [chip.insId!] },
+      start: Math.round(Math.max(0, w.start_s) * 100) / 100,
+      end: Math.round((w.end_s + 0.25) * 100) / 100,
+      intensity: "normal",
+      enabled: true,
+      seed: seedDe(id),
+    };
+    const m = draft.motion ?? manifestVazio();
+    upd({ motion: { ...m, effects: [...m.effects, eff] } });
+    onMotion(id);
   }
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -660,6 +703,9 @@ function WordsPanel({ draft, upd, words, captions, outNow, selCard, onSeekOut }:
                         </button>
                       </>
                     ) : null}
+                    <button data-testid="wp-motion" onClick={() => criarMotion(menu)}>
+                      ✦ Motion
+                    </button>
                     <button data-testid="wp-enfase"
                             onClick={() => setEnfaseAberta(!enfaseAberta)}>
                       ✨ Ênfase{enfDe(menu) ? ` · ${rotuloEnf(enfDe(menu)!.effect)}` : ""}

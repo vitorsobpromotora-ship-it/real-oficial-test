@@ -19,6 +19,8 @@ import {
   PAD_S, draftFromCut, envelope, fmtT, outDur, outToSrc, patchFromDraft,
   srcToOut, type Draft,
 } from "../editor/model";
+import { rotuloDoEfeito } from "../editor/MotionPanel";
+import type { TextPreset } from "../editor/motion";
 import Splitter from "../editor/Splitter";
 import { WORKSPACE_PRESETS, useWorkspace } from "../editor/workspace";
 
@@ -54,6 +56,11 @@ export default function EditorPage() {
     queryKey: ["caption-cards", cutId],
     queryFn: () => get<CaptionCards>(`/api/v1/cuts/${cutId}/caption-cards`),
   });
+  const motionQ = useQuery({
+    queryKey: ["motion-presets"],
+    queryFn: () => get<{ presets: TextPreset[] }>("/api/v1/motion/presets"),
+    staleTime: Infinity,
+  });
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saved, setSaved] = useState("");
@@ -68,6 +75,7 @@ export default function EditorPage() {
   const [playing, setPlaying] = useState(false);
   const [title, setTitle] = useState("");
   const [selCard, setSelCard] = useState<number | null>(null); // cartão de legenda
+  const [selFx, setSelFx] = useState<string | null>(null); // efeito de motion
   const [safeArea, setSafeArea] = useState(false); // guias das plataformas
   const [toast, setToast] = useState("");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -661,6 +669,7 @@ export default function EditorPage() {
             { ...(draft.caption_style ?? {}), ...pos } })}
           zoom={ws.canvas_zoom}
           onZoom={(z) => wsMudar({ canvas_zoom: z })}
+          motionPresets={motionQ.data?.presets ?? []}
         />
         <Splitter
           dir="v"
@@ -689,6 +698,9 @@ export default function EditorPage() {
             onSeekOut={(tOut) => seekSrc(outToSrc(segs, tOut))}
             sel={sel}
             selFr={selFr}
+            motionPresets={motionQ.data?.presets ?? []}
+            selFx={selFx}
+            setSelFx={setSelFx}
             playhead={playhead}
             onPauses={aplicarPausas}
             onFrSplit={frSplit}
@@ -884,6 +896,33 @@ export default function EditorPage() {
                     </div>
                   ))
                 : null}
+            </div>
+
+            {/* track MOTION (v4): cada efeito é um bloco NOMEADO e clicável —
+                "Punch — Forte", nunca fx_273 (Entregas 18, 143) */}
+            <div className="tl-track tl-track-mo" data-testid="mo-track">
+              <span className="tl-tracklabel">Motion</span>
+              {(draft.motion?.effects ?? []).map((e) => {
+                const a = outToSrc(segs, e.start);
+                const b = outToSrc(segs, Math.max(e.start + 0.05, e.end));
+                return (
+                  <div key={e.id} data-testid={`mo-block-${e.id}`}
+                       className={`tl-moblock${selFx === e.id ? " on" : ""}${e.enabled === false ? " off" : ""}`}
+                       style={{ left: x(a), width: Math.max(10, (b - a) * zoom) }}
+                       title={`${rotuloDoEfeito(e, motionQ.data?.presets ?? [])} · clique para editar`}
+                       onClick={(ev) => {
+                         ev.stopPropagation();
+                         setSelFx(e.id);
+                         setTool("motion"); // seleção contextual: bloco → Motion
+                         const i = cards.findIndex((c) => e.start >= c.start - 0.01
+                           && e.start <= c.end + 0.01);
+                         if (i >= 0) setSelCard(i); // bloco → texto alvo (Entrega 91)
+                         seekSrc(outToSrc(segs, e.start + 0.01));
+                       }}>
+                    ✦ {rotuloDoEfeito(e, motionQ.data?.presets ?? [])}
+                  </div>
+                );
+              })}
             </div>
 
             <div className="tl-playhead" style={{ left: x(playhead) }} />

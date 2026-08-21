@@ -9,8 +9,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  EASINGS, ease, effectsAt, evalKeyframes, hash32, intensityK, manifestVazio,
-  progresso, rng01, seedDe, shakeOffset, type EffectInstance, type Keyframe,
+  EASINGS, TEXT_NEUTRAL, ease, effectsAt, evalKeyframes, hash32, intensityK,
+  manifestVazio, progresso, rng01, seedDe, shakeOffset, textPropsAt,
+  type EffectInstance, type Keyframe, type TextPreset,
 } from "../src/editor/motion";
 
 const CASES = JSON.parse(
@@ -92,5 +93,34 @@ describe("helpers do manifest", () => {
     expect(seedDe("fx1")).toBe(seedDe("fx1"));
     expect(seedDe("fx1")).not.toBe(seedDe("fx2"));
     expect(seedDe("")).toBe(1); // nunca 0
+  });
+});
+
+describe("Text Motion Core — paridade das 3 fases (FASE C)", () => {
+  interface TPCase {
+    preset: string;
+    effect: EffectInstance;
+    t: number;
+    props: Record<string, number>;
+  }
+  const TP = (CASES as unknown as {
+    text_props: { presets: Record<string, TextPreset>; cases: TPCase[] };
+  }).text_props;
+
+  it("textPropsAt bate com o motor em ENTER, HOLD, EXIT e fora da janela", () => {
+    for (const c of TP.cases) {
+      const got = textPropsAt(c.effect, TP.presets[c.preset], c.t);
+      for (const [prop, v] of Object.entries(c.props)) {
+        expect(got[prop as keyof typeof got], `${c.preset}@${c.t}s ${prop}`)
+          .toBeCloseTo(v, 12);
+      }
+    }
+  });
+
+  it("fora da janela e desabilitado → neutro absoluto", () => {
+    const preset = TP.presets.punch;
+    const e = TP.cases[0].effect;
+    expect(textPropsAt(e, preset, 0)).toEqual(TEXT_NEUTRAL);
+    expect(textPropsAt({ ...e, enabled: false }, preset, 2.3)).toEqual(TEXT_NEUTRAL);
   });
 });
